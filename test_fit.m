@@ -3,10 +3,10 @@
 dp = 'D:\DATA_folder\Mice\DK031\Anatomy\DK31_Mag0.8x_Tile0_Ch488_Sh1_Rot0_downsampled.tif';
 dpcp = 'D:\DATA_folder\Mice\DK031\Anatomy\atlas2histology_tform.mat';
 volume    = readDownStack(dp);
-% allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-% tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
-% av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um.npy'));
-[tv,av] = readGubraAtlas();
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
+av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um.npy'));
+% [tv,av] = readGubraAtlas();
 
 
 
@@ -84,7 +84,7 @@ av_warp_boundaries = round(conv2(curr_slice_warp,ones(3)./9,'same')) ~= curr_sli
 
 %%
 
-islice = 290;
+islice = 380;
 ppanel = panel();
 ppanel.pack('h',2)
 ppanel(1).select();

@@ -6,7 +6,6 @@ if isempty(gubra_atlas_path)
     error('No atlas found (add atlas to path)')
 end
 
-disp('Loading Gubra atlas...')
 volsread = {'gubra_template_olf.nii.gz', 'gubra_ano_olf.nii.gz'};
 
 tv = prepareVolume(fullfile(gubra_atlas_path, volsread{1}));

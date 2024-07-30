@@ -10,19 +10,21 @@ gui_data = struct;
 gui_data.histology_toolbar_gui = histology_toolbar_gui;
 
 % Load atlas
-% allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-% if isempty(allen_atlas_path)
-%     error('No CCF atlas found (add CCF atlas to path)')
-% end
-% disp('Loading Allen CCF atlas...')
-% gui_data.av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
-% gui_data.st = cp_lightsheet.loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
-% disp('Done.')
-disp('Loading Gubra atlas...')
-[~, av, atlas_path] = readGubraAtlas();
-gui_data.av = av;
-gui_data.st = cp_lightsheet.loadStructureTree(fullfile(atlas_path,'structure_tree_safe_2017.csv'));
+allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+if isempty(allen_atlas_path)
+    error('No CCF atlas found (add CCF atlas to path)')
+end
+disp('Loading Allen CCF atlas...')
+gui_data.tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
+gui_data.av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
+gui_data.st = cp_lightsheet.loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
 disp('Done.')
+% disp('Loading Gubra atlas...')
+% [tv, av, atlas_path] = readGubraAtlas();
+% gui_data.tv = tv;
+% gui_data.av = av;
+% gui_data.st = cp_lightsheet.loadStructureTree(fullfile(atlas_path,'structure_tree_safe_2017.csv'));
+% disp('Done.')
 
 
 % Get images (from path in toolbar GUI)
@@ -33,22 +35,32 @@ volume_dir     = dir(fullfile(histology_toolbar_guidata.save_path,'*.tif'));
 volpath        = fullfile(volume_dir.folder, volume_dir.name);
 gui_data.volume = readDownStack(volpath);
 
+chooselist = cell(3,1);
+for ii = 1:3
+    sids = round(size(gui_data.volume, ii)*0.1):round(size(gui_data.volume, ii)*0.9);
+    chooselist{ii} = [sids' ii * ones(numel(sids),1) ];
+end
+chooselist = cat(1, chooselist{:});
+rng(1);
+gui_data.chooselist = chooselist(randperm(size(chooselist, 1)),:);
 
 % Load corresponding CCF slices
 ccf_slice_fn = fullfile(gui_data.save_path,'histology_ccf.mat');
 aldata       = load(ccf_slice_fn);
 
 Nslices = size(aldata.indids, 1);
-rng(1);
-irand   = randperm(Nslices);
-gui_data.histology_ccf = aldata.histology_ccf(irand);
-gui_data.volindids     = aldata.indids(irand,:);
+% rng(1);
+% irand   = randperm(Nslices);
+% gui_data.histology_ccf = aldata.histology_ccf(irand);
+% gui_data.volindids     = aldata.indids(irand,:);
+
+
 
 % Load automated alignment
 auto_ccf_alignment_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
 if exist(auto_ccf_alignment_fn,'file')
     oldtform = load(auto_ccf_alignment_fn);
-    gui_data.histology_ccf_auto_alignment = oldtform.atlas2histology_tform{end};
+    gui_data.histology_ccf_auto_alignment = oldtform.atlas2histology_tform;
 end
 
 % Create figure, set button functions
@@ -66,8 +78,10 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
     'Units','pixels','Position',gui_position, ...
     'CloseRequestFcn',@close_gui);
 
+% gui_data.curr_slice = randperm(numel(chooselist), 1);
+% curr_image = volumeIdtoImage(gui_data.volume, gui_data.volindids(1, :));
 gui_data.curr_slice = 1;
-curr_image = volumeIdtoImage(gui_data.volume, gui_data.volindids(1, :));
+curr_image = volumeIdtoImage(gui_data.volume, chooselist(gui_data.curr_slice, :));
 
 % Set up axis for histology image
 gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
@@ -90,17 +104,19 @@ gui_data.histology_aligned_atlas_boundaries = ...
     plot(histology_aligned_atlas_boundaries_init(:,1), histology_aligned_atlas_boundaries_init(:,2),...
     'r.','MarkerSize',3, 'Parent',gui_data.histology_ax, 'PickableParts','none');
 
+curr_atlas = volumeIdtoImage(gui_data.tv, chooselist(gui_data.curr_slice, :));
+gui_data.atlas_slice = chooselist(gui_data.curr_slice, 1);
 
 % Set up axis for atlas slice
 gui_data.atlas_ax = subplot(1,2,2,'YDir','reverse'); 
 set(gui_data.atlas_ax,'Position',[0.5,0,0.5,0.9]);
 hold on; axis image off; colormap(gray); caxis([0,400]);
-gui_data.atlas_im_h = imagesc(gui_data.histology_ccf(1).tv_slices, ...
+gui_data.atlas_im_h = imagesc(curr_atlas, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
 
 % Initialize alignment control points and tform matricies
-gui_data.histology_control_points = repmat({zeros(0,3)},size(gui_data.volindids, 1),1);
-gui_data.atlas_control_points     = repmat({zeros(0,3)},size(gui_data.volindids, 1),1);
+gui_data.histology_control_points = repmat({zeros(0,3)},size(gui_data.chooselist, 1),1);
+gui_data.atlas_control_points     = repmat({zeros(0,3)},size(gui_data.chooselist, 1),1);
 
 gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,'.g','MarkerSize',20);
 gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,'.r','MarkerSize',20);
@@ -147,7 +163,7 @@ switch eventdata.Key
         
     case 'rightarrow'
         gui_data.curr_slice = ...
-            min(gui_data.curr_slice + 1,size(gui_data.volindids,1));
+            min(gui_data.curr_slice + 1,size(gui_data.chooselist,1));
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
         
@@ -188,11 +204,11 @@ function mouseclick_histology(gui_fig,eventdata)
 gui_data = guidata(gui_fig);
 
 
-idim = gui_data.volindids(gui_data.curr_slice, 2);
+idim = gui_data.chooselist(gui_data.curr_slice, 2);
 alldims = 1:3;
 cpt     = zeros(1,3);
 cpt(alldims~=idim) =  flip(eventdata.IntersectionPoint(1:2));
-cpt(idim) = gui_data.volindids(gui_data.curr_slice, 1);
+cpt(idim) = gui_data.chooselist(gui_data.curr_slice, 1);
 toplot = find(alldims~=idim);
 
 
@@ -225,8 +241,8 @@ function mouseclick_atlas(gui_fig,eventdata)
 % Get guidata
 gui_data = guidata(gui_fig);
 
-idim = gui_data.volindids(gui_data.curr_slice, 2);
-dval = gui_data.histology_ccf(gui_data.curr_slice).slice_coords(idim);
+idim = gui_data.chooselist(gui_data.curr_slice, 2);
+dval = gui_data.atlas_slice;
 alldims = 1:3;
 cpt     = zeros(1,3);
 cpt(alldims~=idim) =  flip(eventdata.IntersectionPoint(1:2));
@@ -296,25 +312,25 @@ elseif isfield(gui_data,'histology_ccf_auto_alignment')
     gui_data.volwrap = imwarp(gui_data.av, Rmoving, tform, 'OutputView',Rfixed);
 else
     % If nothing available, use identity transform
-    allpts = ones(size(gui_data.volindids,1), 3);
-    allpts = allpts.*size(gui_data.volume)/2;
-    
-    allatlaspts = cat(1,gui_data.histology_ccf(:).slice_coords);
+    % allpts = ones(size(gui_data.volindids,1), 3);
+    % allpts = allpts.*size(gui_data.volume)/2;
+    % 
+    % allatlaspts = cat(1,gui_data.histology_ccf(:).slice_coords);
+    % 
+    % for idim = 1:3
+    %     icurr = gui_data.volindids(:,2) == idim;
+    %     allpts(icurr, idim) = gui_data.volindids(icurr,1);
+    % end
+    tform = affinetform3d;
+    % allatlaspts = allatlaspts(:, [2 1 3]);
+    % allpts = allpts(:, [2 1 3]);
+    % tform = fitAffineTrans3D(allatlaspts, allpts);
 
-    for idim = 1:3
-        icurr = gui_data.volindids(:,2) == idim;
-        allpts(icurr, idim) = gui_data.volindids(icurr,1);
-    end
-    % tform = estgeotform3d(allatlaspts, allpts, 'similarity');
-    allatlaspts = allatlaspts(:, [2 1 3]);
-    allpts = allpts(:, [2 1 3]);
-    tform = fitAffineTrans3D(allatlaspts, allpts);
-    % tform = estgeotform3d(allatlaspts, allpts, 'similarity');
     gui_data.volwrap = imwarp(gui_data.av, Rmoving, tform, 'OutputView',Rfixed);
 end
 
 
-curr_slice_warp    = volumeIdtoImage(gui_data.volwrap, gui_data.volindids(gui_data.curr_slice,:));
+curr_slice_warp    = volumeIdtoImage(gui_data.volwrap, gui_data.chooselist(gui_data.curr_slice,:));
 av_warp_boundaries = round(conv2(curr_slice_warp,ones(3)./9,'same')) ~= curr_slice_warp;
 
 [row,col] = ind2sub(size(curr_slice_warp), find(av_warp_boundaries));
@@ -327,7 +343,7 @@ set(gui_data.histology_aligned_atlas_boundaries, ...
 
 
 % Update transform matrix
-gui_data.histology_ccf_manual_alignment{gui_data.curr_slice} = tform.A;
+gui_data.histology_ccf_manual_alignment = tform.A;
 
 % Upload gui data
 guidata(gui_fig, gui_data);
@@ -341,18 +357,51 @@ function update_slice(gui_fig)
 % Get guidata
 gui_data = guidata(gui_fig);
 
+tform = affinetform3d(gui_data.histology_ccf_manual_alignment);
 
-idim = gui_data.volindids(gui_data.curr_slice, 2);
+idim    = gui_data.chooselist(gui_data.curr_slice, 2);
 alldims = 1:3;
-toplot = find(alldims~=idim);
-
+toplot  = find(alldims~=idim);
 
 % Set next histology slice
+curr_image = volumeIdtoImage(gui_data.volume, gui_data.chooselist(gui_data.curr_slice, :));
 
-curr_image = volumeIdtoImage(gui_data.volume, gui_data.volindids(gui_data.curr_slice, :));
+
+induse     = gui_data.chooselist(gui_data.curr_slice, 1);
+[xx,yy]    = meshgrid(1:size(curr_image,2), 1:size(curr_image,1));
+itform     = tform.invert;
+switch idim
+    case 1
+        [xn,yn,zn]   = tform.transformPointsInverse(yy(:),induse*ones(numel(xx),1),xx(:));
+        [xl, yl, zl] = itform.outputLimits([1 size(curr_image,1)], [induse induse], [1 size(curr_image,2)]);
+        sluse = round(median(yl));
+    case 2
+        [xn,yn,zn] = tform.transformPointsInverse(induse*ones(numel(xx),1),yy(:),xx(:));
+        [xl, yl, zl] = itform.outputLimits([induse induse], [1 size(curr_image,1)], [1 size(curr_image,2)]);
+        sluse = round(median(xl));
+    case 3
+        [xn,yn,zn] = tform.transformPointsInverse(xx(:),yy(:),induse*ones(numel(xx),1));
+        [xl, yl, zl] = itform.outputLimits([1 size(curr_image,2)], [1 size(curr_image,1)], [induse induse]);
+        sluse = round(median(zl));
+end
+
+gui_data.atlas_slice = sluse;
+curr_atlas = volumeIdtoImage(gui_data.tv, [sluse idim]);
+
+% xn = round(xn); xn(xn<1) = 1; xn(xn>size(gui_data.tv,2)) = size(gui_data.tv,2);
+%  yn = round(yn); yn(yn<1) = 1; yn(yn>size(gui_data.tv,1)) = size(gui_data.tv,1);
+% zn = round(zn); zn(zn<1) = 1; zn(zn>size(gui_data.tv,3)) = size(gui_data.tv,3);
+% 
+% indsvol = sub2ind(size(gui_data.tv), yn, xn, zn);
+% curr_atlas = reshape(gui_data.tv(indsvol), size(curr_image));
+% 
+% curr_atlas = interp3(single(gui_data.tv), xn, yn, zn, 'linear', 0);
+% curr_atlas = reshape(curr_atlas, size(curr_image));
+
 
 set(gui_data.histology_im_h,'CData',curr_image)
-set(gui_data.atlas_im_h,'CData',gui_data.histology_ccf(gui_data.curr_slice).tv_slices);
+set(gui_data.atlas_im_h,'CData', curr_atlas);
+set(gui_data.atlas_im_h,'CData', curr_atlas);
 
 % Plot control points for slice
 set(gui_data.histology_control_points_plot, ...
@@ -393,7 +442,7 @@ switch user_confirm
     case 'Yes'
         % Save and close
         atlas2histology_tform = ...
-            gui_data.histology_ccf_manual_alignment{end};
+            gui_data.histology_ccf_manual_alignment;
         histology_control_points = gui_data.histology_control_points;
         atlas_control_points     = gui_data.atlas_control_points;
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
