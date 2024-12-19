@@ -1,14 +1,12 @@
 
 
-dp = 'D:\DATA_folder\Mice\DK031\Anatomy\DK31_Mag0.8x_Tile0_Ch488_Sh1_Rot0_downsampled.tif';
+dp = 'D:\DATA_folder\Mice\DK031\Anatomy\vol_back_red.tif';
 dpcp = 'D:\DATA_folder\Mice\DK031\Anatomy\atlas2histology_tform.mat';
 volume    = readDownStack(dp);
 allen_atlas_path = fileparts(which('template_volume_10um.npy'));
 tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
 av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um.npy'));
 % [tv,av] = readGubraAtlas();
-
-
 
 load(dpcp);
 Rmoving  = imref3d(size(av));
@@ -28,7 +26,7 @@ volshow(tv,Parent=viewerUnregistered,RenderingStyle="Isosurface", ...
     Colormap=[0 1 0],Alphamap=1);
 %%
 % Options = struct();
-% cnew = tform.transformPointsForward(cptsatlas);
+cnew = tform.transformPointsForward(cptsatlas);
 % 
 % % Options.Spacing = [2^6 2^6 2^6];
 % Options.Registration ='NonRigid';
@@ -45,11 +43,26 @@ yamlmatlabpath = 'C:\Users\karamanl\Documents\GitHub\yamlmatlab';
 addpath(genpath(melastixpath), genpath(yamlmatlabpath));
 
 params = struct();
-params.Transform='BSplineTransform';
-params.MaximumNumberOfIterations=1500;
-params.NumberOfSpatialSamples=1E3;
-params.FixedImageDimension  = 3;
-params.MovingImageDimension = 3;
+params.Metric = {'AdvancedMattesMutualInformation', 'CorrespondingPointsEuclideanDistanceMetric'};
+params.Metric0Weight = 0.99;
+params.Metric1Weight = 0.01;
+params.Registration = 'MultiMetricMultiResolutionRegistration';
+params.Transform = 'BSplineTransform';
+params.Optimizer = 'AdaptiveStochasticGradientDescent';
+params.MaximumNumberOfIterations = 1000;
+params.NumberOfSpatialSamples   = 3e3;
+params.FixedImageDimension      = 3;
+params.MovingImageDimension     = 3;
+params.NumberOfResolutions      = 4;
+params.NumberOfHistogramBins    = 32;
+params.ImagePyramidSchedule     = [16*ones(1,3) 8*ones(1,3)  4*ones(1,3)  2*ones(1,3)];
+params.FinalGridSpacingInVoxels = 32*ones(1,3);
+movpath = fullfile('D:\lightsheet\elout', 'moving.txt');
+fixpath = fullfile('D:\lightsheet\elout', 'fixed.txt');
+
+writePointsFile(movpath, cnew)
+writePointsFile(fixpath, cptshistology)
+
 % params.BSplineInterpolationOrder = 1;
 % params.FinalBSplineInterpolationOrder = 3;
 params.SP_a     = 4000;
@@ -57,7 +70,8 @@ params.SP_a     = 4000;
 % params.SP_alpha = 0.6;
 
 
-reg=elastix(volwrap2,volume,'D:\lightsheet\elout','elastix_default.yml','paramstruct',params);
+reg=elastix(volwrap2,volume,'D:\lightsheet\elout','elastix_default.yml','paramstruct',params,...
+    'movingpoints', movpath,  'fixedpoints', fixpath);
 %%
 viewerUnregistered = viewer3d(BackgroundColor="black",BackgroundGradient="off");
 volshow(volume,Parent=viewerUnregistered,RenderingStyle="Isosurface", ...
@@ -72,9 +86,11 @@ volshow(reg,Parent=viewerUnregistered,RenderingStyle="Isosurface", ...
     Colormap=[0 1 0],Alphamap=1);
 %%
 paramFiles = {'D:\lightsheet/TransformParameters.1.txt'};
-newav = transformix(volwrap,'D:\lightsheet\elout',1);
+% newav = transformix(volwrap,'D:\lightsheet\elout',1);
 regpoints=transformix(cnew,'D:\lightsheet\elout',1);
-plot(cptshistology(:), regpoints.OutputPoint(:),'o')
+plot(cptshistology(:), cnew(:),'o', cptshistology(:), regpoints.OutputPoint(:),'o',...
+    [0 1]*1000,[0 1]*1000)
+
 %%
 
 islice= 50;
@@ -84,7 +100,7 @@ av_warp_boundaries = round(conv2(curr_slice_warp,ones(3)./9,'same')) ~= curr_sli
 
 %%
 
-islice = 380;
+islice = 400;
 ppanel = panel();
 ppanel.pack('h',2)
 ppanel(1).select();

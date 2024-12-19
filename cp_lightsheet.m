@@ -77,8 +77,8 @@ function set_image_path(h,eventdata,histology_toolbar_gui)
 gui_data = guidata(histology_toolbar_gui);
 
 % Pick image path
-% gui_data.image_path = uigetdir([],'Select path with raw images');
-gui_data.image_path = 'D:\DATA_folder\Mice\DK031\Anatomy';
+gui_data.image_path = uigetdir([],'Select path with raw images');
+% gui_data.image_path = 'D:\DATA_folder\Mice\DK031\Anatomy';
 
 % Clear processed path (if there's one selected)
 gui_data.save_path = [];
@@ -97,8 +97,8 @@ function set_save_path(h,eventdata,histology_toolbar_gui)
 gui_data = guidata(histology_toolbar_gui);
 
 % Pick image path
-% gui_data.save_path = uigetdir([],'Select path to save processing');
-gui_data.save_path = 'D:\DATA_folder\Mice\DK031\Anatomy';
+gui_data.save_path = uigetdir([],'Select path to save processing');
+% gui_data.save_path = 'D:\DATA_folder\Mice\DK031\Anatomy';
 
 % Store guidata
 guidata(histology_toolbar_gui,gui_data);

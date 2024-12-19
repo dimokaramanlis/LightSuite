@@ -21,7 +21,7 @@ gui_data.menu.preprocess.Children(end).Enable = raw_images_present;
 [gui_data.menu.preprocess.Children(1:end-1).Enable] = deal(processed_images_present);
 
 gui_data.menu.atlas.Enable = processed_images_present;
-[gui_data.menu.atlas.Children(1).Enable] = deal(processed_images_present & atlas_slices_present);
+[gui_data.menu.atlas.Children(1).Enable] = deal(processed_images_present);
 
 gui_data.menu.annotation.Enable = atlas_alignment_present;
 gui_data.menu.view.Enable = atlas_alignment_present;
