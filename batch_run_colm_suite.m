@@ -63,26 +63,13 @@ tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
 
 st = loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
 %%
-togroup = round(atlasptcoords);
-irem0 = any(togroup<1, 2);
-iremx = togroup(:,1) > transform_params.atlassize(2);
-iremy = togroup(:,2) > transform_params.atlassize(1);
-iremz = togroup(:,3) > transform_params.atlassize(3);
-irem  = irem0 | iremx | iremy | iremz;
-togroup(irem, :) = [];
-cellatlasids = nan(size(togroup,1), 1);
-for icell = 1:size(togroup,1)
-    cellatlasids(icell, :) = av(togroup(icell, 2), togroup(icell, 1), togroup(icell, 3));
-end
-
-Ngroups = size(st,1);
-areavols    = accumarray(reshape(av, [], 1), 1, [Ngroups 1], @sum);
-%%
-
-cells_per_group = accumarray(cellatlasids, 1, [Ngroups 1], @sum);
-areavolsuse = areavols*1e-6; % in mm3
+cleanatlaspts               = sanitizeCellCoords(atlasptcoords, av);
+[cells_per_group, areavols] = groupCellsIntoLeafRegions(cleanatlaspts, av);
+stmat                       = atlasTreeToMat(st);
 
 groupstrs       = lower(table2cell(st(:,4)));
+areavolsuse = areavols; % in mm3
+
 irem = cells_per_group<2;
 cells_per_group(irem) = [];
 areavolsuse(irem) = [];
@@ -111,7 +98,7 @@ bar(groupstrs(isortc(ivis)), cell_densities(isortc(ivis)))
 ylabel('TRAP cell density (cells/mm^3)')
 %%
 
-avplot = ndSparse.build(togroup(:,[2 1 3]), 1,size(av));
+avplot = ndSparse.build(cleanatlaspts(:,[2 1 3]), 1,size(av));
 avplot = single(full(avplot));
 avgauss = imgaussfilt3(avplot, 10);
 
