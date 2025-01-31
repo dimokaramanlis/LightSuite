@@ -12,8 +12,8 @@ wtsuse       = gausslinefun([0 1 1], dslice);
 wtsuse       = wtsuse/sum(wtsuse);
 %--------------------------------------------------------------------------
 % other info
-scaledownxy  = opts.pxsize(1)/opts.atlasres;
-scaledownz   = opts.pxsize(3)/opts.atlasres;
+scaledownxy  = opts.pxsize(1)/opts.registres;
+scaledownz   = opts.pxsize(3)/opts.registres;
 [Ny, Nx, Nz] = deal(opts.Ny, opts.Nx,opts.Nz);
 diaminpx     = opts.celldiam./opts.pxsize(1);
 downfac      = ceil(diaminpx/2);
@@ -82,17 +82,35 @@ voldown   = imresize3(backvol, 'Scale', [1 1 scaledownz]);
 regvolfac = (2^16-1)/max(voldown, [],"all");
 voldown   = uint16(regvolfac*voldown);
 
-fpath      = fileparts(opts.fproc);
-regvolpath = fullfile(fpath, sprintf('%s_temporary_reg_volume.dat', opts.mousename));
 
-fidreg = fopen(regvolpath, 'W');
-fwrite(fidreg, voldown,"uint16");
-fclose(fidreg);
+% save volume for control point and registration
+samplepath = fullfile(opts.savepath, sprintf('sample_register_%dum.tif', opts.registres));
+options.compress = 'lzw';
+options.message  = false;
+if exist(samplepath, 'file')
+    delete(samplepath);
+end
+saveastiff(voldown, samplepath, options);
 
-% save(regvolpath, 'voldown')
-opts.regvolpath = regvolpath;
+
+
+opts.regvolpath = samplepath;
 opts.regvolfac  = regvolfac;
 opts.regvolsize = size(voldown);
+
+% save registration
+save(fullfile(opts.savepath, 'regopts.mat'), 'opts')
+
+
+% fpath      = fileparts(opts.fproc);
+% regvolpath = fullfile(fpath, sprintf('%s_temporary_reg_volume.dat', opts.mousename));
+% 
+% fidreg = fopen(regvolpath, 'W');
+% fwrite(fidreg, voldown,"uint16");
+% fclose(fidreg);
+
+% save(regvolpath, 'voldown')
+
 
 fprintf('Done! Factor save is %2.1f. Took %2.2f s.\n', regvolfac, toc);
 %--------------------------------------------------------------------------

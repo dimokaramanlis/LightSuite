@@ -1,5 +1,5 @@
-function [regimg,tform_bspline, tformpath, pathtemp] = performMultObjBsplineRegistration(movingvol,fixedvol,volscale,...
-    movingpts, fixedpts, cpwt, savepath)
+function [regimg,tform_bspline, tformpath, pathtemp] = performMultObjBsplineRegistration(movingvol,fixedvol,...
+    volscale, movingpts, fixedpts, cpwt, savepath)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 %==========================================================================
@@ -12,7 +12,7 @@ params.Metric                        = {'AdvancedMattesMutualInformation',...
     'CorrespondingPointsEuclideanDistanceMetric'};
 params.Transform                       = 'RecursiveBSplineTransform';%'RecursiveBSplineTransform';
 params.Optimizer                       = 'AdaptiveStochasticGradientDescent';
-params.ImageSampler                    = 'RandomCoordinate';
+params.ImageSampler                    = 'Random';
 params.AutomaticParameterEstimation    = true;
 params.AutomaticScalesEstimation       = false;
 params.BSplineInterpolationOrder       = 3;
@@ -24,17 +24,17 @@ params.MovingImagePyramid              = 'MovingRecursiveImagePyramid';
 params.UseRandomSampleRegion           = true;
 params.NewSamplesEveryIteration        = true;
 params.NumberOfResolutions             = 4;
-params.NumberOfHistogramBins           = 32;
-params.SP_A                            = 2000;
+params.NumberOfHistogramBins           = 64; %[32 32 64 64];
+params.SP_A                            = 20;
 %--------------------------------------------------------------------------
 % these may affect more
-params.MaximumNumberOfIterations       = [600   600 1200 1200]; % 1000 was also good
-params.NumberOfSpatialSamples          = [1000 1000 2000 2000];%[500 1000 2000 4000]; % 3e3
-params.Metric1Weight                   = cpwt;
-params.Metric0Weight                   = 1-cpwt;
+params.MaximumNumberOfIterations       = [500  1000 1500 2000]; %[600   800 1200 1500]; %
+params.NumberOfSpatialSamples          = 5000;%[1000 1000 2000 2000];% [2000 2500 3000 3000];%
+params.Metric1Weight                   = [1  0.5 0.25 0.125] * cpwt; %0.2;%[   1  0.37 0.13 0.05] * cpwt;%
+params.Metric0Weight                   = 1.0 * ones(1,4);
 params.ImagePyramidSchedule            = [8*ones(1,3) 4*ones(1,3) 2*ones(1,3) 1*ones(1,3)];
-params.FinalGridSpacingInPhysicalUnits = 0.5*ones(1,3); % 45 is consistently good
-params.SampleRegionSize                = 2.5*ones(1,3);%2.5*ones(1,3); 4 was good
+params.FinalGridSpacingInPhysicalUnits = 0.64*ones(1,3);
+params.SampleRegionSize                = 2.56*ones(1,3);%2.5*ones(1,3); 4 was good
 %--------------------------------------------------------------------------
 
 pathtemp = fullfile(savepath, 'elastix_temp');

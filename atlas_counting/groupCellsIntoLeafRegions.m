@@ -1,4 +1,4 @@
-function [volumecounts, volumeareas] = groupCellsIntoLeafRegions(cellcoords, annvol)
+function [volumecounts, volumeareas, cellatlasids] = groupCellsIntoLeafRegions(cellcoords, annvol)
 %UNTITLED Summary of this function goes here
 %   volumeareas is in mm3
 

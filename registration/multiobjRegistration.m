@@ -18,6 +18,9 @@ cpdata  = load(dpcp);
 regopts = load(dpopts);
 regopts = regopts.opts;
 
+% we permute the volume to match atlas
+volume  = permute(volume, regopts.permute_sample_to_atlas);
+
 % make sure control points work
 np1           = cellfun(@(x) size(x,1),cpdata.atlas_control_points);
 np2           = cellfun(@(x) size(x,1),cpdata.histology_control_points);
@@ -31,6 +34,12 @@ cptshistology = cptshistology(:, [2 1 3]);
 %==========================================================================
 % 1st transform - AFFINE BASED ON CONTROL POINTS 
 % TODO: Do affine with control points + intensity?
+
+% we first bring the histology points back to the original space
+
+cptshistology = regopts.original_trans.transformPointsInverse(cptshistology);
+
+
 tform_aff     = fitAffineTrans3D(cptsatlas, cptshistology);
 cpaffine      = tform_aff.transformPointsForward(cptsatlas);
 % 
@@ -44,12 +53,10 @@ cpaffine      = tform_aff.transformPointsForward(cptsatlas);
 % load atlas
 fprintf('Loading and warping Allen atlas... \n'); tic;
 allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
-factv = 255/single(max(tv,[],"all"));
-tv = uint8(single(tv)*factv);
+tv     = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
 tvdown = imresize3(tv,regopts.downfac_reg);
-av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
-av = imresize3(av,regopts.downfac_reg, "Method","nearest");
+av     = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
+av     = imresize3(av,regopts.downfac_reg, "Method","nearest");
 
 
 Rmoving  = imref3d(size(tvdown));
@@ -59,7 +66,7 @@ avaffine = imwarp(av, Rmoving, tform_aff, 'nearest','OutputView',Rfixed);
 fprintf('Done! Took %2.2f s\n', toc);
 %==========================================================================
 % we plot the affine step
-voltoshow = uint8(255*single(volume)/150);
+voltoshow = uint8(255*single(volume)/30000);
 for idim = 1:3
     cf = plotAnnotationComparison(voltoshow, single(avaffine), idim);
     savepngFast(cf, regopts.savepath, sprintf('dim%d_affine_registration', idim), 300, 2);
@@ -68,9 +75,9 @@ end
 %==========================================================================
 %%
 % we perform the b-spline registration
-[reg, ~, bspltformpath, pathbspl] = performMultObjBsplineRegistration(tvaffine, volume, 0.02, ...
+[reg, ~, bspltformpath, pathbspl] = performMultObjBsplineRegistration(tvaffine, volume, opts.registres*1e-3, ...
     cpaffine, cptshistology, contol_point_wt, regopts.savepath);
-avreg = transformAnnotationVolume(bspltformpath, avaffine, 0.02);
+avreg = transformAnnotationVolume(bspltformpath, avaffine, opts.registres*1e-3);
 %==========================================================================
 %%
 % we plot the b-spline step
@@ -93,14 +100,12 @@ copyfile(invstats.TransformParametersFname{1}, tformpath)
 params_pts_to_atlas = struct();
 params_pts_to_atlas.atlasres         = regopts.atlasres;
 params_pts_to_atlas.regvolsize       = regopts.regvolsize;
-params_pts_to_atlas.regvolsizedwon   = regopts.regvolsize_down;
 params_pts_to_atlas.atlassize        = size(tv);
 params_pts_to_atlas.ori_pxsize       = regopts.pxsize;
 params_pts_to_atlas.ori_size         = [regopts.Ny regopts.Nx regopts.Nz];
 params_pts_to_atlas.how_to_perm      = regopts.permute_sample_to_atlas;
 params_pts_to_atlas.elastix_um_to_mm = 1e-3;
 
-params_pts_to_atlas.tform_rigid_samp20um_to_atlas_20um_px   = regopts.original_trans;
 params_pts_to_atlas.tform_bspline_samp20um_to_atlas_20um_px = tformpath;
 params_pts_to_atlas.tform_affine_samp20um_to_atlas_20um_px  = tform_aff.invert;
 

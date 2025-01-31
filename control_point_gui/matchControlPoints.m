@@ -18,7 +18,7 @@ gui_data.tv = uint8(single(gui_data.tv)*factv);
 gui_data.tv = imresize3(gui_data.tv,opts.downfac_reg);
 gui_data.av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
 gui_data.av = imresize3(gui_data.av,opts.downfac_reg, "Method","nearest");
-gui_data.st = cp_lightsheet.loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
+gui_data.st = loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
 gui_data.Rmoving  = imref3d(size(gui_data.av));
 disp('Done.')
 
@@ -26,8 +26,13 @@ gui_data.save_path = opts.savepath;
 
 volume_dir      = dir(fullfile(opts.savepath,'sample_register*.tif'));
 volpath         = fullfile(volume_dir.folder, volume_dir.name);
-gui_data.volume = readDownStack(volpath);
-chooselist      = generate_cp_list(gui_data.volume );
+volload         = readDownStack(volpath);
+volload         = permute(volload, opts.permute_sample_to_atlas);
+Rvolume         = imref3d(size(volload));
+gui_data.volume = imwarp(volload, Rvolume, opts.original_trans, 'OutputView',gui_data.Rmoving);
+factv       = 255/single(max(gui_data.volume,[],"all"));
+gui_data.volume = uint8(single(gui_data.volume)*factv);
+chooselist      = generate_cp_list(gui_data.volume);
 gui_data.chooselist = chooselist;
 
 % chooselist = cell(3,1);
@@ -81,6 +86,7 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
 gui_data.curr_slice = 1;
 curr_image = volumeIdtoImage(gui_data.volume, chooselist(gui_data.curr_slice, :));
 curr_image = blankImage(curr_image, chooselist(gui_data.curr_slice, 3:end));
+curr_image = adapthisteq(curr_image);
 
 % Set up axis for histology image
 gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
@@ -392,7 +398,7 @@ sluse = max(sluse, 1);
 gui_data.atlas_slice = sluse;
 
 
-
+curr_image = adapthisteq(curr_image);
 set(gui_data.histology_im_h,'CData',curr_image)
 % Plot control points for slice
 set(gui_data.histology_control_points_plot, ...
@@ -426,7 +432,7 @@ gui_data = guidata(gui_fig);
 
 % Move slice point
 gui_data.atlas_slice = ...
-    gui_data.atlas_slice + eventdata.VerticalScrollCount*2;
+    gui_data.atlas_slice + eventdata.VerticalScrollCount;
 
 idim = gui_data.chooselist(gui_data.curr_slice, 2);
 

@@ -10,14 +10,14 @@ outpts = inputpts(:, [2 1 3]);
 outpts   = outpts(:, trstruct.how_to_perm);
 %--------------------------------------------------------------------------
 % point coordinates should be moved to match atlas space
-scalefac = trstruct.regvolsizedwon./trstruct.ori_size(trstruct.how_to_perm);
+scalefac = trstruct.regvolsize(trstruct.how_to_perm)./trstruct.ori_size(trstruct.how_to_perm);
 outpts   = outpts.*scalefac;
-%--------------------------------------------------------------------------
-% then, points pass through the initial (rigid) transform
-outpts = outpts(:, [2 1 3]);
-outpts = trstruct.tform_rigid_samp20um_to_atlas_20um_px.transformPointsForward(outpts);
+% %--------------------------------------------------------------------------
+% % then, points pass through the initial (rigid) transform
+% outpts = trstruct.tform_rigid_samp20um_to_atlas_20um_px.transformPointsForward(outpts);
 %--------------------------------------------------------------------------
 % then, points pass through the inverse bspline transform
+outpts = outpts(:, [2 1 3]);
 outpts = transformControlPoints(trstruct.tform_bspline_samp20um_to_atlas_20um_px, (outpts-1)*0.02);
 %--------------------------------------------------------------------------
 % finally, points pass through the inverse affine transform that was fitted to
@@ -39,11 +39,11 @@ finalpts = 2*finalpts;
 % irem  = irem0 | iremx | iremy | iremz;
 % finalpts(irem, :) = [];
 %--------------------------------------------------------------------------
-nrand = min(size(finalpts,1), 1e5);
-iplot = randperm(size(finalpts,1),nrand);
-figure;
-plotBrainGrid; hold on;
-scatter3(finalpts(iplot,2),finalpts(iplot,3),finalpts(iplot,1),2,'filled','MarkerFaceAlpha',0.5)
+% nrand = min(size(finalpts,1), 1e5);
+% iplot = randperm(size(finalpts,1),nrand);
+% figure;
+% plotBrainGrid; hold on;
+% scatter3(finalpts(iplot,2),finalpts(iplot,3),finalpts(iplot,1),2,'filled','MarkerFaceAlpha',0.5)
 
 %--------------------------------------------------------------------------
 end

@@ -23,7 +23,8 @@ normfac = opts.maxdff/(2^16-1);
 fid = fopen(opts.fproc,'r');
 rangeuse = -15:15;
 i0 = 0;
-cell_locations = zeros(1e6, 3, 'single');
+cell_locations = zeros(1e6, 5, 'single');
+
 msg = []; tic;
 
 dx = -10:10;
@@ -34,6 +35,7 @@ dz = -2:2;
 maxlook = ceil(opts.celldiam./opts.pxsize/2);
 cubsize = 2*floor(opts.celldiam./opts.pxsize/2) + 1;
 seuse = strel('cuboid', cubsize);
+diamfac = 3*prod(opts.pxsize)/4/pi;
 
 for ibatch = 1:Nbatches
     istart = (ibatch - 1)*batchsize + 1;
@@ -48,13 +50,18 @@ for ibatch = 1:Nbatches
     dat = single(dat) * normfac;
     dat = reshape(dat, [Ny, Nx, numel(iload)]);
 
+    % tic;
+    % blobs = blobdetect(dat(:,:,1), 7, 'MedianFilter', false, 'GPU', true);
+    % toc;
+
+
     imgidx = nan(size(dat), 'single');
     for ii = 1:numel(iload)
         smin           = -my_min(-dat(:,:,ii), maxlook([1 2]));
         imgidx(:,:,ii) = (dat(:,:,ii)>smin-1e-3) & (dat(:,:,ii) > snrthres);
     end
     imgidx = imdilate(imgidx, seuse) & gather(dat > snrthres/2);
-    cinfo    = bwconncomp(imgidx, 26);
+    cinfo  = bwconncomp(imgidx, 26);
 
     % smin   = -my_min(-dat, maxlook);
     % imgidx = (dat>smin-1e-3) & (dat > snrthres);
@@ -66,15 +73,17 @@ for ibatch = 1:Nbatches
     ibig     = pxcounts>prod(cubsize)*6;
     ismall   = pxcounts<prod(cubsize)/6;
     pxlist(ibig | ismall) = [];
-    ccents = nan(numel(pxlist), 3);
+    ccents = nan(numel(pxlist), 5);
     for ii = 1:numel(pxlist)
         [yidx, xidx, zidx] = ind2sub([Ny Nx numel(iload)], pxlist{ii});
-        wts = dat(pxlist{ii});
-        wts = wts/sum(wts);
-        y0  = yidx' * wts;
-        x0  = xidx' * wts;
-        z0  = iload(zidx) * wts;
-        ccents(ii, :) = [x0, y0, z0];
+        wts   = dat(pxlist{ii});
+        cint  = mean(wts); % get cell intensity
+        wts   = wts/sum(wts);
+        y0    = yidx' * wts;
+        x0    = xidx' * wts;
+        z0    = iload(zidx) * wts;
+        cdiam = (diamfac*numel(pxlist{ii}))^(1/3); % get cell radius
+        ccents(ii, :) = [x0, y0, z0, cdiam, cint];
     end
     % only keep cells within buffer size and far from the edges
     ceval  =  ccents(:, 3) -(iload(1)-1);

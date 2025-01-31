@@ -22,6 +22,7 @@ for ii = 1:Nshow
     ppanel(irow,icol).select();
     histim  = volumeIdtoImage(volume, [ islice dimplot]);
     atlasim = volumeIdtoImage(anvol, [ islice dimplot]);
+    atlasim = single(atlasim);
     av_warp_boundaries = gradient(atlasim)~=0 & (atlasim > 1);
     [row,col] = ind2sub(size(atlasim), find(av_warp_boundaries));
     image(histim); ax = gca; ax.Visible = 'off'; axis equal; axis tight;
