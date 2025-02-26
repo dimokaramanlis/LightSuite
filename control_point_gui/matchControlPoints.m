@@ -32,7 +32,7 @@ Rvolume         = imref3d(size(volload));
 gui_data.volume = imwarp(volload, Rvolume, opts.original_trans, 'OutputView',gui_data.Rmoving);
 factv       = 255/single(max(gui_data.volume,[],"all"));
 gui_data.volume = uint8(single(gui_data.volume)*factv);
-chooselist      = generate_cp_list(gui_data.volume);
+chooselist      = generate_cp_list_alt(gui_data.volume);
 gui_data.chooselist = chooselist;
 
 % chooselist = cell(3,1);
@@ -62,6 +62,12 @@ auto_ccf_alignment_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat')
 if exist(auto_ccf_alignment_fn,'file')
     oldtform = load(auto_ccf_alignment_fn);
     gui_data.histology_ccf_auto_alignment = oldtform.atlas2histology_tform;
+    gui_data.histology_control_points = oldtform.histology_control_points;
+    gui_data.atlas_control_points     = oldtform.atlas_control_points;
+else
+    % Initialize alignment control points and tform matricies
+    gui_data.histology_control_points = repmat({zeros(0,3)},size(gui_data.chooselist, 1),1);
+    gui_data.atlas_control_points     = repmat({zeros(0,3)},size(gui_data.chooselist, 1),1);
 end
 
 % Create figure, set button functions
@@ -85,7 +91,7 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
 % curr_image = volumeIdtoImage(gui_data.volume, gui_data.volindids(1, :));
 gui_data.curr_slice = 1;
 curr_image = volumeIdtoImage(gui_data.volume, chooselist(gui_data.curr_slice, :));
-curr_image = blankImage(curr_image, chooselist(gui_data.curr_slice, 3:end));
+curr_image = blankImage_alt(curr_image, chooselist(gui_data.curr_slice, 3:end));
 curr_image = adapthisteq(curr_image);
 
 % Set up axis for histology image
@@ -119,9 +125,6 @@ hold on; axis image off; colormap(gray); clim([0,250]);
 gui_data.atlas_im_h = imagesc(curr_atlas, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
 
-% Initialize alignment control points and tform matricies
-gui_data.histology_control_points = repmat({zeros(0,3)},size(gui_data.chooselist, 1),1);
-gui_data.atlas_control_points     = repmat({zeros(0,3)},size(gui_data.chooselist, 1),1);
 
 gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,'.g','MarkerSize',20);
 gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,'.r','MarkerSize',20);
@@ -372,7 +375,8 @@ toplot  = find(alldims~=idim);
 
 % Set next histology slice
 curr_image = volumeIdtoImage(gui_data.volume, gui_data.chooselist(gui_data.curr_slice, :));
-[curr_image,iy,ix] = blankImage(curr_image,  gui_data.chooselist(gui_data.curr_slice, 3:end));
+curr_image = adapthisteq(curr_image);
+[curr_image,iy,ix] = blankImage_alt(curr_image,  gui_data.chooselist(gui_data.curr_slice, 3:end));
 
 induse     = gui_data.chooselist(gui_data.curr_slice, 1);
 [xx,yy]    = meshgrid(1:size(curr_image,2), 1:size(curr_image,1));
@@ -398,8 +402,9 @@ sluse = max(sluse, 1);
 gui_data.atlas_slice = sluse;
 
 
-curr_image = adapthisteq(curr_image);
-set(gui_data.histology_im_h,'CData',curr_image)
+currlim    = getImageLimits(curr_image, 0.001);
+set(gui_data.histology_im_h,'CData', curr_image)
+gui_data.histology_ax.CLim = [0 currlim(2)];
 % Plot control points for slice
 set(gui_data.histology_control_points_plot, ...
     'XData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(2)), ...
