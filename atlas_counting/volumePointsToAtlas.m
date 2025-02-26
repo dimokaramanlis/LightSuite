@@ -24,12 +24,12 @@ outpts = transformControlPoints(trstruct.tform_bspline_samp20um_to_atlas_20um_px
 % control points
 
 % the inversion is already implemented
-finalpts = trstruct.tform_affine_samp20um_to_atlas_20um_px.transformPointsForward(1+outpts/0.02);
+finalpts = trstruct.tform_affine_samp20um_to_atlas_10um_px.transformPointsForward(1+outpts/0.02);
 
 %--------------------------------------------------------------------------
 % and super finally, points should be resampled to match the 10um
 % resolution of the atlas
-finalpts = 2*finalpts;
+% finalpts = 2*finalpts;
 %--------------------------------------------------------------------------
 % we remove points outside of the annotation volume
 % irem0 = any(finalpts<0, 2);

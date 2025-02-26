@@ -12,4 +12,9 @@ iremz = finalpts(:,3) > size(annvol, 3);
 irem  = irem0 | iremx | iremy | iremz;
 finalpts(irem, :) = [];
 %--------------------------------------------------------------------------
+% remove cells outside brain regions (root)
+indcells = sub2ind(size(annvol), finalpts(:,2), finalpts(:,1), finalpts(:,3));
+irem     = annvol(indcells) == 1;
+finalpts(irem, :) = [];
+%--------------------------------------------------------------------------
 end

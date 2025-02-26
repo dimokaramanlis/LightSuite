@@ -6,15 +6,20 @@ function [volumecounts, volumeareas, cellatlasids] = groupCellsIntoLeafRegions(c
 
 Ngroups = max(annvol, [], 'all');
 %--------------------------------------------------------------------------
-linearIndices = sub2ind(size(annvol), cellcoords(:, 2), cellcoords(:, 1), cellcoords(:, 3));
-cellatlasids  = annvol(linearIndices);
+ileft          = cellcoords(:, 3) > size(annvol, 3)/2;
+linearIndicesL = sub2ind(size(annvol),  cellcoords(ileft, 2),  cellcoords(ileft, 1),  cellcoords(ileft, 3));
+linearIndicesR = sub2ind(size(annvol), cellcoords(~ileft, 2), cellcoords(~ileft, 1), cellcoords(~ileft, 3));
+cellatlasidsR  = annvol(linearIndicesR);
+cellatlasidsL  = annvol(linearIndicesL);
+cellatlasids   = {cellatlasidsR, cellatlasidsL};
 %--------------------------------------------------------------------------
 % calculate areas
 volumeareas = accumarray(reshape(annvol, numel(annvol), 1), 1, [Ngroups 1], @sum);
 volumeareas = volumeareas*1e-6; % in mm3
 %--------------------------------------------------------------------------
 % calculate counts
-volumecounts = accumarray(cellatlasids, 1, [Ngroups 1], @sum);
+volumecountsR = accumarray(cellatlasidsR, 1, [Ngroups 1], @sum);
+volumecountsL = accumarray(cellatlasidsL, 1, [Ngroups 1], @sum);
+volumecounts  = [volumecountsR volumecountsL];
 %--------------------------------------------------------------------------
-
 end

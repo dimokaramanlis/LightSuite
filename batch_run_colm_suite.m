@@ -1,7 +1,7 @@
 opts = struct();
 %--------------------------------------------------------------------------
 % this is the stitched file path
-opts.mousename  = 'DK027';
+opts.mousename  = 'YX004';
 dpfind          = fullfile('F:\imaging', sprintf('%s*',opts.mousename), '**','*.tif');
 allfilesfind    = dir(dpfind);
 [allun, ~, iun] = unique({allfilesfind(:).folder}');
@@ -34,11 +34,6 @@ peakvalsextract = preprocessColmVolumeBatches(opts);
 % axis equal; ax = gca; ax.ZDir = 'reverse';
 opts           = initializeRegistration(opts);
 %%
-% we perform initial registration to ease control point selection
-opts.regvolpath = fullfile('C:\DATA_sorted', sprintf('%s_temporary_reg_volume.dat', opts.mousename));
-opts.regvolsize = ceil([opts.Ny opts.Nx opts.Nz].*opts.pxsize/opts.registres);
-
-%%
 % SELECT CONTROL POINTS
 % In the function, the sample volume goes through a rigid transform to
 % ease control point selection
@@ -51,14 +46,31 @@ matchControlPoints(opts);
 %%
 % MAIN REGISTRATION FUNCTION
 % we have to move selected control points back in sample space
-transform_params = multiobjRegistration(opts, 1);
+usemultistep     = true;
+transform_params = multiobjRegistration(opts, 0.2, usemultistep);
+
+%%
+transform_params = load(fullfile(opts.savepath, 'transform_params.mat'));
+
+% load and transform cell locations
+celllocs         = load(fullfile(opts.savepath,'cell_locations_sample.mat'));
+atlasptcoords    = volumePointsToAtlas(celllocs.cell_locations, transform_params);
+fsavename        = fullfile(opts.savepath, 'cell_locations_atlas.mat');
+save(fsavename, 'atlasptcoords') 
+
+% load and transform background volume
+backvolume       = readDownStack(fullfile(opts.savepath, 'sample_register_20um.tif'));
+backvolareas     = backVolumeToAtlas(backvolume, transform_params);
+fsavename        = fullfile(opts.savepath, 'background_volume_areas.mat');
+save(fsavename, 'backvolareas') 
 
 
 %%
-celllocs      = load(fullfile(opts.savepath,'cell_locations_sample.mat'));
-atlasptcoords = volumePointsToAtlas(celllocs.cell_locations, transform_params);
-fsavename     = fullfile(opts.savepath, 'cell_locations_atlas.mat');
-save(fsavename, 'atlasptcoords')
+nrand = min(size(atlasptcoords,1), 2e5);
+iplot = randperm(size(atlasptcoords,1),nrand);
+plotBrainGrid; hold on;
+scatter3(atlasptcoords(iplot,2),atlasptcoords(iplot,3),atlasptcoords(iplot,1),2,'filled','MarkerFaceAlpha',0.5)
+
 %%
 
 allen_atlas_path = fileparts(which('template_volume_10um.npy'));
