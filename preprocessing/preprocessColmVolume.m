@@ -16,8 +16,7 @@ scaledownxy  = opts.pxsize(1)/opts.registres;
 scaledownz   = opts.pxsize(3)/opts.registres;
 [Ny, Nx, Nz] = deal(opts.Ny, opts.Nx,opts.Nz);
 diaminpx     = opts.celldiam./opts.pxsize(1);
-downfac      = ceil(diaminpx/2);
-medwith      = 2*ceil((3*diaminpx/downfac)/2) + 1;
+medwithfull  = 2*ceil((2.5*diaminpx)/2) + 1;
 %--------------------------------------------------------------------------
 % initialize collections
 voluse   = nan(Ny, Nx, Nsidez+1,   'single');
@@ -25,19 +24,25 @@ meduse   = nan(Ny, Nx, 2*Nsidez+1, 'single');
 backvol  = nan(ceil(scaledownxy*Ny), ceil(scaledownxy*Nx), Nz, 'single');
 maxc     = opts.maxdff; % maximum dff for saving to uint8
 normfac  = single(intmax("uint16"))/maxc;
+
+matuse   = ones(medwithfull);
+Nmed     = floor(sum(matuse, 'all')/2);
 %--------------------------------------------------------------------------
 fid = fopen(opts.fproc, 'W');
 msg = []; tic;
+
+
 for islice = 1:Nz+Nsidez
     voluse = circshift(voluse, -1, 3);
     meduse = circshift(meduse, -1, 3);
     % meduse(:, :, end) = nan;
     if islice <= Nz
         currim = imread(fullfile(tiffpaths(islice).folder, tiffpaths(islice).name));
-        filtim = imresize(medfilt2(imresize(currim, 1/downfac ,'bilinear'), [medwith medwith]), [Ny Nx]);
- 
-        % filtim2 = imresize(medfilt2(imresize(currim,0.5), [11 11]),2);
-        voluse(:, :, end) = medfilt2(currim, [3 3]); % to remove speckles
+        
+        % this step is time-limiting 
+
+        filtim            = ordfilt2(currim, Nmed, matuse);
+        voluse(:, :, end) = medfilt2(currim, [3 3]); % to remove speckles and line artifacts; 
         meduse(:, :, end) = filtim;
     end
 
@@ -45,8 +50,8 @@ for islice = 1:Nz+Nsidez
         indscrr = (islice - Nsidez)+ (-Nsidez:Nsidez);
         iuse    = indscrr > 0 & indscrr<=Nz;
         if ~all(iuse)
-            wtscurr = wtsuse(iuse);
-            wtscurr = wtscurr/sum(wtscurr);
+            wtscurr    = wtsuse(iuse);
+            wtscurr    = wtscurr/sum(wtscurr);
             backsignal = reshape(meduse(:,:,iuse), Ny*Nx, nnz(iuse)) * wtscurr;
         else
             backsignal = reshape(meduse, Ny*Nx, 2*Nsidez + 1) * wtsuse;
@@ -69,7 +74,8 @@ for islice = 1:Nz+Nsidez
     end
     %----------------------------------------------------------------------
     fprintf(repmat('\b', 1, numel(msg)));
-    msg = sprintf('Slice %d/%d. Time elapsed %2.2f s...\n', islice, Nz,toc);
+    msg = sprintf('Slice %d/%d. Time per slice %2.2f s. Time elapsed %2.2f s...\n',...
+        islice, Nz, toc/islice, toc);
     fprintf(msg);
     %----------------------------------------------------------------------
 end

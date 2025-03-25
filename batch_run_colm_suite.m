@@ -1,7 +1,7 @@
 opts = struct();
 %--------------------------------------------------------------------------
 % this is the stitched file path
-opts.mousename  = 'YX004';
+opts.mousename  = 'DK031';
 dpfind          = fullfile('F:\imaging', sprintf('%s*',opts.mousename), '**','*.tif');
 allfilesfind    = dir(dpfind);
 [allun, ~, iun] = unique({allfilesfind(:).folder}');
@@ -14,7 +14,7 @@ opts.datafolder = allun{ifolder};
 opts.fproc      = fullfile('C:\DATA_sorted', sprintf('%s_fullbrain_dff.dat', opts.mousename));
 opts.savepath   = fullfile('D:\DATA_folder\Mice', opts.mousename, 'Anatomy');
 opts.pxsize     = [1.44 1.44 5]; % in um
-opts.celldiam   = 10; % in um
+opts.celldiam   = 14; % in um
 opts.atlasres   = 10; % in um
 opts.registres  = 20; % in um
 % some processing options
@@ -26,12 +26,12 @@ opts            = readLightsheetOpts(opts);
 [backvol, opts] = preprocessColmVolume(opts);
 % let's make sure the GPU can support our endeavor
 gpuDevice(1);
-peakvalsextract = preprocessColmVolumeBatches(opts);
-% irand = randperm(size(peakvalsextract,1), 100000);
-% scatter3(peakvalsextract(irand,1)*opts.pxsize(1),...
-%     peakvalsextract(irand,2)*opts.pxsize(2),...
-%     peakvalsextract(irand,3)*opts.pxsize(3),1, peakvalsextract(irand,5))
-% axis equal; ax = gca; ax.ZDir = 'reverse';
+peakvalsextract = extractCellsFromVolume(opts);
+irand = randperm(size(peakvalsextract,1), 80000);
+scatter3(peakvalsextract(irand,1)*opts.pxsize(1),...
+    peakvalsextract(irand,2)*opts.pxsize(2),...
+    peakvalsextract(irand,3)*opts.pxsize(3),1)
+axis equal; ax = gca; ax.ZDir = 'reverse';
 opts           = initializeRegistration(opts);
 %%
 % SELECT CONTROL POINTS
@@ -66,7 +66,7 @@ save(fsavename, 'backvolareas')
 
 
 %%
-nrand = min(size(atlasptcoords,1), 2e5);
+nrand = min(size(atlasptcoords,1), 1e5);
 iplot = randperm(size(atlasptcoords,1),nrand);
 plotBrainGrid; hold on;
 scatter3(atlasptcoords(iplot,2),atlasptcoords(iplot,3),atlasptcoords(iplot,1),2,'filled','MarkerFaceAlpha',0.5)

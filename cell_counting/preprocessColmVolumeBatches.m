@@ -18,7 +18,7 @@ Nslices = opts.Nz;
 batchsize = 14;
 buffsize  = 3;
 Nbatches   = ceil(Nslices/batchsize);
-snrthres   = 1;
+snrthres   = 0.8;
 normfac = opts.maxdff/(2^16-1);
 fid = fopen(opts.fproc,'r');
 rangeuse = -15:15;
@@ -34,6 +34,7 @@ dz = -2:2;
 
 maxlook = ceil(opts.celldiam./opts.pxsize/2);
 cubsize = 2*floor(opts.celldiam./opts.pxsize/2) + 1;
+cubsize = [5 5 5];
 seuse = strel('cuboid', cubsize);
 diamfac = 3*prod(opts.pxsize)/4/pi;
 
@@ -60,7 +61,7 @@ for ibatch = 1:Nbatches
         smin           = -my_min(-dat(:,:,ii), maxlook([1 2]));
         imgidx(:,:,ii) = (dat(:,:,ii)>smin-1e-3) & (dat(:,:,ii) > snrthres);
     end
-    imgidx = imdilate(imgidx, seuse) & gather(dat > snrthres/2);
+    imgidx = imdilate(imgidx, seuse) & gather(dat > (snrthres*0.8));
     cinfo  = bwconncomp(imgidx, 26);
 
     % smin   = -my_min(-dat, maxlook);
@@ -70,8 +71,8 @@ for ibatch = 1:Nbatches
 
     pxlist   = cinfo.PixelIdxList;
     pxcounts = cellfun(@numel,pxlist);
-    ibig     = pxcounts>prod(cubsize)*6;
-    ismall   = pxcounts<prod(cubsize)/6;
+    ibig     = pxcounts>prod(cubsize)*10;
+    ismall   = pxcounts<prod(cubsize)/10;
     pxlist(ibig | ismall) = [];
     ccents = nan(numel(pxlist), 5);
     for ii = 1:numel(pxlist)

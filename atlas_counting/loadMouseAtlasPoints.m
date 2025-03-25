@@ -3,7 +3,7 @@ function atlaspts = loadMouseAtlasPoints(mouseid)
 %   Detailed explanation goes here
 
 savepath  = 'D:\DATA_folder\Mice';
-toget     = dir(fullfile(savepath, mouseid, '**', 'cell_locations_atlas.mat'));
+toget     = dir(fullfile(savepath, mouseid, 'Anatomy', 'cell_locations_atlas.mat'));
 atlaspts  = load(fullfile(toget.folder, toget.name));
 atlaspts  = atlaspts.atlasptcoords;
 end
