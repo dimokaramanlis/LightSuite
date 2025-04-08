@@ -41,9 +41,14 @@ is_input_gpuArray = isa(data, 'gpuArray');
 [h, w, t] = size(data);
 
 % --- FFT Dimensions (Corrected) ---
-hf = gpuArray(single(2^nextpow2(h)));  % FFT size for height
-wf = gpuArray(single(2^nextpow2(w)));  % FFT size for width
-tf = gpuArray(single(2^nextpow2(t)));  % FFT size for time/depth
+hf = single(2^nextpow2(h));  % FFT size for height
+wf = single(2^nextpow2(w));  % FFT size for width
+tf = single(2^nextpow2(t));  % FFT size for time/depth
+if use_gpu
+    hf = gpuArray(hf);  % FFT size for height
+    wf = gpuArray(wf);  % FFT size for width
+    tf = gpuArray(tf);  % FFT size for time/depth
+end
 
 % --- Butterworth Filter Parameters ---
 n = 4; % degree of the Butterworth polynomial
