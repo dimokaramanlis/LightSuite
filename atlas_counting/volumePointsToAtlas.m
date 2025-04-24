@@ -2,30 +2,41 @@ function finalpts = volumePointsToAtlas(inputpts, trstruct)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
-% at first, points should be resampled to the registration resolution
-
-% first, point dim order becomes image order
-outpts = inputpts(:, [2 1 3]);
-% then we permute to atlas
-outpts   = outpts(:, trstruct.how_to_perm);
+regsize_mm = trstruct.atlasres * 2 * 1e-3;
 %--------------------------------------------------------------------------
-% point coordinates should be moved to match atlas space
-scalefac = trstruct.regvolsize(trstruct.how_to_perm)./trstruct.ori_size(trstruct.how_to_perm);
-outpts   = outpts.*scalefac;
-% %--------------------------------------------------------------------------
-% % then, points pass through the initial (rigid) transform
-% outpts = trstruct.tform_rigid_samp20um_to_atlas_20um_px.transformPointsForward(outpts);
-%--------------------------------------------------------------------------
-% then, points pass through the inverse bspline transform
-outpts = outpts(:, [2 1 3]);
-outpts = transformControlPoints(trstruct.tform_bspline_samp20um_to_atlas_20um_px, (outpts-1)*0.02);
-%--------------------------------------------------------------------------
-% finally, points pass through the inverse affine transform that was fitted to
-% control points
+% we first transform points to match the downsampled volume
+pts   = (inputpts(:, 1:3) - 1) .* trstruct.ori_pxsize *1e-3; % is this correct???
 
-% the inversion is already implemented
-finalpts = trstruct.tform_affine_samp20um_to_atlas_10um_px.transformPointsForward(1+outpts/0.02);
+pts   = pts(:, [2 1 3]);
+pts   = pts(:, trstruct.how_to_perm);
+pts   = pts(:, [2 1 3]);
+pts   = pts/regsize_mm;
+%--------------------------------------------------------------------------
+% we calculate the displacement field, which comes in world coordinates
+Dfield = transformix([],trstruct.tform_bspline_samp20um_to_atlas_20um_px);
+% we then permute and scale by the registration resolution to go to voxels
+Dfield = permute(Dfield,[2 3 4 1])/regsize_mm; 
+%--------------------------------------------------------------------------
+[Sx, Sy, Sz, ~] = size(Dfield);
 
+% Create grid vectors representing the indices (1-based)
+Xgv = 1:Sx;
+Ygv = 1:Sy;
+Zgv = 1:Sz;
+
+% Extract displacement components
+dx_interpolated = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,1), pts(:,1), pts(:,2), pts(:,3), 'linear');
+dy_interpolated = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,2), pts(:,1), pts(:,2), pts(:,3), 'linear');
+dz_interpolated = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,3), pts(:,1), pts(:,2), pts(:,3), 'linear');
+
+% negative sign is extremely important!!!
+interpolated_displacements = -[dx_interpolated, dy_interpolated, dz_interpolated];
+interpolated_displacements(isnan(interpolated_displacements)) = 0;
+finalpts = pts + interpolated_displacements;
+%--------------------------------------------------------------------------
+% do we need to add anything to finalpts??? like 1 or 0.5?
+finalpts = trstruct.tform_affine_samp20um_to_atlas_10um_px.transformPointsForward(finalpts);
+finalpts = [finalpts inputpts(:, 4:end)];
 %--------------------------------------------------------------------------
 % and super finally, points should be resampled to match the 10um
 % resolution of the atlas

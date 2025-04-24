@@ -8,7 +8,7 @@ if isnumeric(datavolume)
 else
     % it is a path and we have to load it as a path
     assert(isstring(datavolume) | ischar(datavolume))
-    ispath = True;
+    ispath = true;
 end
 %------------------------------------------------------------------------
 Ny      = opts.Ny;

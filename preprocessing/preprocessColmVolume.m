@@ -29,7 +29,7 @@ matuse   = ones(medwithfull);
 Nmed     = floor(sum(matuse, 'all')/2);
 %--------------------------------------------------------------------------
 fid = fopen(opts.fproc, 'W');
-msg = []; tic;
+msg = []; proctic = tic;
 
 
 for islice = 1:Nz+Nsidez
@@ -75,13 +75,13 @@ for islice = 1:Nz+Nsidez
     %----------------------------------------------------------------------
     fprintf(repmat('\b', 1, numel(msg)));
     msg = sprintf('Slice %d/%d. Time per slice %2.2f s. Time elapsed %2.2f s...\n',...
-        islice, Nz, toc/islice, toc);
+        islice, Nz, toc(proctic)/islice, toc(proctic));
     fprintf(msg);
     %----------------------------------------------------------------------
 end
 fclose(fid);
 %--------------------------------------------------------------------------
-fprintf('Saving background volume... ');tic;
+fprintf('Saving background volume... '); savetic = tic;
 
 % rescale final volume to match atlas size
 voldown   = imresize3(backvol, 'Scale', [1 1 scaledownz]);
@@ -118,6 +118,6 @@ save(fullfile(opts.savepath, 'regopts.mat'), 'opts')
 % save(regvolpath, 'voldown')
 
 
-fprintf('Done! Factor save is %2.1f. Took %2.2f s.\n', regvolfac, toc);
+fprintf('Done! Factor save is %2.1f. Took %2.2f s.\n', regvolfac, toc(savetic));
 %--------------------------------------------------------------------------
 end
