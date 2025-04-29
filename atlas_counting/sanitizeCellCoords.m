@@ -2,7 +2,7 @@ function finalpts = sanitizeCellCoords(cellcoords, annvol)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
-finalpts = round(cellcoords); % rounding to transfer correspondance to pixels
+finalpts = [round(cellcoords(:, 1:3)) cellcoords(:, 4:5)]; % rounding to transfer correspondance to pixels
 %--------------------------------------------------------------------------
 % remove cells outside volume
 irem0 = any(finalpts<1, 2);

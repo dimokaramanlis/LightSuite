@@ -28,11 +28,18 @@ cinfo  = regionprops3(imgidx, gather(volumeuse),...
     'PrincipalAxisLength', 'EquivDiameter', 'VoxelList', 'WeightedCentroid','MeanIntensity');
 %--------------------------------------------------------------------------
 % for debugging
+
 % for ii = 1:size(volumeuse,3)
 %     imshowpair(uint8(volumeuse(:,:,ii)*255/thresSNR(1)),imgidx(:,:,ii));
 %     pause; 
 % end
 %--------------------------------------------------------------------------
+% improve equivalent diameter
+
+% we find unique pairs of x-y pixels, take their sum as the area of the
+% cell, then find diameter. to remove z-blurring
+%--------------------------------------------------------------------------
+
 % remove weird cells: elongated or small or with low intensity
 
 % CAN WE DO BETTER?
@@ -60,6 +67,8 @@ if ~isempty(cinfo)
     % indtest = sub2ind(size(fout),allvoxels(:,1), allvoxels(:,2), allvoxels(:,3));
     % imgidx = false(size(imgidx));
     % imgidx(indtest) = true;
+    % imshowpair(uint8(max(volumeuse,[],3)*255/thresSNR(1)),max(imgidx,[],3));
+
     cinfo(iweird, :) = [];    
 end
 %--------------------------------------------------------------------------

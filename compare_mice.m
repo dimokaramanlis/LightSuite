@@ -1,14 +1,12 @@
-mouseIds   = {'DK025', 'DK027', 'YX002', 'YX004','DK026', 'DK028', ...
-    'YX001', 'YX003','YX005','YX011','YX012', 'DK031'};
-%settingids = {'joint', 'joint', 'solo', 'solo', 'solo', 'joint','observ.'};
 
-isolo = [7 8 9];
-ijoint = [3 4];
+mouseIds   = {'YX002', 'YX004','YX016', 'YX017', 'DK025','DK027',...
+    'YX001', 'YX003','YX005','YX007','YX009','DK026', 'DK028',...
+    'YX011','YX013', 'DK031',...
+    'YX012'};
 
-% isolo  = [5 6 7 8 9];
-% ijoint = [1 2 3 4];
-
-iobs = [10 12];
+isolo  = [7:13];
+ijoint = [1:6];
+iobs   = [14:16];
 
 % DK025, DK027 joint
 
@@ -25,160 +23,222 @@ groupstrsshort   = table2cell(st(1:Ngroups,5));
 
 countsall = nan(Ngroups, 2, Nmice, 'single');
 bkgsigall = nan(Ngroups, 2, Nmice, 'single');
+diametall = nan(Ngroups, 2, Nmice, 'single');
+
 locsall   = cell(Nmice, 1);
 for mouseid = 1:Nmice
     atlasptcoords               = loadMouseAtlasPoints(mouseIds{mouseid});
 
     cleanatlaspts                    = sanitizeCellCoords(atlasptcoords, av);
     [areacounts, areavols, idcareas] = groupCellsIntoLeafRegions(cleanatlaspts, av);
+
+    % diametall(:, 1, :) = accumarray(idcareas{1}(:,2), cleanatlaspts(idcareas{1}(:,1),4),[],@median);
+    % diametall(:, 2, :) = accumarray(idcareas{2}(:,2), cleanatlaspts(idcareas{2}(:,1),4),[],@median);
+    % % cellstats1 = accumarray(idcareas{1}(:,2), cleanatlaspts(idcareas{1}(:,1),4),[],@(x) {x});
+    % % cellstats2 = accumarray(idcareas{2}(:,2), cleanatlaspts(idcareas{2}(:,1),4),[],@median);
+
     bgcurr                           = loadMouseBackgroundSignal(mouseIds{mouseid});
 
     bkgsigall(:, :, mouseid)    = bgcurr;
 
     % here we discard low-intensity areas from cell counting
-
     areacounts(bgcurr<bkgthres) = nan;
     countsall(:, :, mouseid)    = areacounts;
     locsall{mouseid} = cleanatlaspts;
-    % 
-    % avplot = ndSparse.build(cleanatlaspts(:,[2 1 3]), 1,size(av));
-    % avplot = single(full(avplot));
-    % avgauss = imgaussfilt3(avplot, 5);
 
 end
 %%
-
-
-jointmap = atlasCellMap(locsall(1:4), size(av), 8);
-solomap  = atlasCellMap(locsall(5:9), size(av), 8);
-jointout = atlasCellMap(locsall([10 12]), size(av), 8);
+% plot overall stats
+irem                   = sum(countsall, [2 3]) == 0;
+countsplot             = countsall;
+bkgplot                = bkgsigall;
+countsplot(irem, :, :) = [];
+bkgplot(irem, :, :)    = [];
 
 
 %%
-cf = figure('Position',[50 50 1400 800]);
+f = figure;
+f.Units = 'centimeters';
+f.Position = [2 2 45 16];
+Ncols  = ceil(Nmice/2);
 p = panel();
-p.pack('h', 3);
-p.de.margin = 1;
-
-dpsave = 'S:\ElboustaniLab\#SHARE\Documents\Dimos\figures\sec_cell_avg';
-for islice = 1:5:size(solomap,1);
-    soloim = squeeze(solomap(islice,:,:));
-    atlasim = single(squeeze(av(islice,:,1:size(av,3)/2)));
-    jointim = squeeze(jointmap(islice,:,:));
-    jointoutim = squeeze(jointout(islice,:,:));
-    
-    av_warp_boundaries = gradient(atlasim)~=0 & (atlasim > 1);
-    [row,col] = ind2sub(size(atlasim), find(av_warp_boundaries));
-
-    p(1).select();cla;
-    imagesc(soloim, [0 0.003]); ax = gca; ax.Visible = 'off'; axis equal; axis tight;
-    ax.Title.Visible = 'on';
-    ax.YDir = 'reverse'; ax.Colormap = flipud(gray);
-    line(col, row, 'Marker','.','LineStyle','none', 'Color',[1 0.8 0.5],'MarkerSize',1)
-    title('task solo')
-    p(2).select();cla;
-    imagesc(jointim, [0 0.003]); ax = gca; ax.Visible = 'off'; axis equal; axis tight;
-    ax.Title.Visible = 'on';
-    ax.YDir = 'reverse'; ax.Colormap = flipud(gray);
-    line(col, row, 'Marker','.','LineStyle','none', 'Color',[1 0.8 0.5],'MarkerSize',1)
-    title('task with other')
-    p(3).select();cla;
-    imagesc(jointoutim, [0 0.003]); ax = gca; ax.Visible = 'off'; axis equal; axis tight;
-    ax.Title.Visible = 'on';
-    ax.YDir = 'reverse'; ax.Colormap = flipud(gray);
-    line(col, row, 'Marker','.','LineStyle','none', 'Color',[1 0.8 0.5],'MarkerSize',1)
-    title('observing other')
-    savepngFast(cf, dpsave, sprintf('slice_%03d', islice),300, 2)
-
+p.pack('v', 2)
+for ii = 1:2
+    p(ii).pack('h', Ncols)
 end
+p.de.margin = 1;
+txtsize = 10;
+p.fontsize = txtsize;
+p.margin = [11 1 2 2];
+p.de.marginleft = 4;
+
+for imouse = 1:Nmice
+    
+    irow = floor((imouse-1)/Ncols)+1;
+    icol = mod(imouse - 1, Ncols) + 1;
+    p(irow, icol).select();
+
+    plot(bkgplot(:,1,imouse), bkgplot(:,2,imouse), '.', [0 30], [0 30], 'MarkerSize', 5)
+    axis equal; xlim([-1 40]); ylim([-1 40])
+    xticks([0 20 40]);yticks([0 20 40]);
+    title(sprintf('%s, bkg', mouseIds{imouse}))
+    xlabel('Right hemisphere')
+    yticklabels([])
+    if icol == 1
+        ylabel('Left hemisphere')
+        yticklabels([0 20 40])
+    end
+end
+%%
+f = figure;
+f.Units = 'centimeters';
+f.Position = [2 2 45 16];
+Ncols  = ceil(Nmice/2);
+p = panel();
+p.pack('v', 2)
+for ii = 1:2
+    p(ii).pack('h', Ncols)
+end
+p.de.margin = 1;
+txtsize = 10;
+p.fontsize = txtsize;
+p.margin = [11 1 2 2];
+p.de.marginleft = 4;
+
+for imouse = 1:Nmice
+    
+    irow = floor((imouse-1)/Ncols)+1;
+    icol = mod(imouse - 1, Ncols) + 1;
+    p(irow, icol).select();
+
+    plot(log10(countsplot(:,1,imouse)), log10(countsplot(:,2,imouse)), '.', [0 10], [0 10], 'MarkerSize', 5)
+    axis equal; xlim([-0.5 6]); ylim([-0.5  6])
+    xticks([0 3 6]);yticks([0 3 6]);
+    title(sprintf('%s, log10(counts)', mouseIds{imouse}))
+    xlabel('Right hemisphere')
+    yticklabels([])
+    if icol == 1
+        ylabel('Left hemisphere')
+        yticklabels([0 3 6])
+    end
+end
+
 %%
 countsuse = countsall;
 signaluse = bkgsigall;
 countsuse(bkgsigall < 0.5) = nan;
 signaluse(signaluse < 0.5) = nan;
 
-[newcounts, newsignal, newvols, stnew, namesuse] = reorganizeAreas(countsall, signaluse, areavols, st, 2);
+[fullcounts, fullsignal, fullvols, fullst, fullnames] = ...
+    reorganizeAreas(countsuse, signaluse, areavols, st, 3);
 
-[coarsecounts, coarsesignal, coarsevols, stcoarse] = reorganizeAreas(countsall, signaluse, areavols, st, 1);
+[groupcounts, groupsignal, groupvols, groupst, groupnames] = ...
+    reorganizeAreas(countsall, signaluse, areavols, st, 2);
 
-newnames = lower(stnew.name);
-Nareasfin = size(stnew, 1);
+[coarsecounts, coarsesignal, coarsevols, stcoarse] = ...
+    reorganizeAreas(countsall, signaluse, areavols, st, 1);
 
-
-% densitiesall = newsignal;
-% densitiesall = densitiesall./(coarsesignal(1,:));
-densitiesall  = newcounts./newvols;
 %%
-[newcounts, newsignal, newvols, stnew, namesuse] = reorganizeAreas(countsall, signaluse, areavols, st, 3);
-densitiesall  = newcounts./newvols;
+f = figure;
+f.Units = 'centimeters';
+f.Position = [2 2 45 16];
+Ncols  = ceil(Nmice/2);
+p = panel();
+p.pack('v', 2)
+for ii = 1:2
+    p(ii).pack('h', Ncols)
+end
+p.de.margin = 1;
+txtsize = 10;
+p.fontsize = txtsize;
+p.margin = [10 1 4 2];
+p.de.marginleft = 8;
 
-icortex = contains(lower(namesuse(:,3)),'isocortex');
-cortextcounts = densitiesall(icortex, :);
-cortextcounts = cortextcounts./sum(cortextcounts);
+for imouse = 1:Nmice
+    
+    irow = floor((imouse-1)/Ncols)+1;
+    icol = mod(imouse - 1, Ncols) + 1;
+    p(irow, icol).select();
 
-% plot(cortextcounts(:,1:9),'Color',[0 0 0 0.5])
-imice = 1:9;
-xnames = namesuse(icortex, 2);
-[xsorted,isort] = sort(xnames);
-imagesc(cortextcounts(isort,:)',[0 0.01])
-idxuse = 1:5:size(cortextcounts,1);
-xticks(idxuse)
-ax = gca; ax.Box = 'off'; ax.FontSize = 15;
-xticklabels(xsorted(idxuse))
-ylabel('Mouse id'); yticks([1 Nmice])
+    indkeep        = find(fullvols>1e-4);
+
+    plot((fullcounts(indkeep,imouse)./fullvols(indkeep)),...
+        fullsignal(indkeep,imouse)/mean(fullsignal(indkeep,imouse)),...
+        '.', 'MarkerSize', 5)
+    axis square; xlim([-100 5000]); ylim([-0.1 3])
+    xticks([0 2500 5000 ]);yticks([0 1 2 3 ]);
+    title(mouseIds{imouse})
+    xlabel('Area cell density (cells/mm3)')
+    yticklabels([])
+    if icol == 1
+        ylabel('Area bkg signal (norm.)')
+        yticklabels([0 1 2 3])
+    end
+    [rho, pval] = corr((fullcounts(indkeep,imouse)./fullvols(indkeep)),...
+        fullsignal(indkeep,imouse)/mean(fullsignal(indkeep,imouse)),'Type','Spearman');
+    [rhoc, pval] = corr((fullcounts(indkeep,imouse)),...
+        fullsignal(indkeep,imouse)/mean(fullsignal(indkeep,imouse)),'Type','Spearman');
+    text(5000, 0.3, sprintf('rho_{dens}  = %.2f', rho), 'HorizontalAlignment', 'right')
+    text(5000, 0.08, sprintf('rho_{count} = %.2f', rhoc), 'HorizontalAlignment', 'right')
+
+end
 %%
-motordens     = densitiesall(contains(lower(newnames),'primary motor'), :);
+
+ilayer6a  = find(contains(lower(fullnames(:,1)),'layer 6a'));
+ilayer6b  = find(contains(lower(fullnames(:,1)),'layer 6b'));
+ilayer5   = find(contains(lower(fullnames(:,1)),'layer 5'));
+ilayer23  = find(contains(lower(fullnames(:,1)),'layer 2/3'));
+ilayer4   = find(contains(lower(fullnames(:,1)),'layer 4'));
+ilayer1   = find(contains(lower(fullnames(:,1)),'layer 1'));
+layercell = {ilayer1, ilayer23, ilayer4, ilayer5, ilayer6a, ilayer6b};
+layertitles = {'layer 1', 'layer 2/3','layer 4','layer 5','layer 6a','layer 6b'};
+
+f = figure;
+f.Units = 'centimeters';
+f.Position = [2 2 45 20];
+%%
+p = panel;
+p.pack('h', numel(layercell))
+p.de.marginleft = 25;
+p.margin = [22 15 2 5];
+idslayers = cat(1, layercell{:});
+normfacs     = sum(fullcounts(idslayers,:))./sum(fullvols(idslayers));
+alldensities = fullcounts./fullvols./normfacs;
 % 
-% coarsedens   = coarsecounts./coarsevols;
-% densitiesall = densitiesall./(coarsedens(1,:));
+% normfacs     = sum(fullsignal(idslayers,:));
+% alldensities = fullsignal./normfacs;
+
+maxc         = quantile(alldensities(cat(1, layercell{:}), :), 0.999,'all');
+minc         = quantile(alldensities(cat(1, layercell{:}), :), 0.001,'all');
+
+for ii = 1:numel(layercell)
+    il = layercell{ii}; 
+    p(ii).select();
+    [~, isort] = sort(fullnames(il,2));
+    currdensities = alldensities(il(isort), :);
+    imagesc(currdensities,[minc maxc])
+    yticks(1:numel(il))
+    yticklabels(fullnames(il(isort),2))
+    ax = gca; ax.YDir = 'reverse'; ax.Colormap = magma;
+    axis tight;
+    title(layertitles{ii})
+    xlabel('Mice'); xticks([1 Nmice])
+end
 
 
-% 
-% % densitiesall = squeeze(nanmean(newsignal, 2));
-% % densitiesall = densitiesall./(coarsecounts(1,:));
-% 
-% summotor     = squeeze(sum(densitiesall(...
-%     contains(lower(newnames),'primary motor'), :), 1, 'omitnan'));
 
+%%
 
-% densitiesnorm = densitiesall./sqrt(sum(densitiesall.^2,1));
-% [aa, bb] = pca(densitiesnorm');
-% maxc = max(abs(bb(:,1)))*1.5;
-% 
-% subplot(1,2,1)
-% plot(bb(:,1), bb(:, 2), 'o'); axis equal;xlim([-1 1]*maxc);ylim([-1 1]*maxc)
-% text(bb(:,1),bb(:,2),mouseIds)
-% subplot(1,2,2)
-% plot(bb(:,1), bb(:, 3), 'o'); axis equal;xlim([-1 1]*maxc);ylim([-1 1]*maxc)
-% text(bb(:,1),bb(:,3),mouseIds)
+groupdensities  = groupcounts./groupvols;
+icortex         = contains(lower(groupnames(:,3)),'isocortex');
+cortexdensities = sum(groupcounts(icortex, :))./sum(groupvols(icortex,:));
 
-signalsolo = median(densitiesall(:,isolo),2);
-signaljoint = median(densitiesall(:,ijoint),2);
-signalobs   = median(densitiesall(:,iobs),2);
+groupdensities = groupdensities./cortexdensities;
+% groupdensities = groupsignal./median(groupsignal(icortex,:));
 
-% [~, isort] = sort(signalsolo, 'descend');
-% plot(1:Nareasfin, signalsolo(isort), ...
-%     1:Nareasfin, signaljoint(isort),...
-%     1:Nareasfin, signalobs(isort))
-% 
-% corr(densitiesall(:,ijoint))
-% cmat = corr(densitiesall, 'Type','Spearman');
-% betweengroups = cmat(ijoint, isolo);
-% 
-% withingroups1 = triu(cmat(ijoint, ijoint),1);
-% withingroups2 =  triu(cmat(isolo, isolo),1);
-% withingroups  = [withingroups1(withingroups1~=0);...
-%     withingroups2(withingroups2~=0)];
-% [ cmat(isolo, isolo)]
+[unnames,~,iun] = unique(groupnames(:,3));
 
-
-[~, isort] = sort(std(densitiesall(:, [ijoint isolo iobs]),[],2),'descend');
-[~, isort] = sort(std([signalsolo signaljoint signalobs],[],2),'descend');
-
-
-[unnames,~,iun] = unique(namesuse(:,3));
-
-
+coarserel = coarsecounts./sum(coarsecounts);
 f = figure;
 f.Units = 'centimeters';
 fw = 30;
@@ -192,15 +252,13 @@ p.margin = [18 16 1 3];
 p.fontsize = txtsize;
 p.de.margintop = 18;
 
-maxc = max(densitiesall(:, [isolo ijoint]),[],'all');
 % maxc = round(maxc/100)*100;
-if maxc < 10
-        ytext = 'Density (norm.)';
+ytext = 'Density (cortex norm.)';
 
-else
-        ytext = 'Density (cells/mm^3)';
-
-end
+isolo  = [7:13];
+ijoint = [1:6];
+% isolo  = [7:11];
+% ijoint = [1:4];
 
 for ii = 1:numel(unnames)
     icol = floor((ii-1)/4) + 1;
@@ -208,14 +266,15 @@ for ii = 1:numel(unnames)
 
     ishow = iun == ii;
 
-    [acrosort,isort] = sort(stnew.acronym(ishow));
-    jointdens = median(densitiesall(ishow, ijoint), 2);
-    solodens  = median(densitiesall(ishow, isolo), 2);
-    obsdens  = median(densitiesall(ishow, iobs), 2);
-    jointdens = densitiesall(ishow, ijoint);
-    solodens  = densitiesall(ishow, isolo);
-    obsdens  = densitiesall(ishow, iobs);
+    [acrosort,isort] = sort(groupst.acronym(ishow));
+    jointdens = median(groupdensities(ishow, ijoint), 2);
+    solodens  = median(groupdensities(ishow, isolo), 2);
+    obsdens  = median(groupdensities(ishow, iobs), 2);
+    jointdens = groupdensities(ishow, ijoint);
+    solodens  = groupdensities(ishow, isolo);
+    obsdens  = groupdensities(ishow, iobs);
 
+    maxc = ceil(max([solodens jointdens],[],'all'));
 
     p(irow, icol).select(); cla;
 
@@ -225,8 +284,8 @@ for ii = 1:numel(unnames)
     ylabel(ytext)
     xticklabels(acrosort)
     xticks(1:nnz(ishow))
-    ylim([0 maxc]); xlim([0 nnz(ishow)+1])
-    yticks([0 1000 2000])
+    ylim([0 maxc]); xlim([0.5 nnz(ishow)+1])
+    yticks([0 maxc/2 maxc])
     ax = gca; ax.Box = 'off'; ax.XTickLabelRotation = 90;
     text(1, maxc*0.9, unnames{ii})
     if ii == 5
@@ -239,179 +298,70 @@ for ii = 1:numel(unnames)
     end
 
 end
-
+%%
 %=========================================================================a
 pathsave = 'S:\ElboustaniLab\#SHARE\Documents\Dimos\Presentations\20250324_seminar';
 p.export(fullfile(pathsave,'cell_counts.pdf'), sprintf('-w%d',fw*10),sprintf('-h%d',fh*10), '-rp');
-%%
-iprimary = contains(namesuse(:,3),'Isocortex') ;
-isub      = contains(namesuse(:,3),'Midbrain');
-ifrontal = contains(newnames,'prelimbic')|...
-    contains(newnames,'infralimbic')|...
-    contains(newnames,'orbital')|...
-    contains(newnames,'secondary motor')|...
-    contains(newnames,'cingulate');
-
-
-p(3).select();
-
-plot(1:nnz(isub),densitiesall(isub, ijoint), 'r',...
-    1:nnz(isub),densitiesall(isub, isolo), 'b')
-ylabel('Cell count (relative to MOp)')
-xticklabels(stnew.acronym(isub))
-xticks(1:nnz(isub))
-ylim([0 2])
-ax = gca; ax.Box = 'off';
-title('Primary areas')
-p(2).select();
-
-plot(1:nnz(iprimary),densitiesall(iprimary, ijoint), 'r',...
-    1:nnz(iprimary),densitiesall(iprimary, isolo), 'b')
-ylabel('Cell count (relative to MOp)')
-xticklabels(stnew.acronym(iprimary))
-xticks(1:nnz(iprimary))
-ylim([0 2])
-ax = gca; ax.Box = 'off';
-title('Primary areas')
-ylim([0 2]);xlim([0 nnz(iprimary) + 1])
-ax.XTickLabelRotation = 45;
-p(1).select();
-
-plot(1:nnz(ifrontal),densitiesall(ifrontal, ijoint), 'r',...
-    1:nnz(ifrontal),densitiesall(ifrontal, isolo), 'b')
-ylabel('Cell count (relative to MOp)')
-xticklabels(stnew.acronym(ifrontal))
-xticks(1:nnz(ifrontal))
-ylim([0 2]);xlim([0 nnz(ifrontal) + 1])
-text(nnz(ifrontal), 0.4, 'Solo (n = 3)',...
-    'HorizontalAlignment','right','Color','b', 'FontSize',12)
-text(nnz(ifrontal), 0.35, 'Joint (n = 2)',...
-    'HorizontalAlignment','right','Color','r', 'FontSize',12)
-
-ax = gca; ax.Box = 'off';
-title('Frontal areas')
 
 %%
-toplot = squeeze(nanmax(newcounts, [], 2));
-toplot = toplot./sum(toplot,1);
-[aa, bb] = pca(toplot');
-% [bb,aa] = nnmf(toplot', 3);
-maxc = max(abs(bb(:,1)))*1.5;
-
-subplot(1,2,1)
-plot(bb(:,1), bb(:, 2), 'o'); axis equal;xlim([-1 1]*maxc);ylim([-1 1]*maxc)
-text(bb(:,1),bb(:,2),mouseIds)
-subplot(1,2,2)
-plot(bb(:,1), bb(:, 3), 'o'); axis equal;xlim([-1 1]*maxc);ylim([-1 1]*maxc)
-text(bb(:,1),bb(:,3),mouseIds)
+jointmap = atlasCellMap(locsall(ijoint), size(av), 5,  sum(groupcounts(icortex, ijoint)));
+solomap  = atlasCellMap(locsall(isolo),  size(av), 5,  sum(groupcounts(icortex, isolo)));
+jointout = atlasCellMap(locsall(iobs),   size(av), 5,  sum(groupcounts(icortex, iobs)));
 %%
-iplot = areavols>0;
-imagesc(densplot(iplot,:)',[0 6000])
+cf = figure('Position',[50 50 1400 800]);
+p = panel();
+p.pack('h', 3);
+p.de.margin = 1;
+cmax = 0.01;
 
-XX = densplot(iplot,:)';
+dpsave = 'S:\ElboustaniLab\#SHARE\Documents\Dimos\figures\sec_cell_avg';
+for islice = 1:5:size(solomap,1);
+    soloim = squeeze(solomap(islice,:,:));
+    atlasim = single(squeeze(av(islice,:,1:size(av,3)/2)));
+    jointim = squeeze(jointmap(islice,:,:));
+    jointoutim = squeeze(jointout(islice,:,:));
+    
+    av_warp_boundaries = gradient(atlasim)~=0 & (atlasim > 1);
+    [row,col] = ind2sub(size(atlasim), find(av_warp_boundaries));
 
-find(any(isnan(XX),1))
+    p(1).select();cla;
+    imagesc(soloim, [0 cmax]); ax = gca; ax.Visible = 'off'; axis equal; axis tight;
+    ax.Title.Visible = 'on';
+    ax.YDir = 'reverse'; ax.Colormap = flipud(gray);
+    line(col, row, 'Marker','.','LineStyle','none', 'Color',[1 0.8 0.5],'MarkerSize',1)
+    title('task solo')
+    p(2).select();cla;
+    imagesc(jointim, [0 cmax]); ax = gca; ax.Visible = 'off'; axis equal; axis tight;
+    ax.Title.Visible = 'on';
+    ax.YDir = 'reverse'; ax.Colormap = flipud(gray);
+    line(col, row, 'Marker','.','LineStyle','none', 'Color',[1 0.8 0.5],'MarkerSize',1)
+    title('task with other')
+    p(3).select();cla;
+    imagesc(jointoutim, [0 cmax]); ax = gca; ax.Visible = 'off'; axis equal; axis tight;
+    ax.Title.Visible = 'on';
+    ax.YDir = 'reverse'; ax.Colormap = flipud(gray);
+    line(col, row, 'Marker','.','LineStyle','none', 'Color',[1 0.8 0.5],'MarkerSize',1)
+    title('observing other')
+    savepngFast(cf, dpsave, sprintf('slice_%03d', islice),300, 2)
 
-[aa,bb] = pca(densplot(iplot,:)')
-
-%%
-figure;
-for ii = 1:Nmice
-    subplot(2, 6, ii)
-    plot(bkgsigall(:,1,ii), bkgsigall(:,2,ii), '.', [0 30], [0 30], 'MarkerSize', 5)
-    axis equal; xlim([0 30]); ylim([0 30])
-    title(sprintf('%s, signal rel. to bkg', mouseIds{ii}))
-    xlabel('Right hemisphere')
-    ylabel('Left hemisphere')
 end
 %%
-figure;
-for ii = 1:Nmice
-    subplot(2, 6, ii)
-    plot(log10(countsall(:,1,ii)+1), log10(countsall(:,2,ii)+1), '.', [0 30], [0 30], 'MarkerSize', 5)
-    axis equal; xlim([0 6]); ylim([0 6])
-    title(sprintf('%s, log10 cell counts', mouseIds{ii}))
-    xlabel('Right hemisphere')
-    ylabel('Left hemisphere')
+Nareas     = size(groupcounts, 1);
+xcount     = log(sum(groupcounts))';
+xother     = zeros(Nmice, 1);
+xtask      = zeros(Nmice, 1);
+xsex       = zeros(Nmice, 1);
+
+xother([ijoint iobs]) = 1;
+xtask([ijoint isolo]) = 1;
+xsex(contains(mouseIds, 'DK02')) = 1;
+
+XX     = [xother xsex xcount];
+
+coeffs = nan(Nareas, size(XX, 2));
+
+for iarea = 1:Nareas
+    yy     = groupcounts(iarea,:)';
+    bcoeff = glmfit(XX, yy, "poisson","LikelihoodPenalty","jeffreys-prior");
+    coeffs(iarea, :) = bcoeff(2:end);
 end
-
-%%
-
-irem = areavols==0 | strcmp(groupstrs, 'root');
-groupstrsuse = groupstrs(~irem, :);
-groupstrsshortuse = groupstrsshort(~irem, :);
-densitiesuse = countsall(~irem, :, :);
-volsuse      = areavols(~irem, :);
-
-summotor     = squeeze(sum(densitiesuse(contains(groupstrsuse,'primary motor'), :, :), [1 2]));
-% densitiesuse = squeeze(nanmean(densitiesuse./volsuse, 2))./summotor';
-% densitiesuse = squeeze(nanmean(densitiesuse./volsuse, 2));
-densitiesuse = squeeze(nanmean(densitiesuse, 2));
-
- 
-ivis = contains(groupstrsuse,'primary motor')|...
-    contains(groupstrsuse,'primary visual')|...
-    contains(groupstrsuse,'prelimbic')|...
-    contains(groupstrsuse,'infralimbic')|...
-    contains(groupstrsuse,'primary auditory')|...
-    contains(groupstrsuse,'secondary motor')|...
-    contains(groupstrsuse,'cingulate');
-
-ivis = contains(groupstrsuse,'primary motor')|...
-    contains(groupstrsuse,'primary visual')|...
-    contains(groupstrsuse,'prelimbic');
-
-% ivis = contains(groupstrsuse,'cingulate')|...
-%     contains(groupstrsuse,'primary motor');
-
-bb = barh(groupstrsshortuse(ivis), densitiesuse(ivis,:));
-cmapcurr = cbrewer('qual', 'Dark2', Nmice);
-% cmapcurr = cmapcurr([1 2 5 6 3 4 7 8], :);
-
-for ii = 1:numel(mouseIds)
-    bb(ii).FaceColor = cmapcurr(ii, :);
-    bb(ii).BarWidth  = 1;
-end
-ax = gca; ax.YDir = 'reverse'; ax.Box = 'off';
-xlabel('Density (norm. to MOp)')
-legend(mouseIds)%%
-%%
-
-cmat = corr(densitiesuse);
-imagesc(cmat, [0 1]);
-ax = gca; ax.Colormap = magma;
-ax.XTickLabels = mouseIds;
-ax.YTickLabels = mouseIds;
-title('Correlation (all areas)')
-
-
-%%
-socidx     = (mean(densitiesuse(:, 1:2), 2) - mean(densitiesuse(:, 3:4), 2))./(mean(densitiesuse(:, 1:2), 2) + mean(densitiesuse(:, 3:4), 2));
-[~, isort] = sort(socidx, 'descend');
-
-plot(densitiesuse(isort,:))
-
-
-
-
-%%
-%%
-stmat                            = atlasTreeToMat(st);
-Nmax = numel(areacounts);
-%%
-areavolsuse     = areavols; % in mm3
-cells_per_group = areacounts;
-irem = cells_per_group<2;
-cells_per_group(irem) = [];
-areavolsuse(irem) = [];
-stgroups = stmat(1:Nmax, :);
-
-% % move one up
-% lastleaf   = findfirst(~isnan(stgroups),2,1,'last');
-% prevbranch = lastleaf - 1;
-% idxprev    = sub2ind(size(stgroups), find(prevbranch>0), prevbranch(prevbranch>0));
-% 
-% 
-% idxprev - 1
-
-groupstrs(irem) = [];

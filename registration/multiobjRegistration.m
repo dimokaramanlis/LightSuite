@@ -38,8 +38,11 @@ cptshistology = cptshistology(:, [2 1 3]);
 % we first bring the histology points back to the original space
 
 cptshistology = regopts.original_trans.transformPointsInverse(cptshistology);
-
 cptsatlas     = cptsatlas/regopts.downfac_reg;
+
+% cptsatlas     = (cptsatlas - 0.5)/regopts.downfac_reg + 0.5;
+
+
 % tform_aff     = fitAffineTrans3D(cptsatlas, cptshistology);
 % cpaffine      = tform_aff.transformPointsForward(cptsatlas);
 

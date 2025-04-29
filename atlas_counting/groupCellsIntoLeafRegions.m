@@ -11,7 +11,7 @@ linearIndicesL = sub2ind(size(annvol),  cellcoords(ileft, 2),  cellcoords(ileft,
 linearIndicesR = sub2ind(size(annvol), cellcoords(~ileft, 2), cellcoords(~ileft, 1), cellcoords(~ileft, 3));
 cellatlasidsR  = annvol(linearIndicesR);
 cellatlasidsL  = annvol(linearIndicesL);
-cellatlasids   = {cellatlasidsR, cellatlasidsL};
+cellatlasids   = {[find(~ileft) cellatlasidsR], [find(ileft) cellatlasidsL]};
 %--------------------------------------------------------------------------
 % calculate areas
 volumeareas = accumarray(reshape(annvol, numel(annvol), 1), 1, [Ngroups 1], @sum);

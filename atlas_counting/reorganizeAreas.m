@@ -73,7 +73,7 @@ iclassrem = contains(lower(st.name), 'cerebellum') |...
     contains(lower(st.name), 'ventricle');
 
 ikeeptype   = ~any(ismember(smat, st.id(find(iclassrem))), 2);
-ikeepvolume = volout > 0;
+ikeepvolume = volout > 1e-5;
 
 ikeep      = ikeepvolume; % & ikeeptype;
 cout  = cout(ikeep,  :);

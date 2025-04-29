@@ -1,7 +1,7 @@
-opts = struct();
+ opts = struct();
 %--------------------------------------------------------------------------
 % this is the stitched file path
-opts.mousename  = 'DK031';
+opts.mousename  = 'DK028';
 dpfind          = fullfile('F:\imaging', sprintf('%s*',opts.mousename), '**','*.tif');
 allfilesfind    = dir(dpfind);
 [allun, ~, iun] = unique({allfilesfind(:).folder}');
@@ -26,7 +26,8 @@ opts            = readLightsheetOpts(opts);
 [backvol, opts] = preprocessColmVolume(opts);
 % let's make sure the GPU can support our endeavor
 gpuDevice(1);
-peakvalsextract = extractCellsFromVolume(opts);
+peakvalsextract = extractCellsFromVolume(opts.fproc, opts);
+delete(opts.fproc)
 irand = randperm(size(peakvalsextract,1), 80000);
 scatter3(peakvalsextract(irand,1)*opts.pxsize(1),...
     peakvalsextract(irand,2)*opts.pxsize(2),...
@@ -63,83 +64,13 @@ backvolume       = readDownStack(fullfile(opts.savepath, 'sample_register_20um.t
 backvolareas     = backVolumeToAtlas(backvolume, transform_params);
 fsavename        = fullfile(opts.savepath, 'background_volume_areas.mat');
 save(fsavename, 'backvolareas') 
-
-
+% moveToAtlasTest(celllocs.cell_locations,backvolume, transform_params);
 %%
+
+% celllocs         = load(fullfile(opts.savepath,'cell_locations_atlas.mat'));
+% atlasptcoords = celllocs.atlasptcoords;
+
 nrand = min(size(atlasptcoords,1), 1e5);
 iplot = randperm(size(atlasptcoords,1),nrand);
 plotBrainGrid; hold on;
 scatter3(atlasptcoords(iplot,2),atlasptcoords(iplot,3),atlasptcoords(iplot,1),2,'filled','MarkerFaceAlpha',0.5)
-
-%%
-
-allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
-tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
-
-st = loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
-%%
-cleanatlaspts                    = sanitizeCellCoords(atlasptcoords, av);
-[areacounts, areavols, idcareas] = groupCellsIntoLeafRegions(cleanatlaspts, av);
-stmat                            = atlasTreeToMat(st);
-Nmax = numel(areacounts);
-%%
-groupstrs       = lower(table2cell(st(1:Nmax,4)));
-areavolsuse     = areavols; % in mm3
-cells_per_group = areacounts;
-irem = cells_per_group<2;
-cells_per_group(irem) = [];
-areavolsuse(irem) = [];
-stgroups = stmat(1:Nmax, :);
-
-% % move one up
-% lastleaf   = findfirst(~isnan(stgroups),2,1,'last');
-% prevbranch = lastleaf - 1;
-% idxprev    = sub2ind(size(stgroups), find(prevbranch>0), prevbranch(prevbranch>0));
-% 
-% 
-% idxprev - 1
-
-groupstrs(irem) = [];
-
-
-
-
-figure;
-Nshow = 50;
-cell_densities = cells_per_group./areavolsuse;
-% cell_densities = cells_per_group;
-
-[~, isortc] = sort(cell_densities, 'descend');
-bar(groupstrs(isortc(1:Nshow)), cell_densities(isortc(1:Nshow)))
-
-ivis = contains(groupstrs(isortc),'primary motor')|...
-    contains(groupstrs(isortc),'primary auditory')|...
-    contains(groupstrs(isortc),'motor')|...
-    contains(groupstrs(isortc),'primary visual');
-
-
-ivis = contains(groupstrs(isortc),'primary motor')|...
-    contains(groupstrs(isortc),'secondary motor')|...
-    contains(groupstrs(isortc),'prelimbic')|...
-    contains(groupstrs(isortc),'infralimbic')|...
-    contains(groupstrs(isortc),'cingulate');
-
-bar(groupstrs(isortc(ivis)), cell_densities(isortc(ivis)))
-ylabel('TRAP cell density (cells/mm^3)')
-%%
-
-avplot = ndSparse.build(cleanatlaspts(:,[2 1 3]), 1,size(av));
-avplot = single(full(avplot));
-avgauss = imgaussfilt3(avplot, 10);
-
-%%
-% extract 3d maxima over batches to generate candidate list
-% running over batches again
-% for each batch (+ overlap a bit), get brightest point, fit 3D Gaussian,
-% remove point from list and all points that are within 2sigma of that
-% Gaussian, and remove Gaussian from volume
-
-%%
-% for background imadjust(imflatfield(backsignal, 1000))
-
