@@ -1,7 +1,7 @@
  opts = struct();
 %--------------------------------------------------------------------------
 % this is the stitched file path
-opts.mousename  = 'DK028';
+opts.mousename  = 'YX017';
 dpfind          = fullfile('F:\imaging', sprintf('%s*',opts.mousename), '**','*.tif');
 allfilesfind    = dir(dpfind);
 [allun, ~, iun] = unique({allfilesfind(:).folder}');
@@ -53,17 +53,22 @@ transform_params = multiobjRegistration(opts, 0.2, usemultistep);
 %%
 transform_params = load(fullfile(opts.savepath, 'transform_params.mat'));
 
+% load and transform background volume
+backvolume                  = readDownStack(fullfile(opts.savepath, 'sample_register_20um.tif'));
+[backvolareas, areainds]    = backVolumeToAtlas(backvolume, transform_params);
+fsavename                   = fullfile(opts.savepath, 'background_volume_areas.mat');
+save(fsavename, 'backvolareas', 'areainds') 
+plot(backvolareas(:,1), backvolareas(:,2),'.',[0 20],[0 20])
+axis equal; xlim([0 20]); ylim([0 20])
+title(opts.mousename)
+
+%%
 % load and transform cell locations
 celllocs         = load(fullfile(opts.savepath,'cell_locations_sample.mat'));
 atlasptcoords    = volumePointsToAtlas(celllocs.cell_locations, transform_params);
 fsavename        = fullfile(opts.savepath, 'cell_locations_atlas.mat');
 save(fsavename, 'atlasptcoords') 
 
-% load and transform background volume
-backvolume       = readDownStack(fullfile(opts.savepath, 'sample_register_20um.tif'));
-backvolareas     = backVolumeToAtlas(backvolume, transform_params);
-fsavename        = fullfile(opts.savepath, 'background_volume_areas.mat');
-save(fsavename, 'backvolareas') 
 % moveToAtlasTest(celllocs.cell_locations,backvolume, transform_params);
 %%
 

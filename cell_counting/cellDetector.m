@@ -33,8 +33,10 @@ cinfo  = regionprops3(imgidx, gather(volumeuse),...
 %     imshowpair(uint8(volumeuse(:,:,ii)*255/thresSNR(1)),imgidx(:,:,ii));
 %     pause; 
 % end
-%--------------------------------------------------------------------------
-% improve equivalent diameter
+%-------------------------------------------------------------------------
+% improve equivalent diameter and cell filtering
+
+% [cellimages, cellproperties] = getCellImages2D(volumeuse, cinfo)
 
 % we find unique pairs of x-y pixels, take their sum as the area of the
 % cell, then find diameter. to remove z-blurring

@@ -10,16 +10,22 @@ iobs   = [14:16];
 
 % DK025, DK027 joint
 
-allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
-st = loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
+allen_atlas_path = fileparts(which('annotation_10.nii.gz'));
+av = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
+% st = loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
+parcelinfo  = readtable(fullfile(allen_atlas_path,'parcellation_to_parcellation_term_membership.csv'));
+[defaultdens, defaultinds] = standardAreaDensities();
 %%
 
-bkgthres = 0.5;
-Ngroups  = max(av, [], 'all');
-Nmice    = numel(mouseIds);
-groupstrs       = lower(table2cell(st(1:Ngroups,4)));
-groupstrsshort   = table2cell(st(1:Ngroups,5));
+bkgthres  = 0.5;
+groupinds = unique(parcelinfo.parcellation_index);
+isub      = contains(parcelinfo.parcellation_term_set_name, 'substructure');
+parcelred = sortrows(parcelinfo(isub,:),'parcellation_index');
+Ngroups   = numel(groupinds);
+
+Nmice           = numel(mouseIds);
+groupstrs       = lower(parcelred.parcellation_term_name);
+groupstrsshort  = lower(parcelred.parcellation_term_acronym);
 
 countsall = nan(Ngroups, 2, Nmice, 'single');
 bkgsigall = nan(Ngroups, 2, Nmice, 'single');
@@ -27,10 +33,9 @@ diametall = nan(Ngroups, 2, Nmice, 'single');
 
 locsall   = cell(Nmice, 1);
 for mouseid = 1:Nmice
-    atlasptcoords               = loadMouseAtlasPoints(mouseIds{mouseid});
-
+    atlasptcoords                    = loadMouseAtlasPoints(mouseIds{mouseid});
     cleanatlaspts                    = sanitizeCellCoords(atlasptcoords, av);
-    [areacounts, areavols, idcareas] = groupCellsIntoLeafRegions(cleanatlaspts, av);
+    [areacounts, areavols, idcareas] = groupCellsIntoLeafRegions(cleanatlaspts, av, groupinds);
 
     % diametall(:, 1, :) = accumarray(idcareas{1}(:,2), cleanatlaspts(idcareas{1}(:,1),4),[],@median);
     % diametall(:, 2, :) = accumarray(idcareas{2}(:,2), cleanatlaspts(idcareas{2}(:,1),4),[],@median);
@@ -45,16 +50,12 @@ for mouseid = 1:Nmice
     areacounts(bgcurr<bkgthres) = nan;
     countsall(:, :, mouseid)    = areacounts;
     locsall{mouseid} = cleanatlaspts;
-
+    fprintf('Loading cells and background from mouse %d/%d\n', mouseid, Nmice);
 end
 %%
 % plot overall stats
-irem                   = sum(countsall, [2 3]) == 0;
 countsplot             = countsall;
 bkgplot                = bkgsigall;
-countsplot(irem, :, :) = [];
-bkgplot(irem, :, :)    = [];
-
 
 %%
 f = figure;
@@ -129,16 +130,66 @@ signaluse = bkgsigall;
 countsuse(bkgsigall < 0.5) = nan;
 signaluse(signaluse < 0.5) = nan;
 
-[fullcounts, fullsignal, fullvols, fullst, fullnames] = ...
-    reorganizeAreas(countsuse, signaluse, areavols, st, 3);
+[fullcounts, fullsignal, fullvols, fullnames, fullinds] = ...
+    reorganizeAreas(countsuse, signaluse, areavols, parcelinfo, 'substructure');
 
-[groupcounts, groupsignal, groupvols, groupst, groupnames] = ...
-    reorganizeAreas(countsall, signaluse, areavols, st, 2);
+[groupcounts, groupsignal, groupvols, groupnames] = ...
+    reorganizeAreas(countsuse, signaluse, areavols, parcelinfo, 'structure');
 
-[coarsecounts, coarsesignal, coarsevols, stcoarse] = ...
-    reorganizeAreas(countsall, signaluse, areavols, st, 1);
+[coarsecounts, coarsesignal, coarsevols] = ...
+    reorganizeAreas(countsall, signaluse, areavols, parcelinfo, 'division');
 
 %%
+f = figure;
+f.Units = 'centimeters';
+f.Position = [2 2 45 16];
+Ncols  = ceil(Nmice/2);
+p = panel();
+p.pack('v', 2)
+for ii = 1:2
+    p(ii).pack('h', Ncols)
+end
+p.de.margin = 1;
+txtsize = 10;
+p.fontsize = txtsize;
+p.margin = [10 1 4 2];
+p.de.marginleft = 8;
+
+for imouse = 1:Nmice
+    
+    irow = floor((imouse-1)/Ncols)+1;
+    icol = mod(imouse - 1, Ncols) + 1;
+    p(irow, icol).select();
+
+    indkeep    = ismember(defaultinds, fullinds);
+    densplot   = defaultdens(indkeep, :);
+    [~, isort] = sort(fullinds, 'ascend');
+    currdensities = (fullcounts(isort,imouse)./fullvols(isort));
+    currdensities(currdensities<1e-2) = nan;
+
+    plot(log10(densplot(:,1)), log10(currdensities),'.', 'MarkerSize', 4)
+    axis square; xlim([4.2 6]); ylim([-1 5])
+    xticks([4.5 5 5.5 6]);yticks([0 3 5]);
+    title(mouseIds{imouse})
+    xlabel('log expected (cells/mm3)')
+    yticklabels([])
+    if icol == 1
+        ylabel('log measured (cells/mm3)')
+        yticklabels([0 3 5])
+    end
+    [rho, pval] = corr(currdensities,...
+        densplot,'Type','Spearman', 'Rows','pairwise');
+    % [rhoc, pval] = corr((fullcounts(indkeep,imouse)),...
+    %     fullsignal(indkeep,imouse)/mean(fullsignal(indkeep,imouse)),'Type','Spearman');
+    text(6, 0.2, sprintf('rho_{neu}  = %.2f', rho(1)), 'HorizontalAlignment', 'right')
+    text(6, -0.5, sprintf('rho_{exc} = %.2f', rho(2)), 'HorizontalAlignment', 'right')
+
+    glmfit()
+
+
+end
+%%
+
 f = figure;
 f.Units = 'centimeters';
 f.Position = [2 2 45 16];
@@ -182,6 +233,8 @@ for imouse = 1:Nmice
     text(5000, 0.08, sprintf('rho_{count} = %.2f', rhoc), 'HorizontalAlignment', 'right')
 
 end
+
+
 %%
 
 ilayer6a  = find(contains(lower(fullnames(:,1)),'layer 6a'));
@@ -245,7 +298,7 @@ fw = 30;
 fh = 22;
 f.Position = [1 1 fw fh];
 p = panel();
-p.pack( 4, 2)
+p.pack( 4, 3)
 
 txtsize = 10;
 p.margin = [18 16 1 3];
@@ -259,6 +312,7 @@ isolo  = [7:13];
 ijoint = [1:6];
 % isolo  = [7:11];
 % ijoint = [1:4];
+psurprise = surpriseKruskalWallis(groupdensities(:, ijoint), groupdensities(:, isolo));
 
 for ii = 1:numel(unnames)
     icol = floor((ii-1)/4) + 1;
@@ -266,32 +320,40 @@ for ii = 1:numel(unnames)
 
     ishow = iun == ii;
 
-    [acrosort,isort] = sort(groupst.acronym(ishow));
-    jointdens = median(groupdensities(ishow, ijoint), 2);
-    solodens  = median(groupdensities(ishow, isolo), 2);
-    obsdens  = median(groupdensities(ishow, iobs), 2);
+    [acrosort,isort] = sort(groupnames(ishow,2));
+    meanjoint = mean(groupdensities(ishow, ijoint), 2);
+    meansolo  = mean(groupdensities(ishow, isolo), 2);
+    stdall    = std(groupdensities(ishow, :), [], 2);
     jointdens = groupdensities(ishow, ijoint);
     solodens  = groupdensities(ishow, isolo);
     obsdens  = groupdensities(ishow, iobs);
+
+    indexplot  = (meanjoint - meansolo)./stdall;
+    indexplot  = psurprise(ishow);
 
     maxc = ceil(max([solodens jointdens],[],'all'));
 
     p(irow, icol).select(); cla;
 
     plot(1:nnz(ishow),jointdens(isort,:), 'r',1:nnz(ishow),solodens(isort,:), 'b')
+    plot(1:nnz(ishow), indexplot(isort), 'k')
+    line([1 nnz(ishow)], [0 0], 'LineStyle','--')
     % plot(1:nnz(ishow),jointdens(isort,:), 'r',1:nnz(ishow),solodens(isort,:), 'b',...
     %     1:nnz(ishow),obsdens(isort,:), 'g')
     ylabel(ytext)
     xticklabels(acrosort)
     xticks(1:nnz(ishow))
     ylim([0 maxc]); xlim([0.5 nnz(ishow)+1])
-    yticks([0 maxc/2 maxc])
+    yticks([0 maxc/2 maxc]);
+    ylim([-0.11 2.5]); ylabel('k-w surprise');yticks([-2 -1 0 1 2]);
     ax = gca; ax.Box = 'off'; ax.XTickLabelRotation = 90;
-    text(1, maxc*0.9, unnames{ii})
+    ymax = ylim;ymax = ymax(2);
+        text(1, ymax*0.9, unnames{ii})
+
     if ii == 5
-        text(  nnz(ishow), maxc*0.8,sprintf('Solo (N = %d)', numel(isolo)),...
+        text(  nnz(ishow), ymax*0.8,sprintf('Solo (N = %d)', numel(isolo)),...
             'HorizontalAlignment','right', 'FontSize', txtsize-1, 'Color','b')
-        text(  nnz(ishow), maxc*0.7,sprintf('Joint (N = %d)', numel(ijoint)),...
+        text(  nnz(ishow), ymax*0.7,sprintf('Joint (N = %d)', numel(ijoint)),...
             'HorizontalAlignment','right', 'FontSize', txtsize-1, 'Color','r')
          % text(  nnz(ishow), maxc*0.6,sprintf('Obs. (N = %d)', numel(iobs)),...
          %    'HorizontalAlignment','right', 'FontSize', txtsize-1, 'Color','g')

@@ -5,18 +5,18 @@ function params_pts_to_atlas = multiobjRegistration(opts, contol_point_wt, usemu
 %==========================================================================
 % read reg volume and control points
 volpath = dir(fullfile(opts.savepath,'*20um.tif'));
-cppath  = dir(fullfile(opts.savepath,'*tform.mat'));
+cppath   = dir(fullfile(opts.savepath,'*tform.mat'));
 optspath = dir(fullfile(opts.savepath,'*regopts.mat'));
 
 % load volume and control points
-dp      = fullfile(volpath.folder, volpath.name);
-dpcp    = fullfile(cppath.folder,   cppath.name);
-dpopts  = fullfile(optspath.folder,   optspath.name);
+dp       = fullfile(volpath.folder, volpath.name);
+dpcp     = fullfile(cppath.folder,   cppath.name);
+dpopts   = fullfile(optspath.folder,   optspath.name);
 
-volume  = readDownStack(dp);
-cpdata  = load(dpcp);
-regopts = load(dpopts);
-regopts = regopts.opts;
+volume   = readDownStack(dp);
+cpdata   = load(dpcp);
+regopts  = load(dpopts);
+regopts  = regopts.opts;
 
 % we permute the volume to match atlas
 volume  = permute(volume, regopts.permute_sample_to_atlas);
