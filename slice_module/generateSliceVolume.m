@@ -66,52 +66,46 @@ for ifile = 1:Nfiles
 end
 %--------------------------------------------------------------------------
 % volume is reduced to save space
-sizerem             = floor(min(padvalues, [], 2)/4)*2;
-keepx               = (sizerem(2)/2+1):(size_proc(2) - sizerem(2)/2);
-keepy               = (sizerem(1)/2+1):(size_proc(1) - sizerem(1)/2);
-slicevol            = slicevol(keepy, keepx, :, :);
-size_proc           = size_proc - sizerem';
-sliceinfo.size_proc = size_proc;
-
-sliceinfo.backvalues  = backvalues;
+sizerem              = floor(min(padvalues, [], 2)/4)*2;
+keepx                = (sizerem(2)/2+1):(size_proc(2) - sizerem(2)/2);
+keepy                = (sizerem(1)/2+1):(size_proc(1) - sizerem(1)/2);
+slicevol             = slicevol(keepy, keepx, :, :);
+size_proc            = size_proc - sizerem';
+sliceinfo.size_proc  = size_proc;
+sliceinfo.backvalues = backvalues;
 %--------------------------------------------------------------------------
 % save volume for processing
 fprintf('Saving volume after centering... '); tic;
-dpsave = fullfile(sliceinfo.procpath, 'volume_centered.tiff');
 options.compress = 'lzw';
 options.message  = false;
 options.color    = true;
 options.big      = true;
 
-if exist(dpsave, 'file')
-    delete(dpsave);
+if exist( sliceinfo.slicevol, 'file')
+    delete( sliceinfo.slicevol);
 end
-saveastiff(slicevol, dpsave, options);
+saveastiff(slicevol,  sliceinfo.slicevol, options);
 fprintf('Done! Took %2.2f s\n', toc);
 %--------------------------------------------------------------------------
 % save volume for ordering
-dpsaveorder = fullfile(sliceinfo.procpath, 'volume_for_ordering.tiff');
-volproc     = squeeze(slicevol(:, :, 1, :));
 scalesize   = [ceil(size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
-volproc     = imresize3(volproc, scalesize);
-backproc    = reshape(single(backvalues(1, :)), [1 1 sliceinfo.Nslices]);
-volproc     = (single(volproc) - backproc)./backproc;
-maxval      = quantile(volproc, 0.999, 'all');
-volproc     = uint8(255*volproc/maxval);
-
-options.compress = 'lzw';
-options.message  = false;
-options.color    = false;
-options.big      = false;
-
-if exist(dpsaveorder, 'file')
-    delete(dpsaveorder);
+volproc     = zeros([scalesize(1:2) 3 scalesize(3)], 'uint8');
+chansmap    = [3 2 1];
+for ich = 1:Nchannels
+    currchan    = squeeze(slicevol(:, :, ich, :));
+    currchan    = imresize3(currchan, scalesize);
+    backproc    = reshape(single(backvalues(ich, :)), [1 1 sliceinfo.Nslices]);
+    currchan    = (single(currchan) - backproc)./backproc;
+    maxval      = quantile(currchan, 0.999, 'all');
+    volproc(:, :, chansmap(ich), :) = uint8(255*currchan/maxval);
 end
-saveastiff(volproc, dpsaveorder, options);
+options.big      = false;
+if exist(sliceinfo.volorder, 'file')
+    delete(sliceinfo.volorder);
+end
+saveastiff(volproc, sliceinfo.volorder, options);
 %--------------------------------------------------------------------------
 % let's also save the information file
-sliceinfo.volorder = dpsaveorder;
-sliceinfo.slicevol = dpsave;
 dpsliceinfo = fullfile(sliceinfo.procpath, 'sliceinfo.mat');
 save(dpsliceinfo, 'sliceinfo')
 %--------------------------------------------------------------------------

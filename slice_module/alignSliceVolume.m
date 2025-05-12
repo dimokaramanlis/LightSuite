@@ -28,13 +28,17 @@ fprintf('Standardizing and filtering volume... '); tic;
 ireg = 1;
 scalefilter = 100/sliceinfo.px_process;
 volregister = squeeze(slicevol(:, :, ireg, :));
-volregister = single(gpuArray(volregister));
+if sliceinfo.use_gpu
+    volregister = single(gpuArray(volregister));
+else
+    volregister = single(volregister);
+end
 bval        = median(single(sliceinfo.backvalues(ireg,:)));
 volregister = (volregister - bval)/bval;
 volregister(volregister<0) = 0;
 
 % we perform spatial bandpass filtering
-imhigh       = spatial_bandpass(volregister, scalefilter, 3, 3, true);
+imhigh       = spatial_bandpass(volregister, scalefilter, 3, 3, sliceinfo.use_gpu);
 thresuse     = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
 idxcp        = find(imhigh>thresuse);
 fprintf('Done! Took %2.2f s\n', toc); 
@@ -43,24 +47,24 @@ fprintf('Calculating point clouds... '); tic;
 % we find all points above threshold
 [row,col,slice] = ind2sub(size(imhigh), idxcp);
 [~, ~, ic]      = unique(slice);
-ptsperslice     = accumarray(ic, 1, [sliceinfo.Nslices 1], @sum);
-Nperslice       = median(ptsperslice);
 Nregister       = 1200;
-downfac         = gather(floor(Nperslice/Nregister));
-randomfac       = Nregister/Nperslice;
 rng(1);
 allclouds       = cell(sliceinfo.Nslices, 1); % second dimension is flipped
 sigmause        = sliceinfo.slicethickness/sliceinfo.px_process/4;
 
 for ii = 1:sliceinfo.Nslices
-    idxcurr     = ic == ii;
-    currx       = gather(col(idxcurr));
-    curry       = gather(row(idxcurr));
+    idxcurr     = ic == ii; 
+    currx       = col(idxcurr);
+    curry       = row(idxcurr);
+    if sliceinfo.use_gpu
+        currx       = gather(currx);
+        curry       = gather(curry);
+    end
+
     randz       = randn(nnz(idxcurr), 1)*sigmause;
 
     Npts      = nnz(idxcurr);
     randomfac = Nregister/Npts;
-    downfac   = gather(floor(Nperslice/Nregister));
 
     pccurr        = pointCloud([currx curry randz]);
     allclouds{ii} = pcdownsample(pccurr,     'random', randomfac, 'PreserveStructure', true);

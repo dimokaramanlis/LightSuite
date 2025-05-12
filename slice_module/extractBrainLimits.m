@@ -16,7 +16,7 @@ signalx   = signalx(:);
 
 
 minxsig   = signalx(1:round(nx*minperc));
-xmin      = findfirst(flip(minxsig)<2);
+xmin      = find(flip(minxsig)<2, 1, 'first'); %findfirst(flip(minxsig)<2);
 if xmin > 0
     xmin      = numel(minxsig) - xmin;
 else
@@ -24,7 +24,7 @@ else
 end
 
 minysig   = signaly(1:round(ny*minperc));
-ymin      = findfirst(flip(minysig)<2);
+ymin      = find(flip(minysig)<2,1,'first'); %findfirst(flip(minysig)<2);
 if ymin > 0
     ymin      = numel(minysig) - ymin;
 else
@@ -32,7 +32,7 @@ else
 end
 
 maxxsig   = signalx(round(maxperc*nx):end);
-xmax      = findfirst(maxxsig<2);
+xmax      = find(maxxsig<2, 1, 'first'); %findfirst(maxxsig<2);
 if xmax > 0
     xmax      = round(nx*maxperc) + xmax;
 else
@@ -40,7 +40,7 @@ else
 end
 
 maxysig   = signaly(round(maxperc*ny):end);
-ymax      = findfirst(maxysig<2);
+ymax      = find(maxysig<2, 1, 'first'); %findfirst(maxysig<2);
 if ymax > 0
     ymax      = round(ny*maxperc) + ymax;
 else

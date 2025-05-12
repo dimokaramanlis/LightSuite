@@ -1,14 +1,14 @@
-function sliceinfo = getSliceInfo(filepaths)
+function sliceinfo = getSliceInfo(sliceinfo)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
-
-sliceinfo = struct();
-Nfiles    = numel(filepaths);
+dp        = fileparts(sliceinfo.filepaths{1});
+procpath  = fullfile(dp, 'lightsuite'); makeNewDir(procpath);
+Nfiles    = numel(sliceinfo.filepaths);
 allsizes  = cell(Nfiles, 2);
 
 for ifile = 1:Nfiles
-    dataim = BioformatsImage(filepaths{ifile});
+    dataim = BioformatsImage(sliceinfo.filepaths{ifile});
 
     %select relevant series
     Nseries = dataim.seriesCount;
@@ -33,10 +33,14 @@ sliceinfo.maxsize    = flip(max(cat(1, allsizes{:,1})));
 sliceinfo.Nslices    = sum(cellfun(@numel, allsizes(:,2)));
 sliceinfo.sliceinds  = allsizes;
 sliceinfo.pxsize     = dataim.pxSize;
-sliceinfo.filepaths  = filepaths;
 
-dataim               = BioformatsImage(filepaths{ifile});
+dataim               = BioformatsImage(sliceinfo.filepaths{ifile});
 dataim.series        = allsizes{ifile,2}(end);
 sliceinfo.channames  = dataim.channelNames;
+sliceinfo.procpath   = procpath;
+
+sliceinfo.volorder = fullfile(sliceinfo.procpath, 'volume_for_ordering.tiff');
+sliceinfo.slicevol = fullfile(sliceinfo.procpath, 'volume_centered.tiff');
+
 
 end
