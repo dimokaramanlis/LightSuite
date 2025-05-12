@@ -26,3 +26,9 @@ sliceinfo  = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
 sliceinfo  = sliceinfo.sliceinfo;
 sliceinfo.use_gpu  = true;
 alignedvol = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
+
+%% (auto) we find the atlas correspondence of our volume
+% IN PROGRESS!!!!
+% we load the atlas and get points on it
+
+bulkAlignToAllen()

@@ -1,0 +1,18 @@
+function ptcloud = extractHighSFVolumePoints(voluse, pxsize)
+%EXTRACTMATCHINGGAUSSIAN Summary of this function goes here
+%   Detailed explanation goes here
+
+
+scalefilter = 100/pxsize;
+imhigh     = spatial_bandpass_3d(voluse, scalefilter, 3, 3, true);
+ptthres    = quantile(imhigh, 0.999, 'all')/2;
+ipts       = find(imhigh>ptthres);
+[rr,cc,dd] = ind2sub(size(voluse), ipts);
+X          = [cc,rr,dd];
+ptcloud    = pointCloud(X);
+Npts       = numel(cc);
+ptcloud    = pcdownsample(ptcloud,'random', 10000/Npts, 'PreserveStructure',true);
+
+ % scatter3(ptcloud.Location(:,1),ptcloud.Location(:,2),ptcloud.Location(:,3),2)
+end
+
