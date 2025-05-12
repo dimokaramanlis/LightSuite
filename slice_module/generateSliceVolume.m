@@ -1,0 +1,119 @@
+function [slicevol,sliceinfo] = generateSliceVolume(sliceinfo)
+%GENERATESLICEVOLUME Summary of this function goes here
+%   Detailed explanation goes here
+
+medfiltwidth = 2*ceil((2./sliceinfo.pxsize)/2) + 1;
+scalefac     = sliceinfo.pxsize./sliceinfo.px_process;
+Nbuff        = ceil(200/sliceinfo.px_process); % 200um for buffer size
+size_proc    = ceil(sliceinfo.maxsize.*scalefac);
+size_proc    = size_proc - 2*Nbuff;
+Nchannels    = numel(sliceinfo.channames);
+idx          = 1;
+regchan      = find(strcmp(sliceinfo.channames, 'DAPI'));
+if isempty(regchan)
+    regchan      = find(strcmp(sliceinfo.channames, 'Cy3'));
+end
+chanids             = 1:Nchannels;
+chanids(regchan)    = [];
+chanids             = [regchan chanids];
+sliceinfo.channames = sliceinfo.channames(chanids);
+
+slicevol     = zeros([size_proc Nchannels sliceinfo.Nslices], 'uint16');
+backvalues   = zeros([Nchannels sliceinfo.Nslices], 'uint16');
+padvalues    = zeros([2 sliceinfo.Nslices]); % for removing later
+xrange       = 1:size_proc(2);
+yrange       = 1:size_proc(1);
+Nfiles       = numel(sliceinfo.filepaths);
+
+fprintf('Generating the slice volume by centering slices...\n')
+slicetimer   = tic; msg = [];
+for ifile = 1:Nfiles
+    dataim = BioformatsImage(sliceinfo.filepaths{ifile});
+    irel   = sliceinfo.sliceinds{ifile, 2};
+    Nscenes = numel(irel);
+    for iscene = 1:Nscenes
+        dataim.series = irel(iscene);
+        %------------------------------------------------------------------
+        for icol = 1:Nchannels
+            currim   = dataim.getPlane(1, chanids(icol), 1, irel(iscene));
+            currim   = medfilt2(currim, medfiltwidth);
+            currim   = imresize(currim, scalefac(1));
+            backval  = quantile(currim(currim>0), 0.01, 'all');
+            if icol == 1
+                [xrange, yrange] = extractBrainLimits(currim, Nbuff);
+            end
+
+            currim   = currim(yrange,xrange);
+            currsize = size(currim);
+            padpx    = size_proc - currsize;
+            padleft  = floor(padpx/2);
+            currim   = padarray(currim, padleft, backval, 'pre');
+            currim   = padarray(currim, padpx - padleft, backval, 'post');
+            slicevol(:, :, icol, idx) = currim;
+            backvalues(icol, idx)     = backval;
+        end
+        padvalues(:, idx) = padpx;
+        %------------------------------------------------------------------
+        fprintf(repmat('\b', 1, numel(msg)));
+        msg = sprintf('Slice %d/%d. Time/slice %2.2f s. Time elapsed %2.2f s...\n', ...
+            idx, sliceinfo.Nslices, toc(slicetimer)/idx, toc(slicetimer));
+        fprintf(msg);
+        %------------------------------------------------------------------
+        idx = idx + 1;
+        %------------------------------------------------------------------
+    end
+
+end
+%--------------------------------------------------------------------------
+% volume is reduced to save space
+sizerem             = floor(min(padvalues, [], 2)/4)*2;
+keepx               = (sizerem(2)/2+1):(size_proc(2) - sizerem(2)/2);
+keepy               = (sizerem(1)/2+1):(size_proc(1) - sizerem(1)/2);
+slicevol            = slicevol(keepy, keepx, :, :);
+size_proc           = size_proc - sizerem';
+sliceinfo.size_proc = size_proc;
+
+sliceinfo.backvalues  = backvalues;
+%--------------------------------------------------------------------------
+% save volume for processing
+fprintf('Saving volume after centering... '); tic;
+dpsave = fullfile(sliceinfo.procpath, 'volume_centered.tiff');
+options.compress = 'lzw';
+options.message  = false;
+options.color    = true;
+options.big      = true;
+
+if exist(dpsave, 'file')
+    delete(dpsave);
+end
+saveastiff(slicevol, dpsave, options);
+fprintf('Done! Took %2.2f s\n', toc);
+%--------------------------------------------------------------------------
+% save volume for ordering
+dpsaveorder = fullfile(sliceinfo.procpath, 'volume_for_ordering.tiff');
+volproc     = squeeze(slicevol(:, :, 1, :));
+scalesize   = [ceil(size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
+volproc     = imresize3(volproc, scalesize);
+backproc    = reshape(single(backvalues(1, :)), [1 1 sliceinfo.Nslices]);
+volproc     = (single(volproc) - backproc)./backproc;
+maxval      = quantile(volproc, 0.999, 'all');
+volproc     = uint8(255*volproc/maxval);
+
+options.compress = 'lzw';
+options.message  = false;
+options.color    = false;
+options.big      = false;
+
+if exist(dpsaveorder, 'file')
+    delete(dpsaveorder);
+end
+saveastiff(volproc, dpsaveorder, options);
+%--------------------------------------------------------------------------
+% let's also save the information file
+sliceinfo.volorder = dpsaveorder;
+sliceinfo.slicevol = dpsave;
+dpsliceinfo = fullfile(sliceinfo.procpath, 'sliceinfo.mat');
+save(dpsliceinfo, 'sliceinfo')
+%--------------------------------------------------------------------------
+end
+

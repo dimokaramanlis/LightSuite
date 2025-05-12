@@ -1,6 +1,12 @@
-function saveLightsheetVolume(volsave, savepath)
+function saveLightsheetVolume(volsave, savepath, varargin)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
+
+if nargin < 3
+    bitspersample = 8;
+else
+    bitspersample = varargin{1};
+end
 
 % Create a Tiff object
 t = Tiff(savepath, 'w');
@@ -9,7 +15,7 @@ t = Tiff(savepath, 'w');
 tagstruct.ImageLength = size(volsave, 1);
 tagstruct.ImageWidth = size(volsave, 2);
 tagstruct.Photometric = Tiff.Photometric.MinIsBlack;
-tagstruct.BitsPerSample = 8;
+tagstruct.BitsPerSample = bitspersample;
 tagstruct.SamplesPerPixel = 1;
 tagstruct.RowsPerStrip = 16;
 tagstruct.PlanarConfiguration = Tiff.PlanarConfiguration.Chunky;

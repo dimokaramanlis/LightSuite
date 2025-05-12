@@ -1,0 +1,128 @@
+function [processvol, sliceinfo] = alignSliceVolume(slicevol, sliceinfo)
+%ALIGNSLICEVOLUME Summary of this function goes here
+%   Detailed explanation goes here
+%--------------------------------------------------------------------------
+if ~isnumeric(slicevol)
+    % it is a path and we have to load it as a path
+    assert(isstring(slicevol) | ischar(slicevol))
+    slicevol = readDownStack(slicevol);
+end
+%--------------------------------------------------------------------------
+% we first reorder the data volume
+orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisions.txt');
+if exist(orderfile, "file")
+    tabledecisions = readtable(orderfile);
+    sliceorder     = tabledecisions.NewOrderOriginalIndex;
+    flipsdo        = logical(tabledecisions.FlipState);
+else
+    sliceorder = 1:sliceinfo.Nslices;
+    flipsdo    = false(size(sliceorder));
+end
+slicevol(:, :, :, flipsdo) = flip(slicevol(:, :, :, flipsdo), 2);
+slicevol                   = slicevol(:, :, :, sliceorder);
+
+Nchans   = size(slicevol, 3);
+%--------------------------------------------------------------------------
+fprintf('Standardizing and filtering volume... '); tic;
+% we standarding the volume values
+ireg = 1;
+scalefilter = 100/sliceinfo.px_process;
+volregister = squeeze(slicevol(:, :, ireg, :));
+volregister = single(gpuArray(volregister));
+bval        = median(single(sliceinfo.backvalues(ireg,:)));
+volregister = (volregister - bval)/bval;
+volregister(volregister<0) = 0;
+
+% we perform spatial bandpass filtering
+imhigh       = spatial_bandpass(volregister, scalefilter, 3, 3, true);
+thresuse     = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
+idxcp        = find(imhigh>thresuse);
+fprintf('Done! Took %2.2f s\n', toc); 
+%--------------------------------------------------------------------------
+fprintf('Calculating point clouds... '); tic;
+% we find all points above threshold
+[row,col,slice] = ind2sub(size(imhigh), idxcp);
+[~, ~, ic]      = unique(slice);
+ptsperslice     = accumarray(ic, 1, [sliceinfo.Nslices 1], @sum);
+Nperslice       = median(ptsperslice);
+Nregister       = 1200;
+downfac         = gather(floor(Nperslice/Nregister));
+randomfac       = Nregister/Nperslice;
+rng(1);
+allclouds       = cell(sliceinfo.Nslices, 1); % second dimension is flipped
+sigmause        = sliceinfo.slicethickness/sliceinfo.px_process/4;
+
+for ii = 1:sliceinfo.Nslices
+    idxcurr     = ic == ii;
+    currx       = gather(col(idxcurr));
+    curry       = gather(row(idxcurr));
+    randz       = randn(nnz(idxcurr), 1)*sigmause;
+
+    Npts      = nnz(idxcurr);
+    randomfac = Nregister/Npts;
+    downfac   = gather(floor(Nperslice/Nregister));
+
+    pccurr        = pointCloud([currx curry randz]);
+    allclouds{ii} = pcdownsample(pccurr,     'random', randomfac, 'PreserveStructure', true);
+end
+fprintf('Done! Took %2.2f s\n', toc); 
+%--------------------------------------------------------------------------
+% we here calculate alignments between slices
+itemplate = ceil(sliceinfo.Nslices/2);
+fprintf('==================Alignment forward pass==================\n')
+indsforward  = itemplate:sliceinfo.Nslices;
+transformsforward = alignConsecutiveSlices(allclouds, indsforward);
+fprintf('==================Alignment backward pass==================\n')
+indsbackwards = itemplate:-1:1;
+transformsbackward = alignConsecutiveSlices(allclouds, indsbackwards);
+%--------------------------------------------------------------------------
+fprintf('Applying the transformations to generate aligned volume... '); tic;
+% we then apply the transforms to the volume
+processvol   = slicevol;
+processvol(:, :, :, indsforward)  = applyConsecutiveTransforms(slicevol, ...
+    indsforward, transformsforward, median(sliceinfo.backvalues,2));
+processvol(:, :, :, indsbackwards) = applyConsecutiveTransforms(slicevol, ...
+    indsbackwards, transformsbackward, median(sliceinfo.backvalues,2));
+fprintf('Done! Took %2.2f s\n', toc); 
+%--------------------------------------------------------------------------
+fprintf('Saving aligned volume... '); tic;
+
+dpsave       = fullfile(sliceinfo.procpath, 'volume_aligned_for_processing.tiff');
+
+options.compress = 'lzw';
+options.message  = false;
+options.color    = true;
+options.big      = true;
+
+if exist(dpsave, 'file')
+    delete(dpsave);
+end
+saveastiff(processvol, dpsave, options);
+fprintf('Done! Took %2.2f s\n', toc); 
+%--------------------------------------------------------------------------
+fprintf('Generating downsampled volume and saving... '); tic;
+
+dpsavelowres = fullfile(sliceinfo.procpath, 'volume_for_inspection.tiff');
+scalesize    = [ceil(sliceinfo.size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
+voldown      = zeros([scalesize(1:2) Nchans scalesize(3)], 'uint8');
+for ichan = 1:Nchans
+    volproc     = imresize3(squeeze(processvol(:, :, ichan, :)), scalesize);
+    backproc    = single(median(sliceinfo.backvalues(ichan, :)));
+    volproc     = (single(volproc) - backproc)./backproc;
+    maxval      = quantile(volproc, 0.999, 'all');
+    voldown(:, :, ichan, :) =  uint8(255*volproc/maxval);
+end
+
+options.compress = 'lzw';
+options.message  = false;
+options.color    = true;
+options.big      = false;
+
+if exist(dpsavelowres, 'file')
+    delete(dpsavelowres);
+end
+saveastiff(voldown, dpsavelowres, options);
+fprintf('Done! Took %2.2f s\n', toc); 
+%--------------------------------------------------------------------------
+end
+

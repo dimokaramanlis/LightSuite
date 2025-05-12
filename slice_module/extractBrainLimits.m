@@ -1,52 +1,103 @@
-function [xrange, yrange] = extractBrainLimits(currslice)
+function [xrange, yrange] = extractBrainLimits(currslice, Nbuff)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 
-[ny, nx] = size(currslice);
-signaly = single(max(currslice(:, round(nx*0.2):round(nx*0.8)), [], 2));
-signalx = single(max(currslice(round(ny*0.2):round(ny*0.8), :), [], 1));
+currslice = single(currslice);
+backval   = quantile(currslice(currslice>0), 0.01, 'all');
+[ny, nx]  = size(currslice);
+currslice = (currslice - backval)./backval;
+minperc   = 0.25;
+maxperc   = 0.75;
 
-xmin = findchangepts(signalx(1:round(nx*0.2)), 'MaxNumChanges',1);
-if isempty(xmin)
-    xmin = findchangepts(signalx(1:round(nx*0.2)), 'MaxNumChanges',2);
-    if ~isempty(xmin)
-        xmin = xmin(2);
-    else
-        xmin = 1;
-    end
+signaly   = single(max(currslice(:, round(nx*0.2):round(nx*0.8)), [], 2));
+signaly   = signaly(:);
+signalx   = single(max(currslice(round(ny*0.2):round(ny*0.8), :), [], 1));
+signalx   = signalx(:);
+
+
+minxsig   = signalx(1:round(nx*minperc));
+xmin      = findfirst(flip(minxsig)<2);
+if xmin > 0
+    xmin      = numel(minxsig) - xmin;
+else
+    xmin = 1;
 end
 
-xmax      = findchangepts(signalx(round(nx*0.8):end), 'MaxNumChanges',1);
-if isempty(xmax) 
-    xmax = findchangepts(signalx(round(nx*0.8):end), 'MaxNumChanges',2);
-    if ~isempty(xmax)
-        xmax = xmax(1);
-    else
-        xmax = nx;
-    end
+minysig   = signaly(1:round(ny*minperc));
+ymin      = findfirst(flip(minysig)<2);
+if ymin > 0
+    ymin      = numel(minysig) - ymin;
+else
+    ymin = 1;
 end
 
-ymin = findchangepts(signaly(1:round(ny*0.2)), 'MaxNumChanges',1);
-if isempty(ymin)
-    ymin = findchangepts(signaly(1:round(ny*0.2)), 'MaxNumChanges',2);
-    if ~isempty(ymin)
-        ymin = ymin(2);
-    else
-        ymin = 1;
-    end
+maxxsig   = signalx(round(maxperc*nx):end);
+xmax      = findfirst(maxxsig<2);
+if xmax > 0
+    xmax      = round(nx*maxperc) + xmax;
+else
+    xmax = nx;
 end
 
-ymax = findchangepts(signaly(round(ny*0.8):end), 'MaxNumChanges',1);
-if isempty(ymax)
-    ymax = findchangepts(signaly(round(ny*0.8):end), 'MaxNumChanges',2);
-    if ~isempty(ymax)
-        ymax = ymax(1);
-    else
-        ymax = ny;
-    end
+maxysig   = signaly(round(maxperc*ny):end);
+ymax      = findfirst(maxysig<2);
+if ymax > 0
+    ymax      = round(ny*maxperc) + ymax;
+else
+    ymax = ny;
 end
 
 
-xrange  = [xmin round(nx*0.8) + xmax];
-yrange  = [ymin round(ny*0.8)+ymax];
+% 
+% 
+% xmin = findchangepts(signalx(1:round(nx*0.2)), 'MaxNumChanges',1);
+% if isempty(xmin)
+%     xmin = findchangepts(signalx(1:round(nx*0.2)), 'MaxNumChanges',2);
+%     if ~isempty(xmin)
+%         xmin = xmin(2);
+%     else
+%         xmin = 1;
+%     end
+% end
+% 
+% xmax      = findchangepts(signalx(round(nx*0.8):end), 'MaxNumChanges',1);
+% if isempty(xmax) 
+%     xmax = findchangepts(signalx(round(nx*0.8):end), 'MaxNumChanges',2);
+%     if ~isempty(xmax)
+%         xmax = xmax(1);
+%     else
+%         xmax = nx;
+%     end
+% end
+% 
+% ymin = findchangepts(signaly(1:round(ny*0.2)), 'MaxNumChanges',1);
+% if isempty(ymin)
+%     ymin = findchangepts(signaly(1:round(ny*0.2)), 'MaxNumChanges',2);
+%     if ~isempty(ymin)
+%         ymin = ymin(2);
+%     else
+%         ymin = 1;
+%     end
+% end
+% 
+% ymax = findchangepts(signaly(round(ny*0.8):end), 'MaxNumChanges',1);
+% if isempty(ymax)
+%     ymax = findchangepts(signaly(round(ny*0.8):end), 'MaxNumChanges',2);
+%     if ~isempty(ymax)
+%         ymax = ymax(1);
+%     else
+%         ymax = ny;
+%     end
+% end
+% 
+
+xrange  = [xmin xmax];
+yrange  = [ymin ymax];
+
+
+yrange = yrange(1)-Nbuff:yrange(2)+Nbuff;
+xrange = xrange(1)-Nbuff:xrange(2)+Nbuff;
+yrange(yrange<1 | yrange > ny) = [];
+xrange(xrange<1 | xrange > nx) = [];
+
 end

@@ -28,11 +28,15 @@ for ifile = 1:Nfiles
     allsizes{ifile, 2} = irel;
 end
 
+
 sliceinfo.maxsize    = flip(max(cat(1, allsizes{:,1})));
 sliceinfo.Nslices    = sum(cellfun(@numel, allsizes(:,2)));
 sliceinfo.sliceinds  = allsizes;
-sliceinfo.channames  = dataim.channelNames;
 sliceinfo.pxsize     = dataim.pxSize;
+sliceinfo.filepaths  = filepaths;
 
+dataim               = BioformatsImage(filepaths{ifile});
+dataim.series        = allsizes{ifile,2}(end);
+sliceinfo.channames  = dataim.channelNames;
 
 end
