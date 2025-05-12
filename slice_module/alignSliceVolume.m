@@ -2,11 +2,13 @@ function [slicevol, sliceinfo] = alignSliceVolume(slicevol, sliceinfo)
 %ALIGNSLICEVOLUME Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
+fprintf('Loading data in memory... '); tic;
 if ~isnumeric(slicevol)
     % it is a path and we have to load it as a path
     assert(isstring(slicevol) | ischar(slicevol))
     slicevol = readDownStack(slicevol);
 end
+fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
 % we first reorder the data volume
 orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisions.txt');
