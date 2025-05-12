@@ -82,10 +82,9 @@ transformsbackward = alignConsecutiveSlices(allclouds, indsbackwards);
 %--------------------------------------------------------------------------
 fprintf('Applying the transformations to generate aligned volume... '); tic;
 % we then apply the transforms to the volume
-processvol   = slicevol;
-processvol(:, :, :, indsforward)  = applyConsecutiveTransforms(slicevol, ...
+slicevol(:, :, :, indsforward)  = applyConsecutiveTransforms(slicevol, ...
     indsforward, transformsforward, median(sliceinfo.backvalues,2));
-processvol(:, :, :, indsbackwards) = applyConsecutiveTransforms(slicevol, ...
+slicevol(:, :, :, indsbackwards) = applyConsecutiveTransforms(slicevol, ...
     indsbackwards, transformsbackward, median(sliceinfo.backvalues,2));
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
@@ -110,7 +109,7 @@ dpsavelowres = fullfile(sliceinfo.procpath, 'volume_for_inspection.tiff');
 scalesize    = [ceil(sliceinfo.size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
 voldown      = zeros([scalesize(1:2) Nchans scalesize(3)], 'uint8');
 for ichan = 1:Nchans
-    volproc     = imresize3(squeeze(processvol(:, :, ichan, :)), scalesize);
+    volproc     = imresize3(squeeze(slicevol(:, :, ichan, :)), scalesize);
     backproc    = single(median(sliceinfo.backvalues(ichan, :)));
     volproc     = (single(volproc) - backproc)./backproc;
     maxval      = quantile(volproc, 0.999, 'all');
