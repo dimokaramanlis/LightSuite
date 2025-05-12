@@ -102,7 +102,7 @@ options.big      = true;
 if exist(dpsave, 'file')
     delete(dpsave);
 end
-saveastiff(processvol, dpsave, options);
+saveastiff(slicevol, dpsave, options);
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
 fprintf('Generating downsampled volume and saving... '); tic;
