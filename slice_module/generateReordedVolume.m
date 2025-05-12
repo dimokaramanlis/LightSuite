@@ -12,12 +12,12 @@ else
     flipsdo    = false(size(sliceorder));
 end
 volread                = readDownStack(sliceinfo.volorder);
-volread(:, :, flipsdo) = flip(volread(:, :, flipsdo), 2);
-volread                = volread(:, :, sliceorder);
+volread(:, :, :, flipsdo) = flip(volread(:, :, :, flipsdo), 2);
+volread                = volread(:, :, :, sliceorder);
 
 options.compress = 'lzw';
 options.message  = false;
-options.color    = false;
+options.color    = true;
 options.big      = false;
 dpsaveorder      = fullfile(sliceinfo.procpath, 'volume_ordered.tiff');
 if exist(dpsaveorder, 'file')

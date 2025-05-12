@@ -91,7 +91,7 @@ fprintf('Done! Took %2.2f s\n', toc);
 scalesize   = [ceil(size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
 volproc     = zeros([scalesize(1:2) 3 scalesize(3)], 'uint8');
 chansmap    = [3 2 1];
-for ich = 1:Nchannels
+for ich = 1:min(Nchannels, 3)
     currchan    = squeeze(slicevol(:, :, ich, :));
     currchan    = imresize3(currchan, scalesize);
     backproc    = reshape(single(backvalues(ich, :)), [1 1 sliceinfo.Nslices]);

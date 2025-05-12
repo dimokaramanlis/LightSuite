@@ -6,8 +6,8 @@ function InteractiveSliceReorder(optionalVolumePath)
 % Loads a previously saved order, visually reordering images in the GUI if specified.
 
     % --- Configurable Display Parameters ---
-    displayRows = 3; % Number of rows of images per page
-    displayCols = 4; % Number of columns of images per page
+    displayRows = 2; % Number of rows of images per page
+    displayCols = 3; % Number of columns of images per page
     itemsPerPage = displayRows * displayCols;
 
     % --- Initial Setup: File Handling ---
@@ -279,10 +279,10 @@ function displayCurrentPage(fig)
         if resizeFactor <=0; resizeFactor = 0.1; end 
 
         if ismatrix(currentImage)
-            imgHandle = imagesc(ax, imresize(currentImage, resizeFactor, 'nearest'));
+            imgHandle = image(ax, imresize(currentImage, resizeFactor));
             colormap(ax, gray);
         else
-            imgHandle = imagesc(ax, imresize(currentImage, resizeFactor, 'nearest'));
+            imgHandle = image(ax, imresize(currentImage, resizeFactor));
         end
         axis(ax, 'image', 'off');
         set(imgHandle, 'ButtonDownFcn', {@clickSliceCallback, fig, tileCounter}); 

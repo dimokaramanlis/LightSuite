@@ -127,7 +127,7 @@ function SliceFlipper(optionalVolumePath)
     gui_data.imageAxes.Colormap = colormap('gray'); 
     axis(gui_data.imageAxes, 'image', 'off'); 
     
-    gui_data.imageHandle = imagesc(gui_data.imageAxes, []); 
+    gui_data.imageHandle = image(gui_data.imageAxes, []); 
     gui_data.titleHandle = title(gui_data.imageAxes, '', 'FontSize', 10);
     
     guidata(gui_fig, gui_data); 
