@@ -1,4 +1,4 @@
-function [processvol, sliceinfo] = alignSliceVolume(slicevol, sliceinfo)
+function [slicevol, sliceinfo] = alignSliceVolume(slicevol, sliceinfo)
 %ALIGNSLICEVOLUME Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
