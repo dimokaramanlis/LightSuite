@@ -95,7 +95,7 @@ slicevol(:, :, :, indsbackwards) = applyConsecutiveTransforms(slicevol, ...
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
 fprintf('Saving aligned volume... '); tic;
-saveLargeSliceVolume(sliceinfo.slicevolfin, sliceinfo.channames, dpsave);
+saveLargeSliceVolume(slicevol, sliceinfo.channames, sliceinfo.slicevolfin);
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
 fprintf('Generating downsampled volume and saving... '); tic;
