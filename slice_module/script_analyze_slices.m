@@ -32,4 +32,4 @@ alignedvol = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 % IN PROGRESS!!!!
 % we load the atlas and get points on it
 
-bulkAlignToAllen(sliceinfo.slicevol, sliceinfo)
+bulkAlignToAllen(sliceinfo)

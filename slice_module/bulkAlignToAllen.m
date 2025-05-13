@@ -1,8 +1,11 @@
 function [outputArg1,outputArg2] = bulkAlignToAllen(sliceinfo)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
-
-
+%--------------------------------------------------------------------------
+fprintf('Loading data in memory... '); tic;
+alignedvol = loadLargeSliceVolume(sliceinfo.slicevolfin, 1);
+fprintf('Done! Took %2.2f s\n', toc); 
+%--------------------------------------------------------------------------
 
 allenres = 10;
 allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
