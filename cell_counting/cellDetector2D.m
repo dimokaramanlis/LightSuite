@@ -1,40 +1,55 @@
-function [cpoints, prem] = cellDetector2D(volumeuse, avgcellradius, sigmause, thresSNR)
+function [cpoints, prem] = cellDetector2D(sliceuse, avgcellradius, sigmause, thresSNR)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
-[Ny, Nx, Nz] = size(volumeuse);
+[Ny, Nx] = size(sliceuse);
 %--------------------------------------------------------------------------
 cubsize = 4*sigmause ;
-seuse   = strel('cuboid', cubsize);
+seuse   = strel('rectangle', cubsize);
 
-usegpu  = isgpuarray(volumeuse);
+usegpu  = isgpuarray(sliceuse);
 
 % % let's learn cells from data
 % 4 times as big as the cell
 % 1.5 times smaller than the cell
-[fout, ~] = spatial_bandpass(volumeuse, avgcellradius, 4, 1.5, usegpu);
+[fout, ~] = spatial_bandpass(sliceuse, avgcellradius, 4, 1.5, usegpu);
 
 % find maxima in filtered space
-smin           = -my_min(-fout, 2*sigmause, 1:3);
+smin           = -my_min(-fout, 2*sigmause, 1:2);
 
 % we keep maxima with a minimum snr
 % this snr should be probably in filtered space
 imgidx = (fout>smin-1e-3) & (fout > thresSNR(1));
 imgidx = gather(imgidx);
 imgidx = imdilate(imgidx, seuse) & gather(fout > thresSNR(2));
-
+imshowpair(uint8(sliceuse*255/thresSNR(1)),imgidx);
 % which properties are needed???
-cinfo  = regionprops3(imgidx, gather(volumeuse),...
-    'PrincipalAxisLength', 'EquivDiameter', 'VoxelList', 'WeightedCentroid','MeanIntensity');
+cinfo  = regionprops(imgidx, gather(sliceuse),...
+    'Circularity', 'EquivDiameter', 'PixelList', 'WeightedCentroid','MeanIntensity');
 %--------------------------------------------------------------------------
 % for debugging
 
-% for ii = 1:size(volumeuse,3)
-%     imshowpair(uint8(volumeuse(:,:,ii)*255/thresSNR(1)),imgidx(:,:,ii));
-%     pause; 
-% end
 %-------------------------------------------------------------------------
 % improve equivalent diameter and cell filtering
+
+
+
+% dty = -sigmause(1)*4:sigmause(1)*4;
+% dtx = -sigmause(2)*4:sigmause(2)*4;
+% 
+% X = nan(size(cinfo,1), numel(dtx)*numel(dty),'single');
+% for icell = 1:size(cinfo,1)
+%     ccent  =  round(cinfo(icell).WeightedCentroid);
+%     xind = ccent(1) + dtx;
+%     yind = ccent(2) + dty;
+%     if any(xind<1)|any(yind<1)|any(xind>Nx)|any(yind>Ny)
+%         continue
+%     end
+%     currvol = sliceuse(yind, xind);
+%     X(icell,:) = reshape(currvol, 1, []);
+% end
+
+
 
 % [cellimages, cellproperties] = getCellImages2D(volumeuse, cinfo)
 
@@ -57,25 +72,24 @@ cinfo  = regionprops3(imgidx, gather(volumeuse),...
 % iweird = find(localdist>80);
 prem   = 0;
 if ~isempty(cinfo)
-    elips   = cinfo.PrincipalAxisLength(:,1)./cinfo.PrincipalAxisLength(:,2);
-    ilong   = elips>2.5;
-    ismall  = cinfo.EquivDiameter<avgcellradius/2;
-    ilow    = cinfo.MeanIntensity < thresSNR(2);
+    ilong   = [cinfo(:).Circularity]<0.7;
+    ismall  = [cinfo(:).EquivDiameter]<avgcellradius/2;
+    ilow    = [cinfo(:).MeanIntensity] < thresSNR(2);
     
     iweird = find(ilong | ismall | ilow) ;
     prem   = numel(iweird)/size(cinfo, 1);
     
-    % allvoxels =  cat(1,cinfo(iweird,:).VoxelList{:});
-    % indtest = sub2ind(size(fout),allvoxels(:,1), allvoxels(:,2), allvoxels(:,3));
+    % allvoxels =  cat(1,cinfo(iweird).PixelList);
+    % indtest = sub2ind(size(fout),allvoxels(:,2), allvoxels(:,1));
     % imgidx = false(size(imgidx));
     % imgidx(indtest) = true;
-    % imshowpair(uint8(max(volumeuse,[],3)*255/thresSNR(1)),max(imgidx,[],3));
+    % imshowpair(uint8(sliceuse*255/thresSNR(1)),imgidx);
 
-    cinfo(iweird, :) = [];    
+    cinfo(iweird) = [];    
 end
 %--------------------------------------------------------------------------
 % package cell properties
-cpoints = [cinfo.WeightedCentroid cinfo.EquivDiameter cinfo.MeanIntensity];
+cpoints = [cat(1,cinfo.WeightedCentroid) cat(1,cinfo.EquivDiameter) cat(1,cinfo.MeanIntensity)];
 %--------------------------------------------------------------------------
    
 end

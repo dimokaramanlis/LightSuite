@@ -33,3 +33,11 @@ alignedvol = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 % we load the atlas and get points on it
 
 bulkAlignToAllen(sliceinfo)
+
+
+%%
+sliceinfo  = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
+sliceinfo  = sliceinfo.sliceinfo;
+ichan      = find(contains(sliceinfo.channames, 'Cy3')); % We use the tdTomato channel!
+sliceinfo.celldiam = 14; % expected cell diameter in um
+celllocs = extractCellsFromSliceVolume(sliceinfo, ichan);

@@ -103,7 +103,7 @@ fprintf('Generating downsampled volume and saving... '); tic;
 dpsavelowres = fullfile(sliceinfo.procpath, 'volume_for_inspection.tiff');
 scalesize    = [ceil(sliceinfo.size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
 voldown      = zeros([scalesize(1:2) 3 scalesize(3)], 'uint8');
-chansmap    = [3 2 1];
+chansmap     = [3 2 1];
 
 for ichan = 1:min(Nchans, 3)
     volproc     = imresize3(squeeze(slicevol(:, :, ichan, :)), scalesize);

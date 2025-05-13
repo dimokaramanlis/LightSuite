@@ -103,7 +103,7 @@ for ibatchz = 1:NbatchesZ
                 ccents(:,2) = interp1(1:numel(iloady), iloady, ccents(:,2));
                 ccents(:,1) = interp1(1:numel(iloadx), iloadx, ccents(:,1));
                 
-                if i0+nnz(ikeepz)>size(cell_locations,1)
+                if i0+nnz(ikeep)>size(cell_locations,1)
                     cell_locations(1e6 + size(cell_locations,1), 1) = 0;
                 end
             
