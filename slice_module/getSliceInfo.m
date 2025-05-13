@@ -39,8 +39,9 @@ dataim.series        = allsizes{ifile,2}(end);
 sliceinfo.channames  = dataim.channelNames;
 sliceinfo.procpath   = procpath;
 
-sliceinfo.volorder = fullfile(sliceinfo.procpath, 'volume_for_ordering.tiff');
-sliceinfo.slicevol = fullfile(sliceinfo.procpath, 'volume_centered.tiff');
+sliceinfo.volorder    = fullfile(sliceinfo.procpath, 'volume_for_ordering.tiff');
+sliceinfo.slicevol    = fullfile(sliceinfo.procpath, 'volume_centered');
+sliceinfo.slicevolfin = fullfile(sliceinfo.procpath, 'volume_aligned');
 
 
 end

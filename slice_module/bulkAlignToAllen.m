@@ -1,4 +1,4 @@
-function [outputArg1,outputArg2] = bulkAlignToAllen(inputArg1,inputArg2)
+function [outputArg1,outputArg2] = bulkAlignToAllen(sliceinfo)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 

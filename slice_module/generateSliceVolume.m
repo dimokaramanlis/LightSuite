@@ -2,11 +2,10 @@ function [slicevol,sliceinfo] = generateSliceVolume(sliceinfo)
 %GENERATESLICEVOLUME Summary of this function goes here
 %   Detailed explanation goes here
 
-medfiltwidth = 2*ceil((2./sliceinfo.pxsize)/2) + 1;
+medfiltwidth = 2*floor((2./sliceinfo.pxsize)/2) + 1;
 scalefac     = sliceinfo.pxsize./sliceinfo.px_process;
 Nbuff        = ceil(200/sliceinfo.px_process); % 200um for buffer size
 size_proc    = ceil(sliceinfo.maxsize.*scalefac);
-size_proc    = size_proc - 2*Nbuff;
 Nchannels    = numel(sliceinfo.channames);
 idx          = 1;
 regchan      = find(strcmp(sliceinfo.channames, 'DAPI'));
@@ -36,7 +35,7 @@ for ifile = 1:Nfiles
         %------------------------------------------------------------------
         for icol = 1:Nchannels
             currim   = dataim.getPlane(1, chanids(icol), 1, irel(iscene));
-            currim   = medfilt2(currim, medfiltwidth);
+            currim   = medfilt2(currim, medfiltwidth); % to remove salt n' pepper
             currim   = imresize(currim, scalefac(1));
             backval  = quantile(currim(currim>0), 0.01, 'all');
             if icol == 1
@@ -76,15 +75,7 @@ sliceinfo.backvalues = backvalues;
 %--------------------------------------------------------------------------
 % save volume for processing
 fprintf('Saving volume after centering... '); tic;
-options.compress = 'lzw';
-options.message  = false;
-options.color    = true;
-options.big      = true;
-
-if exist( sliceinfo.slicevol, 'file')
-    delete( sliceinfo.slicevol);
-end
-saveastiff(slicevol,  sliceinfo.slicevol, options);
+saveLargeSliceVolume(slicevol, sliceinfo.channames, sliceinfo.slicevol);
 fprintf('Done! Took %2.2f s\n', toc);
 %--------------------------------------------------------------------------
 % save volume for ordering

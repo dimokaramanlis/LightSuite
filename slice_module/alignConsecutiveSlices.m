@@ -13,20 +13,28 @@ for islice = 1:numel(indsmatch)-1
     slicetic = tic;
     movingcloud = pointcell{imoving};
     fixedcloud  = pointcell{ifixed};
+    errscurr    = nan(2, 1);
+    pcregcurr   = cell(2, 1);
 
-    [tformcurr, pcregcurr, errscurr] = pcregistercpd(movingcloud, fixedcloud, ...
+    [tformcurr, pcregcurr{1}, errscurr(1)] = pcregistercpd(movingcloud, fixedcloud, ...
         "Transform","Rigid",'Verbose',false,...
         'Tolerance',1e-6,'OutlierRatio',0.00,'MaxIterations', 100);
+    % [tformrev, pcregcurr{2}, errscurr(2)] = pcregistercpd(fixedcloud, movingcloud, ...
+    %     "Transform","Rigid",'Verbose',false,...
+    %     'Tolerance',1e-6,'OutlierRatio',0.00,'MaxIterations', 100);
 
+    % if errscurr(1)>errscurr(2)
+    %     tformcurr = tformrev.invert();
+    % end
     tformuse = rigid3dToRigid2d(tformcurr);
     tformarray(islice+1) = affinetform2d(tformuse);
 
-    fprintf('Done! Error match %2.2f. Took %2.2f s\n', errscurr, toc(slicetic));
+    fprintf('Done! Error match %2.2f. Took %2.2f s\n', errscurr(1), toc(slicetic));
     %--------------------------------------------------------------------------
-    % % for debugging
+    % for debugging
     % clf;
     % subplot(1,3,1)
-    % plot(movingcloud{1}.Location(:,1), movingcloud{1}.Location(:,2), 'r.',...
+    % plot(movingcloud.Location(:,1), movingcloud.Location(:,2), 'r.',...
     %     fixedcloud.Location(:,1), fixedcloud.Location(:,2), 'k.')
     % axis equal; axis tight; ax = gca; ax.YDir = 'reverse';
     % subplot(1,3,2)
@@ -36,8 +44,8 @@ for islice = 1:numel(indsmatch)-1
     % title(sprintf('Error: %3.3f', errscurr(1)))
     % 
     % subplot(1,3,3)
-    %  plot(pcregcurr{2}.Location(:,1), pcregcurr{2}.Location(:,2), 'r.',...
-    %     fixedcloud.Location(:,1), fixedcloud.Location(:,2), 'k.')
+    % plot(movingcloud.Location(:,1), movingcloud.Location(:,2), 'r.',...
+    %     pcregcurr{2}.Location(:,1), pcregcurr{2}.Location(:,2), 'k.')
     % axis equal; axis tight;ax = gca; ax.YDir = 'reverse';
     % title(sprintf('Flipped error: %3.3f', errscurr(2)))
     %--------------------------------------------------------------------------

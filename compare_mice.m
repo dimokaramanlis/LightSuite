@@ -366,6 +366,14 @@ pathsave = 'S:\ElboustaniLab\#SHARE\Documents\Dimos\Presentations\20250324_semin
 p.export(fullfile(pathsave,'cell_counts.pdf'), sprintf('-w%d',fw*10),sprintf('-h%d',fh*10), '-rp');
 
 %%
+idshighlight = psurprise>1.3;
+generateAreaMovie(av, parcelinfo, groupnames(idshighlight,1:3))
+
+generateAreaMovie(av, parcelinfo, groupnames(idshighlight,1:3), psurprise(idshighlight), ...
+    'X', 60, 'D:\video_trap.mp4')
+
+
+%%
 jointmap = atlasCellMap(locsall(ijoint), size(av), 5,  sum(groupcounts(icortex, ijoint)));
 solomap  = atlasCellMap(locsall(isolo),  size(av), 5,  sum(groupcounts(icortex, isolo)));
 jointout = atlasCellMap(locsall(iobs),   size(av), 5,  sum(groupcounts(icortex, iobs)));
