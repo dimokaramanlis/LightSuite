@@ -27,14 +27,14 @@ Nfiles       = numel(sliceinfo.filepaths);
 
 fprintf('Generating the slice volume by centering slices...\n')
 slicetimer   = tic; msg = [];
-for ifile = 4:Nfiles
+for ifile = 1:Nfiles
     dataim = BioformatsImage(sliceinfo.filepaths{ifile});
     irel   = sliceinfo.sliceinds{ifile, 2};
     Nscenes = numel(irel);
-    for iscene = 4:Nscenes
+    for iscene = 1:Nscenes
         dataim.series = irel(iscene);
         %------------------------------------------------------------------
-        for icol = 1:1%Nchannels
+        for icol = 1:Nchannels
             currim   = dataim.getPlane(1, chanids(icol), 1, irel(iscene));
             currim   = medfilt2(currim, medfiltwidth); % to remove salt n' pepper
             currim   = imresize(currim, scalefac(1));
