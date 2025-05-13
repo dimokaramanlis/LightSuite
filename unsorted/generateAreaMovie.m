@@ -77,7 +77,7 @@ function generateAreaMovie(av, parcelinfo, namesuse, valsuse, rotationAxis, Nfra
     hVol.OverlayAlphamap = 0.7;           % For avshow overlay
 
     % Define overlay colormap: Intensity 1 in avshow should be red
-    overlay_cmap = inferno; % Red color for value 1
+    overlay_cmap = cbrewer('seq', 'YlOrRd', 256); % Red color for value 1
     hVol.OverlayColormap = overlay_cmap; % Apply the colormap
 
     viewerLabels.Toolbar = 'off'; % Turn off toolbar as requested

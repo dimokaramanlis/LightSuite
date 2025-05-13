@@ -27,9 +27,13 @@ Nchans   = size(slicevol, 3);
 %--------------------------------------------------------------------------
 fprintf('Standardizing and filtering volume... '); tic;
 % we standarding the volume values
-ireg = 1;
+ireg        = 1;
+regdown     = 4;
 scalefilter = 100/sliceinfo.px_process;
 volregister = squeeze(slicevol(:, :, ireg, :));
+sizedown    = [ceil(sliceinfo.size_proc/regdown) sliceinfo.Nslices];
+volregister = imresize3(volregister, sizedown);
+
 if sliceinfo.use_gpu
     volregister = single(gpuArray(volregister));
 else
@@ -40,7 +44,7 @@ volregister = (volregister - bval)/bval;
 volregister(volregister<0) = 0;
 
 % we perform spatial bandpass filtering
-imhigh       = spatial_bandpass(volregister, scalefilter, 3, 3, sliceinfo.use_gpu);
+imhigh       = spatial_bandpass(volregister, scalefilter/regdown, 3, 3, sliceinfo.use_gpu);
 thresuse     = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
 idxcp        = find(imhigh>thresuse);
 fprintf('Done! Took %2.2f s\n', toc); 
@@ -49,15 +53,15 @@ fprintf('Calculating point clouds... '); tic;
 % we find all points above threshold
 [row,col,slice] = ind2sub(size(imhigh), idxcp);
 [~, ~, ic]      = unique(slice);
-Nregister       = 1200;
+Nregister       = 1500;
 rng(1);
 allclouds       = cell(sliceinfo.Nslices, 1); % second dimension is flipped
 sigmause        = sliceinfo.slicethickness/sliceinfo.px_process/4;
 
 for ii = 1:sliceinfo.Nslices
     idxcurr     = ic == ii; 
-    currx       = col(idxcurr);
-    curry       = row(idxcurr);
+    currx       = col(idxcurr)*regdown;
+    curry       = row(idxcurr)*regdown;
     if sliceinfo.use_gpu
         currx       = gather(currx);
         curry       = gather(curry);

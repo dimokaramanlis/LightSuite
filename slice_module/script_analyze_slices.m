@@ -12,7 +12,7 @@ sliceinfo.px_register    = 20; % um
 sliceinfo.slicethickness = 80; % um, slice thickness
 sliceinfo                = getSliceInfo(sliceinfo);
 %% we first generate the slice volume
-[slicevol, sliceinfo] = generateSliceVolume(sliceinfo);
+slicevol = generateSliceVolume(sliceinfo);
 
 %% (manual) reorder slices if needed
 InteractiveSliceReorder(sliceinfo.volorder)

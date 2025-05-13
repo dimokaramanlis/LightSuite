@@ -1,4 +1,4 @@
-function [slicevol,sliceinfo] = generateSliceVolume(sliceinfo)
+function [slicevol] = generateSliceVolume(sliceinfo)
 %GENERATESLICEVOLUME Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -6,6 +6,7 @@ medfiltwidth = 2*floor((2./sliceinfo.pxsize)/2) + 1;
 scalefac     = sliceinfo.pxsize./sliceinfo.px_process;
 Nbuff        = ceil(200/sliceinfo.px_process); % 200um for buffer size
 size_proc    = ceil(sliceinfo.maxsize.*scalefac);
+size_proc    = size_proc - Nbuff;
 Nchannels    = numel(sliceinfo.channames);
 idx          = 1;
 regchan      = find(strcmp(sliceinfo.channames, 'DAPI'));
@@ -26,14 +27,14 @@ Nfiles       = numel(sliceinfo.filepaths);
 
 fprintf('Generating the slice volume by centering slices...\n')
 slicetimer   = tic; msg = [];
-for ifile = 1:Nfiles
+for ifile = 4:Nfiles
     dataim = BioformatsImage(sliceinfo.filepaths{ifile});
     irel   = sliceinfo.sliceinds{ifile, 2};
     Nscenes = numel(irel);
-    for iscene = 1:Nscenes
+    for iscene = 4:Nscenes
         dataim.series = irel(iscene);
         %------------------------------------------------------------------
-        for icol = 1:Nchannels
+        for icol = 1:1%Nchannels
             currim   = dataim.getPlane(1, chanids(icol), 1, irel(iscene));
             currim   = medfilt2(currim, medfiltwidth); % to remove salt n' pepper
             currim   = imresize(currim, scalefac(1));

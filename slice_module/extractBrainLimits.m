@@ -8,6 +8,7 @@ backval   = quantile(currslice(currslice>0), 0.01, 'all');
 currslice = (currslice - backval)./backval;
 minperc   = 0.25;
 maxperc   = 0.75;
+signalt   = 4; % background threshold
 
 signaly   = single(max(currslice(:, round(nx*0.2):round(nx*0.8)), [], 2));
 signaly   = signaly(:);
@@ -16,7 +17,7 @@ signalx   = signalx(:);
 
 
 minxsig   = signalx(1:round(nx*minperc));
-xmin      = find(flip(minxsig)<3, 1, 'first'); %findfirst(flip(minxsig)<2);
+xmin      = find(flip(minxsig)<signalt, 1, 'first'); %findfirst(flip(minxsig)<2);
 if xmin > 0
     xmin      = numel(minxsig) - xmin;
 else
@@ -24,7 +25,7 @@ else
 end
 
 minysig   = signaly(1:round(ny*minperc));
-ymin      = find(flip(minysig)<3,1,'first'); %findfirst(flip(minysig)<2);
+ymin      = find(flip(minysig)<signalt,1,'first'); %findfirst(flip(minysig)<2);
 if ymin > 0
     ymin      = numel(minysig) - ymin;
 else
@@ -32,7 +33,7 @@ else
 end
 
 maxxsig   = signalx(round(maxperc*nx):end);
-xmax      = find(maxxsig<3, 1, 'first'); %findfirst(maxxsig<2);
+xmax      = find(maxxsig<signalt, 1, 'first'); %findfirst(maxxsig<2);
 if xmax > 0
     xmax      = round(nx*maxperc) + xmax;
 else
@@ -40,7 +41,7 @@ else
 end
 
 maxysig   = signaly(round(maxperc*ny):end);
-ymax      = find(maxysig<3, 1, 'first'); %findfirst(maxysig<2);
+ymax      = find(maxysig<signalt, 1, 'first'); %findfirst(maxysig<2);
 if ymax > 0
     ymax      = round(ny*maxperc) + ymax;
 else
