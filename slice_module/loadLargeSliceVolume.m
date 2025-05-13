@@ -21,7 +21,7 @@ end
 info       = imfinfo(filepaths{chanids(1)});
 num_images = numel(info);
 
-imgStack  = zeros(info(1).Height, info(1).Width, Nchannels, ...
+imgStack  = zeros(info(1).Height, info(1).Width, numel(chanids), ...
     num_images, sprintf('uint%d',info(1).BitsPerSample(1)));
 
 

@@ -6,31 +6,33 @@ fprintf('Loading data in memory... '); tic;
 alignedvol = loadLargeSliceVolume(sliceinfo.slicevolfin, 1);
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
-
+fprintf('Loading and processing Allen Atlas template... '); tic;
 allenres = 10;
 allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
 tv               = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
 tvreg            = imresize3(tv, allenres/sliceinfo.px_register);
-tvreg([1:50, end-80:end], :, :) = 0; % exclude cerebellum and olfactory
-tv_cloud         = extractHighSFVolumePoints(tvreg, sliceinfo.px_register);
+limskeep         = [50, size(tvreg, 1)-80]; % exclude cerebellum and olfactory
+tv_cloud         = extractHighSFVolumePoints(tvreg, sliceinfo.px_register, limskeep);
+fprintf('Done! Took %2.2f s\n', toc); 
+%--------------------------------------------------------------------------
+fprintf('Extracting points of interest from data... '); tic;
 
-
-%%
-ireg = 1;
 scalefilter = 100/sliceinfo.px_register;
-volregister = squeeze(alignedvol(:, :, ireg, :));
 finsize     = ceil(sliceinfo.size_proc*sliceinfo.px_process/sliceinfo.px_register);
-volregister = single(volregister);
-bval        = median(single(sliceinfo.backvalues(ireg,:)));
-volregister = (volregister - bval)/bval;
-volregister(volregister<0) = 0;
-volregister = imresize3(volregister, [finsize sliceinfo.Nslices]);
+alignedvol  = single(alignedvol);
+bval        = median(single(sliceinfo.backvalues(1,:)));
+alignedvol  = (alignedvol - bval)/bval;
+alignedvol(alignedvol<0) = 0;
+alignedvol = imresize3(alignedvol, [finsize sliceinfo.Nslices]);
 
 % we perform spatial bandpass filtering
-imhigh         = spatial_bandpass(volregister, scalefilter, 3, 3, sliceinfo.use_gpu);
-thresuse       = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
+imhigh          = spatial_bandpass(alignedvol, scalefilter, 3, 3, sliceinfo.use_gpu);
+thresuse        = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
 idxcp           = find(imhigh>thresuse);
 [row,col,slice] = ind2sub(size(imhigh), idxcp);
+fprintf('Done! Took %2.2f s\n', toc); 
+%--------------------------------------------------------------------------
+
 %%
 zvals = (slice * sliceinfo.slicethickness)/sliceinfo.px_register;
 xvals = col ;
@@ -47,5 +49,11 @@ scatter3(tv_cloud.Location(:,1),tv_cloud.Location(:,2),tv_cloud.Location(:,3), 2
 %%
 [tformrigid, pcreg] = pcregistercpd(tv_cloud, pcplot, "Transform","Rigid",...
     "Verbose",true,"OutlierRatio",0.00, 'MaxIterations', 100, 'Tolerance', 1e-6);
+figure;
 pcshowpair(pcplot, pcreg)
+%%
+
+
+
+
 end
