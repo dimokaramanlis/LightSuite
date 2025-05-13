@@ -11,12 +11,12 @@ options.color    = false;
 options.big      = true;
 
 for ichan = 1:Nchannels
-    currname = sprintf('chan%02d_%s',ichan, channames{ichan});
+    currname = sprintf('chan%02d_%s.tiff',ichan, channames{ichan});
     volpath  = fullfile(folderpath, currname);
     if exist(volpath, 'file')
         delete(volpath);
     end
-    saveastiff(volsave, volpath, options);
+    saveastiff(squeeze(volsave(:,:,ichan,:)), volpath, options);
 end
 
 

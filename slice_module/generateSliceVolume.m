@@ -91,6 +91,9 @@ for ich = 1:min(Nchannels, 3)
     volproc(:, :, chansmap(ich), :) = uint8(255*currchan/maxval);
 end
 options.big      = false;
+options.compress = 'lzw';
+options.message  = false;
+options.color    = true;
 if exist(sliceinfo.volorder, 'file')
     delete(sliceinfo.volorder);
 end

@@ -274,7 +274,7 @@ function displayCurrentPage(fig)
         [imgH, imgW, ~] = size(currentImage);
         avgDim = mean([imgH, imgW]);
         if avgDim == 0; avgDim = estTileSize; end
-        resizeFactor = estTileSize / avgDim;
+        resizeFactor = 2*estTileSize / avgDim;
         if resizeFactor > 1; resizeFactor = 1; end 
         if resizeFactor <=0; resizeFactor = 0.1; end 
 

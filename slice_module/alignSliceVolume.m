@@ -6,7 +6,7 @@ fprintf('Loading data in memory... '); tic;
 if ~isnumeric(slicevol)
     % it is a path and we have to load it as a path
     assert(isstring(slicevol) | ischar(slicevol))
-    slicevol = readDownStack(slicevol);
+    slicevol = loadLargeSliceVolume(slicevol);
 end
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
@@ -91,18 +91,8 @@ slicevol(:, :, :, indsbackwards) = applyConsecutiveTransforms(slicevol, ...
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
 fprintf('Saving aligned volume... '); tic;
-
 dpsave       = fullfile(sliceinfo.procpath, 'volume_aligned_for_processing.tiff');
-
-options.compress = 'lzw';
-options.message  = false;
-options.color    = true;
-options.big      = true;
-
-if exist(dpsave, 'file')
-    delete(dpsave);
-end
-saveastiff(slicevol, dpsave, options);
+saveLargeSliceVolume(slicevol, sliceinfo.channames, dpsave);
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
 fprintf('Generating downsampled volume and saving... '); tic;
