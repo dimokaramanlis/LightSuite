@@ -22,7 +22,7 @@ smin           = -my_min(-fout, 2*sigmause, 1:2);
 imgidx = (fout>smin-1e-3) & (fout > thresSNR(1));
 imgidx = gather(imgidx);
 imgidx = imdilate(imgidx, seuse) & gather(fout > thresSNR(2));
-imshowpair(uint8(sliceuse*255/thresSNR(1)),imgidx);
+% imshowpair(uint8(sliceuse*255/thresSNR(1)),imgidx);
 % which properties are needed???
 cinfo  = regionprops(imgidx, gather(sliceuse),...
     'Circularity', 'EquivDiameter', 'PixelList', 'WeightedCentroid','MeanIntensity');

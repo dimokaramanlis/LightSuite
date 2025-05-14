@@ -60,7 +60,7 @@ irem = any(isnan(cell_locations) | isinf(cell_locations), 2);
 cell_locations(irem, :) = [];
 %--------------------------------------------------------------------------
 % after we are done, save cells
-if isfield(opts, 'savepath')
+if isfield(opts, 'procpath')
     if ~isempty(opts.procpath)
         fsavename = fullfile(opts.procpath, 'cell_locations_sample.mat');
         save(fsavename, 'cell_locations')

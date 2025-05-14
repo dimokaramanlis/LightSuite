@@ -366,11 +366,13 @@ pathsave = 'S:\ElboustaniLab\#SHARE\Documents\Dimos\Presentations\20250324_semin
 p.export(fullfile(pathsave,'cell_counts.pdf'), sprintf('-w%d',fw*10),sprintf('-h%d',fh*10), '-rp');
 
 %%
-idshighlight = psurprise>1.3;
-generateAreaMovie(av, parcelinfo, groupnames(idshighlight,1:3))
+idshighlight   = psurprise>1.3;
+nameshighlight = groupnames(idshighlight,1:3);
+valshighlight  =  psurprise(idshighlight);
+valshighlight(contains(nameshighlight(:,3),'cortex')) = 2*max(valshighlight);
 
-generateAreaMovie(av, parcelinfo, groupnames(idshighlight,1:3), psurprise(idshighlight), ...
-    'X', 60, 'D:\video_trap.mp4')
+generateAreaMovie(av, parcelinfo, nameshighlight, valshighlight, ...
+    'X', 150, 'D:\video_trap.mp4')
 
 
 %%

@@ -12,7 +12,7 @@ end
 
 scalefilter = 100/pxsize;
 imhigh     = spatial_bandpass_3d(voluse, scalefilter, 3, 3, true);
-ptthres    = quantile(imhigh, 0.999, 'all')/2;
+ptthres    = quantile(imhigh, 0.99, 'all')/2;
 ipts       = find(imhigh>ptthres);
 [rr,cc,dd] = ind2sub(size(voluse), ipts);
 X          = [cc,rr,dd];
