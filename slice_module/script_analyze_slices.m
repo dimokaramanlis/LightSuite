@@ -39,7 +39,7 @@ bulkAlignToAllen(sliceinfo)
 %%
 sliceinfo  = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
 sliceinfo  = sliceinfo.sliceinfo;
-writeVolumeForDeepSlice(sliceinfo)
+writeVolumeForDeepSlice(sliceinfo, 'DAPI')
 
 %%
 sliceinfo  = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));

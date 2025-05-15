@@ -32,7 +32,7 @@ function [status, cmdout] = runDeepslicePipeline(pythonExecutable, pythonScriptP
 %       cmdout               - Captured output (stdout/stderr) from the Python script.
 %
 %   Example Usage (uncomment and modify paths to use):
-%   ----------------------------------------------------
+%   ------------------------username=getenv('USERNAME')----------------------------
 %   pyExec = 'C:\Users\YourUser\miniconda3\envs\deepslice\python.exe'; % <<< UPDATE THIS
 %   pyScript = 'C:\path\to\your\scripts\run_deepslice.py';           % <<< UPDATE THIS
 %   dsParent = 'D:\Research\Tools\DeepSlice_Main_Folder';             % <<< UPDATE THIS
@@ -49,7 +49,7 @@ function [status, cmdout] = runDeepslicePipeline(pythonExecutable, pythonScriptP
 %       disp(output);
 %   end
 %   ----------------------------------------------------
-
+pythonExecutable = fullfile('C:\Users\', username,'AppData', 'Local','miniconda3','envs','deepslice','python.exe');
 % --- Input Parser for Optional Arguments ---
 p = inputParser;
 addRequired(p, 'pythonExecutable', @(x) ischar(x) || isstring(x));
