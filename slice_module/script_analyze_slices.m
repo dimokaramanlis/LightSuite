@@ -1,4 +1,4 @@
-dp            = 'D:\example_charlie\CGF028'; % OG path, good
+dp            = 'D:\example_charlie\CGF029'; % OG path, good
 % dp             = 'D:\example_charlie\CGF029';
 % dp = 'J:\AM152';
 

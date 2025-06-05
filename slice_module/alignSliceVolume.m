@@ -94,6 +94,9 @@ slicevol(:, :, :, indsbackwards) = applyConsecutiveTransforms(slicevol, ...
     indsbackwards, transformsbackward, median(sliceinfo.backvalues,2));
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
+[slicevol, tforminit] = coarseAlignSliceVolumeToAtlas(...
+    sliceinfo, slicevol, median(sliceinfo.backvalues,2));
+%--------------------------------------------------------------------------
 fprintf('Saving aligned volume... '); tic;
 saveLargeSliceVolume(slicevol, sliceinfo.channames, sliceinfo.slicevolfin);
 fprintf('Done! Took %2.2f s\n', toc); 
@@ -101,7 +104,7 @@ fprintf('Done! Took %2.2f s\n', toc);
 fprintf('Generating downsampled volume and saving... '); tic;
 
 dpsavelowres = fullfile(sliceinfo.procpath, 'volume_for_inspection.tiff');
-scalesize    = [ceil(sliceinfo.size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
+scalesize    = [ceil(size(slicevol,[1 2])*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
 voldown      = zeros([scalesize(1:2) 3 scalesize(3)], 'uint8');
 chansmap     = [3 2 1];
 

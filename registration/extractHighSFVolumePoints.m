@@ -19,8 +19,6 @@ X          = [cc,rr,dd];
 ikeep      = rr > rykeep(1) & rr<rykeep(2);
 X          = X(ikeep, :);
 ptcloud    = pointCloud(X);
-Npts       = nnz(ikeep);
-ptcloud    = pcdownsample(ptcloud,'random', 10000/Npts, 'PreserveStructure',true);
 
  % scatter3(ptcloud.Location(:,1),ptcloud.Location(:,2),ptcloud.Location(:,3),2)
 end
