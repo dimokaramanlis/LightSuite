@@ -56,7 +56,7 @@ fprintf('Done! Took %2.2f s\n', toc);
 % based on the first alignment, we transform each slice so that it matches
 % the corresponding Allen slice in 2d
 
-R_out_fullres = imref2d(size(tvreg,[2 3])*sliceinfo.px_register/sliceinfo.px_process);
+R_out_fullres = imref2d(ceil(size(tvreg,[2 3])*sliceinfo.px_register/sliceinfo.px_process));
 Rsample       = imref2d(size(slicevol,[1 2]));
 slicenew      = zeros([R_out_fullres.ImageSize Nchan Nslices], 'uint16');
 

@@ -1,6 +1,6 @@
-dp            = 'D:\example_charlie\CGF029'; % OG path, good
+% dp            = 'D:\example_charlie\CGF028'; % OG path, good
 % dp             = 'D:\example_charlie\CGF029';
-% dp = 'J:\AM152';
+dp = 'J:\AM152';
 
 filelistcheck  = dir(fullfile(dp, '*.czi'));
 filepaths      = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
