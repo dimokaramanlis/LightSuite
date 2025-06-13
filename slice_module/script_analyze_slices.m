@@ -1,17 +1,23 @@
-% dp            = 'D:\example_charlie\CGF028'; % OG path, good
-% dp             = 'D:\example_charlie\CGF029';
-dp = 'J:\AM152';
 
-filelistcheck  = dir(fullfile(dp, '*.czi'));
-filepaths      = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
+datafolderpath = 'D:\example_charlie';
 
 sliceinfo                = struct();
-sliceinfo.filepaths      = filepaths;
-sliceinfo.px_process     = 2;  % um
-sliceinfo.px_register    = 20; % um
+sliceinfo.mousename      = 'CGF028';
 sliceinfo.slicethickness = 150; % um, slice thickness
-sliceinfo                = getSliceInfo(sliceinfo);
-%% we first generate the slice volume
+sliceinfo.px_process     = 5;  % um
+
+dp = fullfile(datafolderpath, sprintf('*%s*', sliceinfo.mousename));
+dp = dir(dp);
+dp = fullfile(dp.folder, dp.name);
+
+filelistcheck         = dir(fullfile(dp, '*.czi'));
+filepaths             = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
+sliceinfo.filepaths   = filepaths;
+sliceinfo.px_register = 20; % um
+sliceinfo.px_atlas    = 10; % um
+sliceinfo.atlasaplims = [180 1079];
+sliceinfo             = getSliceInfo(sliceinfo);
+%% (auto) we first generate the slice volume
 slicevol = generateSliceVolume(sliceinfo);
 
 %% (manual) reorder slices if needed
@@ -22,11 +28,17 @@ generateReordedVolume(sliceinfo);
 SliceFlipper(sliceinfo.volorder)
 generateReordedVolume(sliceinfo);
 
-%% (auto) we align slices
-sliceinfo  = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
-sliceinfo  = sliceinfo.sliceinfo;
+%% (auto) we align slices and initialize registration
+sliceinfo          = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
+sliceinfo          = sliceinfo.sliceinfo;
 sliceinfo.use_gpu  = true;
-alignedvol = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
+alignedvol         = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
+%% (manual) match control points
+opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
+matchControlPointsInSlices(opts)
+
+%%
+optsfin = registerSlicesToAtlas(opts);
 
 %% (auto) we find the atlas correspondence of our volume
 % IN PROGRESS!!!!

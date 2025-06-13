@@ -1,4 +1,4 @@
-function ptcloud = extractHighSFVolumePoints(voluse, pxsize, varargin)
+function X = extractHighSFVolumePoints(voluse, pxsize, varargin)
 %EXTRACTMATCHINGGAUSSIAN Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -18,8 +18,8 @@ ipts       = find(imhigh>ptthres);
 X          = [cc,rr,dd];
 ikeep      = rr > rykeep(1) & rr<rykeep(2);
 X          = X(ikeep, :);
-ptcloud    = pointCloud(X);
-
+pcdown     = pcdownsample(pointCloud(X), 'random', 0.1, 'PreserveStructure', true);
+X          = pcdown.Location;
  % scatter3(ptcloud.Location(:,1),ptcloud.Location(:,2),ptcloud.Location(:,3),2)
 end
 

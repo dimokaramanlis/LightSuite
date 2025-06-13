@@ -57,8 +57,14 @@ scatter3(tv_cloud_use.Location(:,1),tv_cloud_use.Location(:,2),tv_cloud_use.Loca
 fprintf('Coarse alignment of slice volume to Allen atlas... '); tic;
 [tformrigid, pcreg] = pcregistercpd(tv_cloud_use, pcplot, "Transform","Rigid",...
     "Verbose",true,"OutlierRatio",0.00, 'MaxIterations', 150, 'Tolerance', 1e-6);
+
+% [r,t,data3] = icp(pcplot.Location, tv_cloud_use.Location, 200, 10, 1, 1e-6);
+% tformrigid = rigidtform3d(r,t);
+% pcshowpair(pcplot, pointCloud(data3'))
+
 figure;
 pcshowpair(pcplot, pcreg)
+
 fprintf('Done! Took %2.2f s\n', toc); 
 tvtrans = pctransform(tv_cloud, tformrigid);
 %%
@@ -66,8 +72,11 @@ volsamp  = permute(alignedvol, regopts.howtoperm);
 raatlas  = imref3d(size(tvreg),  1, 1, 1);
 rasample = imref3d(size(volsamp), 1, sliceinfo.slicethickness/ sliceinfo.px_register, 1);
 %%
-Nerrs   = 13;
-valsuse  = linspace(-6, 6, Nerrs)*sliceinfo.slicethickness/sliceinfo.px_register;
+%% adjusting the global transformation
+% for each slice, we find the best +- fit and re-adjust the z-value
+
+Nerrs    = 11;
+valsuse  = linspace(-3, 3, Nerrs)*sliceinfo.slicethickness/sliceinfo.px_register;
 allerrs  = nan(sliceinfo.Nslices, Nerrs, 2);
 
 for islicecurr = 1:sliceinfo.Nslices
@@ -104,7 +113,7 @@ for islicecurr = 1:sliceinfo.Nslices
         % plot(data2(:,2), data2(:,1), 'r.',...
         %     pcslicecurr.Location(:,3), pcslicecurr.Location(:,1), 'k.')
         % axis equal; axis tight;ax = gca; ax.YDir = 'reverse';
-        % title(sprintf('Error: %3.3f, %3.3f', res(1), res2))
+        % title(sprintf('Error: %3.3f, %3.3f', res(1), res(2)))
         % pause;
     end
 

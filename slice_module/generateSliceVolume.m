@@ -6,7 +6,6 @@ medfiltwidth = 2*floor((2./sliceinfo.pxsize)/2) + 1;
 scalefac     = sliceinfo.pxsize./sliceinfo.px_process;
 Nbuff        = ceil(200/sliceinfo.px_process); % 200um for buffer size
 size_proc    = ceil(sliceinfo.maxsize.*scalefac);
-size_proc    = size_proc;
 Nchannels    = numel(sliceinfo.channames);
 idx          = 1;
 regchan      = find(strcmp(sliceinfo.channames, 'DAPI'));
@@ -39,6 +38,8 @@ for ifile = 1:Nfiles
             currim   = medfilt2(currim, medfiltwidth); % to remove salt n' pepper
             currim   = imresize(currim, scalefac(1));
             backval  = quantile(currim(currim>0), 0.01, 'all');
+            currim(currim == 0) = backval; % to replace empty tiles
+
             if icol == 1
                 [xrange, yrange] = extractBrainLimits(currim, Nbuff);
             end
@@ -82,14 +83,13 @@ fprintf('Done! Took %2.2f s\n', toc);
 % save volume for ordering
 scalesize   = [ceil(size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
 volproc     = zeros([scalesize(1:2) 3 scalesize(3)], 'uint8');
-chansmap    = [3 2 1];
 for ich = 1:min(Nchannels, 3)
     currchan    = squeeze(slicevol(:, :, ich, :));
     currchan    = imresize3(currchan, scalesize);
     backproc    = reshape(single(backvalues(ich, :)), [1 1 sliceinfo.Nslices]);
     currchan    = (single(currchan) - backproc)./backproc;
     maxval      = quantile(currchan, 0.999, 'all');
-    volproc(:, :, chansmap(ich), :) = uint8(255*currchan/maxval);
+    volproc(:, :, ich, :) = uint8(255*currchan/maxval);
 end
 options.big      = false;
 options.compress = 'lzw';
