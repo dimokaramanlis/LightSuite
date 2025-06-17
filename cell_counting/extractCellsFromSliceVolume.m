@@ -55,7 +55,7 @@ for islice = 1:Nslices
         imtosave = gather(uint8(255 * dffim/opts.thresuse(1)));
         imtosave(imgout) = 255;
         imtosave = cat(3, uint8(imgout*255), imtosave, uint8(imgout*255));
-        % imtosave = imresize(imtosave, 0.5);
+        imtosave = imresize(imtosave, 0.5);
         imwrite(imtosave, pathslice,"png","BitDepth",8)
     end
     %----------------------------------------------------------------------

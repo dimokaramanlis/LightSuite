@@ -166,50 +166,9 @@ for islice = 1:Nslices
     %------------------------------------------------------------------
 end
 % we save the affine registrations to the output structure
-regparams.affine_tform_atlas_to_image = slicetforms;
 fprintf('DONE with all slices! Took %d min\n', ceil(toc(wholetic)/60));
 %%
 %=========================================================================
-%%
-% final alignment step
-  finvol = nan(rnew.ImageSize, 'single');
-for islice = 1:Nslices
-    histim  = squeeze(volume(islice, :,:));
-    revtformpath = dir(fullfile(revsavepath, sprintf('%03d_slice_*', islice)));
-    revtformpath = fullfile(revtformpath.folder, revtformpath.name);
-    testim  = transformix(histim,revtformpath, 'movingscale', 0.02*[1 1], 'verbose', 0);
-    testim  = uint16(abs(testim));
-    finvol(atlasinds(islice), :, :) = imwarp(testim, rahist, slicetforms(islice).invert, 'OutputView',ratlas);
-end
-
-% we here smooth the final volume
-
-finvol2 = smoothdata(finvol,1, 'gaussian', 7.5);
-finvol2 = fillmissing(finvol, 'nearest', 1, 'EndValues','none');
-
-volout  = imwarp(finvol2,  Rout, opts.tformrigid_allen_to_samp_20um.invert, 'linear', 'OutputView', Ratlas);
-
-subplot(1,3,1)
-imagesc(squeeze(finvol(:,120,:)))
-axis equal; axis tight;
-subplot(1,3,2)
-imagesc(squeeze(volout(:,120,:)))
-axis equal; axis tight;
-subplot(1,3,3)
-imagesc(squeeze(tvdown(:,120,:)))
-axis equal; axis tight;
-
-subplot(1,3,1)
-imagesc(squeeze(finvol(:,:,220)),[100 2e4])
-axis equal; axis tight;
-subplot(1,3,2)
-imagesc(squeeze(volout(:,:,220)),[100 2e4])
-axis equal; axis tight;
-subplot(1,3,3)
-imagesc(squeeze(tvdown(:,:,220)))
-axis equal; axis tight;
-% % imshowpair(testim, atlasim)
-
 
 
 
@@ -233,22 +192,14 @@ axis equal; axis tight;
 regparams.atlasres         = regopts.allenres;
 regparams.how_to_perm      = regopts.howtoperm;
 regparams.atlasaplims      = regopts.atlasaplims;
-regparams.tformrigid_allen_to_samp_20um = regopts.tformrigid_allen_to_samp_20um;
+regparams.tformrigid_allen_to_samp_20um       = regopts.tformrigid_allen_to_samp_20um;
 regparams.tformbspline_samp20um_to_atlas_20um = revsavepath;
-regparams.tformaffine_tform_atlas_to_image = slicetforms;
-regparams.space_sample_20um        = rnew;
-regparams.sliceids_in_sample_space = atlasinds;
-
-params_pts_to_atlas.regvolsize       = regopts.regvolsize;
-% params_pts_to_atlas.atlassize        = size(tv);
-% params_pts_to_atlas.ori_pxsize       = regopts.pxsize;
-% params_pts_to_atlas.ori_size         = [regopts.Ny regopts.Nx regopts.Nz];
-% params_pts_to_atlas.elastix_um_to_mm = 1e-3;
-% 
-% params_pts_to_atlas.tform_bspline_samp20um_to_atlas_20um_px = tformpath;
-% params_pts_to_atlas.tform_affine_samp20um_to_atlas_10um_px  = tform_aff.invert;
-% params_pts_to_atlas.contol_pt_weight = contol_point_wt;
-% params_pts_to_atlas.use_multistep    = usemultistep;
+regparams.tformaffine_tform_atlas_to_image    = slicetforms;
+regparams.space_sample_20um                   = rnew;
+regparams.space_atlas_20um                    = ratlas;
+regparams.space3d_sample_20um                 = Rout;
+regparams.space3d_atlas_20um                  = Ratlas;
+regparams.sliceids_in_sample_space            = atlasinds;
 save(fullfile(opts.procpath, 'transform_params.mat'), '-struct', 'regparams')
 %==========================================================================
 end

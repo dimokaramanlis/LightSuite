@@ -1,8 +1,8 @@
 
 % folder which contains mouse subfolders
-datafolderpath = 'J:\'; % 'D:\example_charlie';
+datafolderpath = 'D:\example_charlie'; %'J:\'; % 
 sliceinfo                = struct();
-sliceinfo.mousename      = 'AM152';
+sliceinfo.mousename      = 'CGF028'; %AM152';
 
 %slice thickness in um, 150 for thicker slices
 sliceinfo.slicethickness =   80; 
@@ -52,7 +52,9 @@ transformparams = registerSlicesToAtlas(opts);
 
 %% (auto) apply registration to all color channels to generate registered volumes
 transformparams = load(fullfile(sliceinfo.procpath, "transform_params.mat"));
-generateRegisteredSliceVolume(transformparams);
+sliceinfo          = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
+sliceinfo          = sliceinfo.sliceinfo;
+generateRegisteredSliceVolume(sliceinfo, transformparams);
 
 %% (auto) detect cells in slices
 sliceinfo  = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
