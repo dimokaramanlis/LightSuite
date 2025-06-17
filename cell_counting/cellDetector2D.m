@@ -1,8 +1,9 @@
-function [cpoints, prem] = cellDetector2D(sliceuse, avgcellradius, sigmause, thresSNR)
+function [cpoints, prem, imgout] = cellDetector2D(sliceuse, avgcellradius, sigmause, thresSNR)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
 [Ny, Nx] = size(sliceuse);
+imgout   = false(size(sliceuse));
 %--------------------------------------------------------------------------
 cubsize = 4*sigmause ;
 seuse   = strel('rectangle', cubsize);
@@ -76,14 +77,13 @@ if ~isempty(cinfo)
     ismall  = [cinfo(:).EquivDiameter]<avgcellradius/2;
     ilow    = [cinfo(:).MeanIntensity] < thresSNR(2);
     
-    iweird = find(ilong | ismall | ilow) ;
-    prem   = numel(iweird)/size(cinfo, 1);
+    iweird = ilong | ismall | ilow ;
+    prem   = nnz(iweird)/size(cinfo, 1);
     
-    % allvoxels =  cat(1,cinfo(iweird).PixelList);
-    % indtest = sub2ind(size(fout),allvoxels(:,2), allvoxels(:,1));
-    % imgidx = false(size(imgidx));
-    % imgidx(indtest) = true;
-    % imshowpair(uint8(sliceuse*255/thresSNR(1)),imgidx);
+    allvoxels =  cat(1,cinfo(~iweird).PixelList);
+    indtest = sub2ind(size(fout),allvoxels(:,2), allvoxels(:,1));
+    imgout(indtest) = true;
+    % imshowpair(uint8(sliceuse*255/thresSNR(1)),imgout);
 
     cinfo(iweird) = [];    
 end

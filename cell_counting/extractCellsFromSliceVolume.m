@@ -2,7 +2,10 @@ function cell_locations = extractCellsFromSliceVolume(opts, ichan)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 %------------------------------------------------------------------------
-thresuse   = single([0.8 0.5]);
+if opts.debug
+    folderdebug = fullfile(opts.procpath, 'cell_detections');
+    makeNewDir(folderdebug)
+end
 %------------------------------------------------------------------------
 fprintf('Loading data in memory... '); tic;
 slicevol = loadLargeSliceVolume(opts.slicevolfin, ichan);
@@ -30,8 +33,7 @@ for islice = 1:Nslices
     dffim     = gpuArray((single(currslice) - backim)./backim);
     dffim(isnan(dffim)|isinf(dffim)) = 0;
     %----------------------------------------------------------------------
-    [ccents, pdiscard] = cellDetector2D(dffim, cellradius, sigmause, thresuse);
-
+    [ccents, pdiscard, imgout] = cellDetector2D(dffim, cellradius, sigmause, opts.thresuse);
     if ~isempty(ccents)
         ikeepx = (ccents(:, 1)> 1) & (ccents(:, 1) < (Nx-1));
         ikeepy = (ccents(:, 2)> 1) & (ccents(:, 2) < (Ny-1));
@@ -45,6 +47,16 @@ for islice = 1:Nslices
         ccents = [ccents(:, 1:2) islice * ones(nnz(ikeep), 1) ccents(:, 3:4)];
         cell_locations(i0 + (1:nnz(ikeep)), :) = ccents;
         i0 = i0 + nnz(ikeep);
+    end
+    %----------------------------------------------------------------------
+    if opts.debug
+        pathslice = fullfile(folderdebug, ...
+            sprintf('%03d_slice_%d_detections.png', islice, nnz(ikeep)));
+        imtosave = gather(uint8(255 * dffim/opts.thresuse(1)));
+        imtosave(imgout) = 255;
+        imtosave = cat(3, uint8(imgout*255), imtosave, uint8(imgout*255));
+        % imtosave = imresize(imtosave, 0.5);
+        imwrite(imtosave, pathslice,"png","BitDepth",8)
     end
     %----------------------------------------------------------------------
     fprintf(repmat('\b', 1, numel(msg)));

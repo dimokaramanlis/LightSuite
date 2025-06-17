@@ -13,39 +13,39 @@ assert(numel(apun) == Nslices)
 
 fprintf('Aligning atlas to 3D slice volume... '); tic;
 % 
-% Xdown = cell(Nslices, 1);
-% for islice = 1:Nslices
-%     Xcurr = Xlocs(ic == islice, :);
-%     Xcurr(:, [1 3]) = tformslices(islice).transformPointsForward(Xcurr(:, [1 3]));
-%     Ncurr  = size(Xcurr, 1);
-%     pccurr = pcdownsample(pointCloud(Xcurr), 'random', Nptsperslice/Ncurr, 'PreserveStructure',true);
-%     % pccurr = pcdownsample(pointCloud(Xcurr), 'nonuniformGridSample', ceil(Ncurr/Nptsperslice));
-%     % pccurr2 = pcdenoise(pccurr,"PreserveStructure",true);
-% 
-%     Xcurr         = pccurr.Location;
-%     Xdown{islice} = Xcurr;
-% 
-%     % plot(pccurr.Location(:,3), pccurr.Location(:,1), '.',...
-%     %     pccurr2.Location(:,3), pccurr2.Location(:,1), '.')
-%     % ax = gca; ax.YDir = 'reverse';
-%     % pause;
-% end
-% Xdown   = cat(1, Xdown{:});
-% pcplot  = pointCloud(Xdown);
-
-
-
 Xdown = cell(Nslices, 1);
 for islice = 1:Nslices
     Xcurr = Xlocs(ic == islice, :);
     Xcurr(:, [1 3]) = tformslices(islice).transformPointsForward(Xcurr(:, [1 3]));
+    Ncurr  = size(Xcurr, 1);
+
+    pccurr = pcdenoise(pointCloud(Xcurr), 'PreserveStructure',true);
+    pccurr = pcdownsample(pccurr, 'random', Nptsperslice/Ncurr, 'PreserveStructure',true);
+
+    % pccurr = pcdownsample(pointCloud(Xcurr), 'nonuniformGridSample', ceil(Ncurr/Nptsperslice));
+    % pccurr2 = pcdenoise(pccurr,"PreserveStructure",true);
+
+    Xcurr         = pccurr.Location;
     Xdown{islice} = Xcurr;
+
+    % plot(pccurr.Location(:,3), pccurr.Location(:,1), '.',...
+    %     pccurr2.Location(:,3), pccurr2.Location(:,1), '.')
+    % ax = gca; ax.YDir = 'reverse';
+    % pause;
 end
 Xdown   = cat(1, Xdown{:});
 pcplot  = pointCloud(Xdown);
-% pcplot =  pcdownsample(pcplot, 'random', 2e4/Nptsdata, 'PreserveStructure',true);
-pcplot =  pcdownsample(pcplot, 'nonuniformGridSample', ceil(Nptsdata/1e4), 'PreserveStructure',true);
 
+% Xdown = cell(Nslices, 1);
+% for islice = 1:Nslices
+%     Xcurr = Xlocs(ic == islice, :);
+%     Xcurr(:, [1 3]) = tformslices(islice).transformPointsForward(Xcurr(:, [1 3]));
+%     Xdown{islice} = Xcurr;
+% end
+% Xdown   = cat(1, Xdown{:});
+% pcplot  = pointCloud(Xdown);
+% pcplot =  pcdownsample(pcplot, 'nonuniformGridSample', ceil(Nptsdata/1e4), 'PreserveStructure',true);
+% 
 
 % pcplot = pcdownsample(pcsamp, 'random', 0.05, 'PreserveStructure',true);
 

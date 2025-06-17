@@ -44,37 +44,22 @@ Rout    = imref3d([ypix, size(tvdown, [2 3])], Rvolume.XWorldLimits, yworld,Rvol
 
 [tvnew, rnew]  = imwarp(tvdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear',  'OutputView', Rout);
 [avnew, rnew]  = imwarp(avdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest', 'OutputView', Rout);
-% 
-% 
-% [tvnew, rnew]  = imwarp(tvdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear');
-% [avnew, rnew]  = imwarp(avdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest');
-% 
 
-% xworld     = [Rvolume.XWorldLimits(1) + 0.5, Rvolume.XWorldLimits(2) - 0.5];
-% zworld     = [Rvolume.ZWorldLimits(1) + 0.5, Rvolume.ZWorldLimits(2) - 0.5];
-% zworld(1)  = max(zworld(1), rnew.ZWorldLimits(1));
-% zworld(2)  = min(zworld(2), rnew.ZWorldLimits(2));
-% yworld     = [Rvolume.YWorldLimits(1) + 0.5 - 10*opts.pxsizes(1),...
-%     Rvolume.YWorldLimits(2) + 10*opts.pxsizes(1) - 0.5];
-% yworld(1)  = max(yworld(1), rnew.YWorldLimits(1));
-% yworld(2)  = min(yworld(2), rnew.YWorldLimits(2));
-% 
-% [yy,xx,zz]     = rnew.worldToSubscript(xworld, yworld, zworld);
-% tvnewred       = tvnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
-% avnew          = avnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
-% 
+% get original prediction indices
+yatlasvals       = linspace(yworld(1), yworld(2), ypix + 1);
+yatlasvals       = yatlasvals(1:end-1) + median(diff(yatlasvals))/2;
+ysamplevals      = linspace(Rvolume.YWorldLimits(1), Rvolume.YWorldLimits(2), Nslices+1);
+ysamplevals      = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
+[~, atlasinds]   = min(pdist2(ysamplevals',yatlasvals'), [],2);
 
-
-
-
-% yatlasvals     = linspace(yworld(1), yworld(2), yy(2)-yy(1)+2);
-% yatlasvals     = yatlasvals(1:end-1) + median(diff(yatlasvals))/2;
-% ysamplevals    = linspace(Rvolume.YWorldLimits(1), Rvolume.YWorldLimits(2), Nslices+1);
-% ysamplevals    = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
-% [~, atlasinds] = min(pdist2(ysamplevals',yatlasvals'), [],2);
-
-
-atlasinds       = cellfun(@(x) x(1,1), cpdata.atlas_control_points);
+hascp            = ~cellfun(@isempty, cpdata.atlas_control_points);
+useratlasinds    = cellfun(@(x) x(1,1), cpdata.atlas_control_points(hascp));
+if nnz(hascp) > 4
+    % refine remaining
+    pfit      = polyfit(atlasinds(hascp), useratlasinds, 1);
+    atlasinds = round(polyval(pfit, atlasinds));
+end
+atlasinds(hascp) = useratlasinds;
 
 %%
 % clf;

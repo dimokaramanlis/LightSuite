@@ -48,7 +48,7 @@ volregister(volregister<0) = 0;
 imhigh            = spatial_bandpass(volregister, scalefilter, 3, 3, sliceinfo.use_gpu);
 imhigh            = permute(imhigh, howtoperm);
 thresuse          = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
-thresuse          = min(6, thresuse);
+% thresuse          = min(6, thresuse);
 idxcp             = find(imhigh>thresuse);
 [slice, row, col] = ind2sub(size(imhigh), idxcp);
 fprintf('Done! Took %2.2f s\n', toc); 
