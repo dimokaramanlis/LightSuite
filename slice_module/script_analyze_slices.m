@@ -1,10 +1,13 @@
 
 datafolderpath = 'D:\example_charlie';
+datafolderpath = 'J:\';
 
 sliceinfo                = struct();
-sliceinfo.mousename      = 'CGF028';
-sliceinfo.slicethickness = 150; % um, slice thickness
-sliceinfo.px_process     = 5;  % um
+sliceinfo.mousename      = 'AM152';
+% sliceinfo.slicethickness = 150; % um, slice thickness
+% sliceinfo.px_process     = 5;  % um
+sliceinfo.slicethickness = 80; % um, slice thickness
+sliceinfo.px_process     = 1.25;  % um, 1.25 for cells, 5 for other signals
 
 dp = fullfile(datafolderpath, sprintf('*%s*', sliceinfo.mousename));
 dp = dir(dp);

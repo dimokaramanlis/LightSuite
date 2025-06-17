@@ -30,7 +30,7 @@ fprintf('Standardizing and filtering volume... '); tic;
 howtoperm   = [3 1 2];
 ireg        = 1;
 volregister = squeeze(slicevol(:, :, ireg, :));
-scalefilter = 100/sliceinfo.px_process;
+scalefilter = 100/sliceinfo.px_register;
 finsize     = ceil(sliceinfo.size_proc*sliceinfo.px_process/sliceinfo.px_register);
 sizedown    = [finsize sliceinfo.Nslices ];
 volregister = imresize3(volregister, sizedown);
@@ -48,44 +48,19 @@ volregister(volregister<0) = 0;
 imhigh            = spatial_bandpass(volregister, scalefilter, 3, 3, sliceinfo.use_gpu);
 imhigh            = permute(imhigh, howtoperm);
 thresuse          = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
-thresuse          = min(5, thresuse);
+thresuse          = min(6, thresuse);
 idxcp             = find(imhigh>thresuse);
 [slice, row, col] = ind2sub(size(imhigh), idxcp);
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
-% fprintf('Calculating point clouds... '); tic;
-% % we find all points above threshold
-% [row,col,slice] = ind2sub(size(imhigh), idxcp);
-% [~, ~, ic]      = unique(slice);
-% Nregister       = 1500;
-% rng(1);
-% allclouds       = cell(sliceinfo.Nslices, 1); % second dimension is flipped
-% sigmause        = sliceinfo.slicethickness/sliceinfo.px_process/4;
-% 
-% for ii = 1:sliceinfo.Nslices
-%     idxcurr     = ic == ii; 
-%     currx       = col(idxcurr)*regdown;
-%     curry       = row(idxcurr)*regdown;
-%     if sliceinfo.use_gpu
-%         currx       = gather(currx);
-%         curry       = gather(curry);
-%     end
-% 
-%     randz       = randn(nnz(idxcurr), 1)*sigmause;
-% 
-%     Npts      = nnz(idxcurr);
-%     randomfac = Nregister/Npts;
-% 
-%     pccurr        = pointCloud([currx curry randz]);
-%     allclouds{ii} = pcdownsample(pccurr,     'random', randomfac, 'PreserveStructure', true);
-% end
-% fprintf('Done! Took %2.2f s\n', toc); 
-%--------------------------------------------------------------------------
 fprintf('Loading and processing Allen Atlas template... '); tic;
 allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
 tv               = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
+av               = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
 tv               = tv(sliceinfo.atlasaplims(1):sliceinfo.atlasaplims(2), :, :);
+av               = av(sliceinfo.atlasaplims(1):sliceinfo.atlasaplims(2), :, :);
 tvreg            = imresize3(tv, sliceinfo.px_atlas/sliceinfo.px_register);
+avreg            = imresize3(av, sliceinfo.px_atlas/sliceinfo.px_register);
 tv_points        = extractHighSFVolumePoints(tvreg, sliceinfo.px_register);
 tv_cloud         = pointCloud(tv_points);
 % Npts             = size(tv_points, 1);
@@ -103,9 +78,10 @@ pcsample   = pointCloud(Xinput);
 
 errall = nan(3, 1);
 tformslices(sliceinfo.Nslices, 1) = rigidtform2d;
+
 for ii = 1:3
     if ii > 1
-        tformslices     = refineSampleFromAtlas(tv_cloud, pcsample, tformrigid, atlasframe);
+        tformslices     = refineSampleFromAtlas(tv_cloud, pcsample, tformrigid, 'rigid');
     end
     [tformrigid, errall(ii)] = alignAtlasToSample(tv_cloud, pcsample, tformslices);
 end
@@ -115,21 +91,37 @@ slicevol = getRigidlyAlignedVolume(sliceinfo, slicevol, tformslices, atlasframe)
 regopts = struct();
 regopts.howtoperm                     = howtoperm;
 regopts.tformrigid_allen_to_samp_20um = tformrigid;
-regopts.howtoperm = [3 1 2];
-regopts.procpath  = sliceinfo.procpath;
-regopts.registres = sliceinfo.px_register;
-regopts.allenres  = 10; % um
-regopts.atlasaplims = sliceinfo.atlasaplims;
-pxsizes = [7.5 1 1];
-
-regopts.pxsizes                        = pxsizes;
+regopts.howtoperm    = [3 1 2];
+regopts.procpath     = sliceinfo.procpath;
+regopts.registres    = sliceinfo.px_register;
+regopts.allenres     = 10; % um
+regopts.atlasaplims  = sliceinfo.atlasaplims;
+regopts.pxsizes      = [sliceinfo.slicethickness/sliceinfo.px_register 1 1];
+regopts.extentfactor = 6; % # slices to extend beyond rigid registration
 save(fullfile(sliceinfo.procpath, 'regopts.mat'), '-struct', 'regopts')
 %--------------------------------------------------------------------------
-% for idim = 1:3
-%     cf = plotAnnotationComparison(uint8(255*volsamp), avtest, idim, pxsizes);
-%     savepngFast(cf, sliceinfo.procpath, sprintf('dim%d_initial_registration', idim), 300, 2);
-%     close(cf);
-% end
+scalesize = [ceil(size(slicevol,[1 2])*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
+volsave   = single(gather(imresize3(squeeze(slicevol(:,:,1,:)), scalesize)));
+regvolfac = (2^16-1)/max(volsave, [],"all");
+voldown   = uint16(regvolfac*volsave);
+
+samplepath = fullfile(sliceinfo.procpath, sprintf('sample_register_%dum.tif', regopts.registres));
+options.compress = 'lzw';
+options.message  = false;
+if exist(samplepath, 'file')
+    delete(samplepath);
+end
+saveastiff(voldown, samplepath, options);
+%--------------------------------------------------------------------------
+volsamp = single(permute(volregister, howtoperm))/single(quantile(volregister, 0.999,'all'));
+rout    = imref3d([sliceinfo.Nslices size(avreg, [2 3])], 1, regopts.pxsizes(1), 1);
+avtest  = imwarp(avreg, imref3d(size(avreg)), tformrigid, 'nearest', 'OutputView', rout);
+for idim = 1:3
+    cf = plotAnnotationComparison(uint8(255*volsamp), avtest, idim, regopts.pxsizes);
+    savepngFast(cf, sliceinfo.procpath, ...
+        sprintf('%s_dim%d_initial_registration', sliceinfo.mousename, idim), 300, 2);
+    close(cf);
+end
 %--------------------------------------------------------------------------
 fprintf('Saving aligned volume... '); tic;
 saveLargeSliceVolume(slicevol, sliceinfo.channames, sliceinfo.slicevolfin);

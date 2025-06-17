@@ -24,9 +24,9 @@ disp('Done.')
 
 gui_data.save_path = opts.procpath;
 
-volume_dir       = dir(fullfile(opts.procpath,'sample_register*.tif'));
+volume_dir       = dir(fullfile(opts.procpath,'sample_register_*um.tif'));
 volpath          = fullfile(volume_dir.folder, volume_dir.name);
-volload          = readDownStack(volpath);
+volload          = readDownStack(volpath, 1);
 volload          = permute(volload, opts.howtoperm);
 gui_data.volume  = volload;
 
@@ -34,25 +34,34 @@ factv            = 255/single(max(gui_data.volume,[],"all"));
 gui_data.volume  = uint8(single(gui_data.volume)*factv);
 gui_data.Nslices = size(gui_data.volume, 1);
 
-Ratlas         = imref3d(size(gui_data.av));
-Rvolume        = imref3d(size(volload), 1, opts.pxsizes(1), 1);
-[avnew,    ~]  = imwarp(gui_data.av, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest');
-[tvnew, rnew]  = imwarp(gui_data.tv, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear');
-
-xworld     = [Rvolume.XWorldLimits(1) + 0.5, Rvolume.XWorldLimits(2) - 0.5];
-zworld     = [Rvolume.ZWorldLimits(1) + 0.5, Rvolume.ZWorldLimits(2) - 0.5];
-zworld(1)  = max(zworld(1), rnew.ZWorldLimits(1));
-zworld(2)  = min(zworld(2), rnew.ZWorldLimits(2));
-yworld     = [Rvolume.YWorldLimits(1) + 0.5 - 10*opts.pxsizes(1),...
-    Rvolume.YWorldLimits(2) + 10*opts.pxsizes(1) - 0.5];
-yworld(1)  = max(yworld(1), rnew.YWorldLimits(1));
-yworld(2)  = min(yworld(2), rnew.YWorldLimits(2));
-
-[yy,xx,zz]     = rnew.worldToSubscript(xworld, yworld, zworld);
-gui_data.av    = avnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
-gui_data.tv    = tvnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
+nfac    = opts.extentfactor;
+Ratlas  = imref3d(size(gui_data.tv));
+Rvolume = imref3d(size(gui_data.volume), 1, opts.pxsizes(1), 1);
+yworld  = [Rvolume.YWorldLimits(1)-opts.pxsizes(1)*nfac, Rvolume.YWorldLimits(2)+nfac*opts.pxsizes(1)];
+ypix    = range(yworld);
+Rout    = imref3d([ypix, size(gui_data.tv, [2 3])], Rvolume.XWorldLimits, yworld,Rvolume.ZWorldLimits);
+gui_data.tv = imwarp(gui_data.tv, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear',  'OutputView', Rout);
+gui_data.av = imwarp(gui_data.av, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest', 'OutputView', Rout);
+% 
+% Ratlas         = imref3d(size(gui_data.av));
+% Rvolume        = imref3d(size(volload), 1, opts.pxsizes(1), 1);
+% [avnew,    ~]  = imwarp(gui_data.av, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest');
+% [tvnew, rnew]  = imwarp(gui_data.tv, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear');
+% 
+% xworld     = [Rvolume.XWorldLimits(1) + 0.5, Rvolume.XWorldLimits(2) - 0.5];
+% zworld     = [Rvolume.ZWorldLimits(1) + 0.5, Rvolume.ZWorldLimits(2) - 0.5];
+% zworld(1)  = max(zworld(1), rnew.ZWorldLimits(1));
+% zworld(2)  = min(zworld(2), rnew.ZWorldLimits(2));
+% yworld     = [Rvolume.YWorldLimits(1) + 0.5 - 10*opts.pxsizes(1),...
+%     Rvolume.YWorldLimits(2) + 10*opts.pxsizes(1) - 0.5];
+% yworld(1)  = max(yworld(1), rnew.YWorldLimits(1));
+% yworld(2)  = min(yworld(2), rnew.YWorldLimits(2));
+% 
+% [yy,xx,zz]     = rnew.worldToSubscript(xworld, yworld, zworld);
+% gui_data.av    = avnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
+% gui_data.tv    = tvnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
 % gui_data.tv    = smoothdata(gui_data.tv, 1, 'gaussian', opts.pxsizes(1)/2);
-yatlasvals     = linspace(yworld(1), yworld(2), yy(2)-yy(1)+2);
+yatlasvals     = linspace(yworld(1), yworld(2), ypix + 1);
 yatlasvals     = yatlasvals(1:end-1) + median(diff(yatlasvals))/2;
 ysamplevals    = linspace(Rvolume.YWorldLimits(1), Rvolume.YWorldLimits(2), gui_data.Nslices+1);
 ysamplevals    = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
@@ -61,8 +70,8 @@ ysamplevals    = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
 gui_data.atlasinds  = atlasinds;
 gui_data.slicewidth = median(diff(yatlasvals))* opts.pxsizes(1);
 gui_data.atlasvals  = yatlasvals;
-gui_data.Rmoving  = imref2d(size(gui_data.av, [2 3]));
-gui_data.Rfixed   = imref2d(size(volload, [2 3]));
+gui_data.Rmoving    = imref2d(size(gui_data.av, [2 3]));
+gui_data.Rfixed     = imref2d(size(volload, [2 3]));
 
 
 % chooselist = cell(3,1);
@@ -481,6 +490,7 @@ gui_data = guidata(gui_fig);
 toplot     = [2 3];
 sluse      = gui_data.atlas_slice;
 curr_atlas = squeeze(gui_data.tv(sluse, :, :));
+curr_atlas = adapthisteq(curr_atlas);
 
 set(gui_data.atlas_im_h,'CData', curr_atlas);
 set(gui_data.atlas_control_points_plot, ...

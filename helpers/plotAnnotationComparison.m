@@ -11,7 +11,7 @@ end
 pxsize(dimplot) = [];
 
 Ny    = size(volume, dimplot);
-Nshow = 10;
+Nshow = 8;
 ishow = round(linspace(0.15*Ny, 0.85*Ny, Nshow));
 
 cf = figure;

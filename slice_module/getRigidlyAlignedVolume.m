@@ -7,7 +7,7 @@ pxsamp        = sliceinfo.px_process/sliceinfo.px_register;
 pxatlas       = sliceinfo.px_atlas/sliceinfo.px_register;
 % R_out_fullres = imref2d(atlasframe, pxatlas, pxatlas);
 
-R_out_fullres = imref2d(atlasframe*pxatlas/pxsamp, pxsamp, pxsamp);
+R_out_fullres = imref2d(ceil(atlasframe*pxatlas/pxsamp), pxsamp, pxsamp);
 
 Rsample       = imref2d(size(slicevol,[1 2]), pxsamp, pxsamp);
 finalvol      = zeros([R_out_fullres.ImageSize Nchan Nslices], 'uint16');

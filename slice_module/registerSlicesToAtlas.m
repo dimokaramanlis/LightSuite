@@ -5,7 +5,7 @@ function regparams = registerSlicesToAtlas(opts)
 regparams = struct();
 %==========================================================================
 % read reg volume and control points
-volpath = dir(fullfile(opts.procpath,'*20um.tif'));
+volpath  = dir(fullfile(opts.procpath,'*20um.tif'));
 cppath   = dir(fullfile(opts.procpath,'*tform.mat'));
 optspath = dir(fullfile(opts.procpath,'*regopts.mat'));
 
@@ -25,32 +25,46 @@ volume  = permute(volume, regopts.howtoperm);
 Nslices = size(volume, 1);
 %==========================================================================
 downfac_reg = regopts.allenres/regopts.registres;
+nfac        = regopts.extentfactor;
+
 
 allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
 tv      = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
 av      = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
+tv      = tv(regopts.atlasaplims(1):regopts.atlasaplims(2), :, :);
+av      = av(regopts.atlasaplims(1):regopts.atlasaplims(2), :, :);
 tvdown  = imresize3(tv, downfac_reg);
 avdown  = imresize3(av, downfac_reg, "Method", "nearest");
 
+Ratlas  = imref3d(size(tvdown));
+Rvolume = imref3d(size(volume), 1, regopts.pxsizes(1), 1);
+yworld  = [Rvolume.YWorldLimits(1)-regopts.pxsizes(1)*nfac, Rvolume.YWorldLimits(2)+nfac*regopts.pxsizes(1)];
+ypix    = range(yworld);
+Rout    = imref3d([ypix, size(tvdown, [2 3])], Rvolume.XWorldLimits, yworld,Rvolume.ZWorldLimits);
 
-Ratlas         = imref3d(size(tvdown));
-Rvolume        = imref3d(size(volume), 1, regopts.pxsizes(1), 1);
-[tvnew, rnew]  = imwarp(tvdown, Ratlas, opts.tform_rigid_AllenToSample_20um, 'linear');
-[avnew, rnew]  = imwarp(avdown, Ratlas, opts.tform_rigid_AllenToSample_20um, 'nearest');
+[tvnew, rnew]  = imwarp(tvdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear',  'OutputView', Rout);
+[avnew, rnew]  = imwarp(avdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest', 'OutputView', Rout);
+% 
+% 
+% [tvnew, rnew]  = imwarp(tvdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear');
+% [avnew, rnew]  = imwarp(avdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest');
+% 
+
+% xworld     = [Rvolume.XWorldLimits(1) + 0.5, Rvolume.XWorldLimits(2) - 0.5];
+% zworld     = [Rvolume.ZWorldLimits(1) + 0.5, Rvolume.ZWorldLimits(2) - 0.5];
+% zworld(1)  = max(zworld(1), rnew.ZWorldLimits(1));
+% zworld(2)  = min(zworld(2), rnew.ZWorldLimits(2));
+% yworld     = [Rvolume.YWorldLimits(1) + 0.5 - 10*opts.pxsizes(1),...
+%     Rvolume.YWorldLimits(2) + 10*opts.pxsizes(1) - 0.5];
+% yworld(1)  = max(yworld(1), rnew.YWorldLimits(1));
+% yworld(2)  = min(yworld(2), rnew.YWorldLimits(2));
+% 
+% [yy,xx,zz]     = rnew.worldToSubscript(xworld, yworld, zworld);
+% tvnewred       = tvnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
+% avnew          = avnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
+% 
 
 
-xworld     = [Rvolume.XWorldLimits(1) + 0.5, Rvolume.XWorldLimits(2) - 0.5];
-zworld     = [Rvolume.ZWorldLimits(1) + 0.5, Rvolume.ZWorldLimits(2) - 0.5];
-zworld(1)  = max(zworld(1), rnew.ZWorldLimits(1));
-zworld(2)  = min(zworld(2), rnew.ZWorldLimits(2));
-yworld     = [Rvolume.YWorldLimits(1) + 0.5 - 10*opts.pxsizes(1),...
-    Rvolume.YWorldLimits(2) + 10*opts.pxsizes(1) - 0.5];
-yworld(1)  = max(yworld(1), rnew.YWorldLimits(1));
-yworld(2)  = min(yworld(2), rnew.YWorldLimits(2));
-
-[yy,xx,zz]     = rnew.worldToSubscript(xworld, yworld, zworld);
-tvnewred       = tvnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
-avnew          = avnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
 
 
 % yatlasvals     = linspace(yworld(1), yworld(2), yy(2)-yy(1)+2);
@@ -100,7 +114,7 @@ atlasinds       = cellfun(@(x) x(1,1), cpdata.atlas_control_points);
 fprintf('Using control points and elastix atlas fitting...\n'); 
 wholetic = tic;
 msg = repmat('=', [1 100]);
-ratlas      = imref2d(size(tvnewred,  [2 3]));
+ratlas      = imref2d(size(tvnew,  [2 3]));
 rahist      = imref2d(size(volume, [2 3]));
 slicetforms = affinetform2d;
 cpwt        = 0.2;
@@ -115,7 +129,7 @@ for islice = 1:Nslices
     slicetimer   = tic;
 
     histim    = squeeze(volume(islice, :,:));
-    atlasim   = squeeze(tvnewred(atlasinds(islice),:,:));
+    atlasim   = squeeze(tvnew(atlasinds(islice),:,:));
     annotim   = squeeze(avnew(atlasinds(islice),:,:));
     
     fixedpts  = cpdata.histology_control_points{islice}(:, [3 2]);
@@ -172,18 +186,49 @@ fprintf('DONE with all slices! Took %d min\n', ceil(toc(wholetic)/60));
 %%
 %=========================================================================
 %%
-% testvol = zeros([ratlas.ImageSize Nslices], 'uint16');
-% for islice = 1:Nslices
-%     histim  = squeeze(volume(islice, :,:));
-%     atlasim = squeeze(tvnew(atlasinds(islice),:,:));
-%     revtformpath = dir(fullfile(revsavepath, sprintf('%03d_slice_*', islice)));
-%     revtformpath = fullfile(revtformpath.folder, revtformpath.name);
-%     testim  = transformix(histim,revtformpath, 'movingscale', 0.01*[1 1], 'verbose', 0);
-%     testim  = uint16(abs(testim));
-%     testvol(:,:,islice)  = imwarp(testim, rahist, slicetforms(islice).invert, 'OutputView',ratlas);
-% end
+% final alignment step
+  finvol = nan(rnew.ImageSize, 'single');
+for islice = 1:Nslices
+    histim  = squeeze(volume(islice, :,:));
+    revtformpath = dir(fullfile(revsavepath, sprintf('%03d_slice_*', islice)));
+    revtformpath = fullfile(revtformpath.folder, revtformpath.name);
+    testim  = transformix(histim,revtformpath, 'movingscale', 0.02*[1 1], 'verbose', 0);
+    testim  = uint16(abs(testim));
+    finvol(atlasinds(islice), :, :) = imwarp(testim, rahist, slicetforms(islice).invert, 'OutputView',ratlas);
+end
+
+% we here smooth the final volume
+
+finvol2 = smoothdata(finvol,1, 'gaussian', 7.5);
+finvol2 = fillmissing(finvol, 'nearest', 1, 'EndValues','none');
+
+volout  = imwarp(finvol2,  Rout, opts.tformrigid_allen_to_samp_20um.invert, 'linear', 'OutputView', Ratlas);
+
+subplot(1,3,1)
+imagesc(squeeze(finvol(:,120,:)))
+axis equal; axis tight;
+subplot(1,3,2)
+imagesc(squeeze(volout(:,120,:)))
+axis equal; axis tight;
+subplot(1,3,3)
+imagesc(squeeze(tvdown(:,120,:)))
+axis equal; axis tight;
+
+subplot(1,3,1)
+imagesc(squeeze(finvol(:,:,220)),[100 2e4])
+axis equal; axis tight;
+subplot(1,3,2)
+imagesc(squeeze(volout(:,:,220)),[100 2e4])
+axis equal; axis tight;
+subplot(1,3,3)
+imagesc(squeeze(tvdown(:,:,220)))
+axis equal; axis tight;
 % % imshowpair(testim, atlasim)
-% 
+
+
+
+
+
 % 
 % % we have to take the transformed atlas and zero it out
 % % we fill in the atlas the slices we chose to register
@@ -200,13 +245,19 @@ fprintf('DONE with all slices! Took %d min\n', ceil(toc(wholetic)/60));
 %==========================================================================
 % data saving
 
-% params_pts_to_atlas = struct();
-% params_pts_to_atlas.atlasres         = regopts.atlasres;
-% params_pts_to_atlas.regvolsize       = regopts.regvolsize;
+regparams.atlasres         = regopts.allenres;
+regparams.how_to_perm      = regopts.howtoperm;
+regparams.atlasaplims      = regopts.atlasaplims;
+regparams.tformrigid_allen_to_samp_20um = regopts.tformrigid_allen_to_samp_20um;
+regparams.tformbspline_samp20um_to_atlas_20um = revsavepath;
+regparams.tformaffine_tform_atlas_to_image = slicetforms;
+regparams.space_sample_20um        = rnew;
+regparams.sliceids_in_sample_space = atlasinds;
+
+params_pts_to_atlas.regvolsize       = regopts.regvolsize;
 % params_pts_to_atlas.atlassize        = size(tv);
 % params_pts_to_atlas.ori_pxsize       = regopts.pxsize;
 % params_pts_to_atlas.ori_size         = [regopts.Ny regopts.Nx regopts.Nz];
-% params_pts_to_atlas.how_to_perm      = regopts.permute_sample_to_atlas;
 % params_pts_to_atlas.elastix_um_to_mm = 1e-3;
 % 
 % params_pts_to_atlas.tform_bspline_samp20um_to_atlas_20um_px = tformpath;
