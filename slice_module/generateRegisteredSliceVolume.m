@@ -70,7 +70,7 @@ end
 %==========================================================================
 fprintf('Saving registered volume... '); savetic = tic;
 finalpath     = fullfile(sliceinfo.procpath, 'volume_registered');
-saveLargeSliceVolume(regvol, sliceinfo.channames(ichan), finalpath);
+saveLargeSliceVolume(regvol, sliceinfo.channames, finalpath);
 fprintf('Done! Took %2.2f s. \n', toc(savetic));
 %==========================================================================
 
