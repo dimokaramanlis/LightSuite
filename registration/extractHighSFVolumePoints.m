@@ -8,7 +8,7 @@ rykeep       = [1 Ny];
 if nargin < 3
     usegpu = true;
 else
-    usegpu = varargin{2};
+    usegpu = varargin{1};
 end
 
 scalefilter = 100/pxsize;
