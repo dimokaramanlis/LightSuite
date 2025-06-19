@@ -54,7 +54,7 @@ ysamplevals      = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
 
 hascp            = ~cellfun(@isempty, cpdata.atlas_control_points);
 useratlasinds    = cellfun(@(x) x(1,1), cpdata.atlas_control_points(hascp));
-if nnz(hascp) > 4
+if nnz(hascp) > 3
     % refine remaining
     pfit      = polyfit(atlasinds(hascp), useratlasinds, 1);
     atlasinds = round(polyval(pfit, atlasinds));
@@ -113,12 +113,16 @@ for islice = 1:Nslices
     fprintf('Aligning slice %d/%d to atlas using elastix...\n', islice, Nslices); 
     slicetimer   = tic;
 
+    
     histim    = squeeze(volume(islice, :,:));
     atlasim   = squeeze(tvnew(atlasinds(islice),:,:));
     annotim   = squeeze(avnew(atlasinds(islice),:,:));
     
     fixedpts  = cpdata.histology_control_points{islice}(:, [3 2]);
+    fixedpts  = reshape(fixedpts, [], 2);
     movingpts = cpdata.atlas_control_points{islice}(:, [3 2]);
+    movingpts = reshape(movingpts, [], 2);
+    Nmov      = size(movingpts, 1);
     %------------------------------------------------------------------
     % affine estimation
 
@@ -148,8 +152,9 @@ for islice = 1:Nslices
     % transformix for illustration
     avreg     = transformAnnotationVolume(bspltformpath, affannotim, opts.registres*1e-3);
     sliceplot = uint8(255 * single(histim)/single(quantile(histim, 0.999, 'all')));
+    txtstr1   = sprintf('affine (Npts = %d)', Nmov);
     cf = plotRegistrationComparison(sliceplot, cat(3, affannotim, avreg), ...
-        {'affine (control points)', 'bspline'});
+        {txtstr1, 'bspline'});
     savepngFast(cf, forsavepath, sprintf('%03d_slice_registration_comparison', islice), 300, 2);
     close(cf);
     %------------------------------------------------------------------
