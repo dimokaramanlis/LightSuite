@@ -45,14 +45,14 @@ for islice = 1:Nslices
     pcatlascurr = pointCloud(Xatlascurr);
     Natcurr     = nnz(iatlascurr);
     ndown       = max(6, ceil(Natcurr/1000));
-    pcatlascurr = pcdownsample(pcatlascurr, 'nonuniformGridSample', ndown, 'PreserveStructure',true);
-    % pcatlascurr = pcdownsample(pcatlascurr, 'random', min(1,1000/Natcurr), 'PreserveStructure',true);
+    pcatlascurr = pcdownsample(pcatlascurr, 'nonuniformGridSample', ndown);
+    % pcatlascurr = pcdownsample(pcatlascurr, 'random', min(1,1000/Natcurr));
     
     pcslicecurr = pointCloud(Xslicecurr);
     Nslicecurr  = pcslicecurr.Count;
     ndown2      = max(6, ceil(Nslicecurr/2000));
-    pcslicecurr = pcdownsample(pcslicecurr, 'nonuniformGridSample', ndown2, 'PreserveStructure',true);
-    % pcslicecurr = pcdownsample(pcslicecurr, 'random',  min(1,1000/Nslicecurr), 'PreserveStructure',true);
+    pcslicecurr = pcdownsample(pcslicecurr, 'nonuniformGridSample', ndown2);
+    % pcslicecurr = pcdownsample(pcslicecurr, 'random',  min(1,1000/Nslicecurr));
 
     [R,T,data2] = icp(pcslicecurr.Location(:,[3 1]), pcatlascurr.Location(:,[3 1]), 100, 10, 1, 1e-6);
     res         = mean(min(pdist2(data2', pcslicecurr.Location(:,[3 1])),[],1));

@@ -19,8 +19,8 @@ for islice = 1:Nslices
     Xcurr(:, [1 3]) = tformslices(islice).transformPointsForward(Xcurr(:, [1 3]));
     Ncurr  = size(Xcurr, 1);
 
-    pccurr = pcdenoise(pointCloud(Xcurr), 'PreserveStructure',true);
-    pccurr = pcdownsample(pccurr, 'random', Nptsperslice/Ncurr, 'PreserveStructure',true);
+    pccurr = pcdenoise(pointCloud(Xcurr));
+    pccurr = pcdownsample(pccurr, 'random', Nptsperslice/Ncurr);
 
     % pccurr = pcdownsample(pointCloud(Xcurr), 'nonuniformGridSample', ceil(Ncurr/Nptsperslice));
     % pccurr2 = pcdenoise(pccurr,"PreserveStructure",true);
@@ -50,7 +50,7 @@ pcplot  = pointCloud(Xdown);
 % pcplot = pcdownsample(pcsamp, 'random', 0.05, 'PreserveStructure',true);
 
 % pcmov  = pcdownsample(pcatlas, 'random', 1e4/Nptsatlas, 'PreserveStructure',true);
-pcmov  = pcdownsample(pcatlas, 'nonuniformGridSample',  ceil(Nptsatlas/0.5e4), 'PreserveStructure',true);
+pcmov  = pcdownsample(pcatlas, 'nonuniformGridSample',  ceil(Nptsatlas/0.5e4));
 
 [tformout, pcreg, res] = pcregistercpd(pcmov, pcplot, "Transform","Rigid",...
     "Verbose",false,"OutlierRatio",0.00, 'MaxIterations', 100, 'Tolerance', 1e-6);

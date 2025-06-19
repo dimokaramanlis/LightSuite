@@ -19,7 +19,7 @@ ipts       = find(imhigh>ptthres);
 X          = [cc,rr,dd];
 ikeep      = rr > rykeep(1) & rr<rykeep(2);
 X          = X(ikeep, :);
-pcdown     = pcdownsample(pointCloud(X), 'random', 0.1, 'PreserveStructure', true);
+pcdown     = pcdownsample(pointCloud(X), 'random', 0.1);
 X          = gather(pcdown.Location);
  % scatter3(ptcloud.Location(:,1),ptcloud.Location(:,2),ptcloud.Location(:,3),2)
 end
