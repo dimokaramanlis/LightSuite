@@ -113,7 +113,7 @@ if exist(samplepath, 'file')
 end
 saveastiff(voldown, samplepath, options);
 %--------------------------------------------------------------------------
-volsamp = single(permute(volregister, howtoperm))/single(quantile(volregister, 0.999,'all'));
+volsamp = single(permute(volsave, howtoperm))/single(quantile(volsave, 0.999,'all'));
 rout    = imref3d([sliceinfo.Nslices size(avreg, [2 3])], 1, regopts.pxsizes(1), 1);
 avtest  = imwarp(avreg, imref3d(size(avreg)), tformrigid, 'nearest', 'OutputView', rout);
 for idim = 1:3

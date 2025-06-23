@@ -45,7 +45,7 @@ avdown  = imresize3(av, downfac_reg, "Method", "nearest");
 Ratlas  = imref3d(size(tvdown));
 Rvolume = imref3d(size(volume), 1, regopts.pxsizes(1), 1);
 yworld  = [Rvolume.YWorldLimits(1)-regopts.pxsizes(1)*nfac, Rvolume.YWorldLimits(2)+nfac*regopts.pxsizes(1)];
-ypix    = range(yworld);
+ypix    = ceil(range(yworld));
 Rout    = imref3d([ypix, size(tvdown, [2 3])], Rvolume.XWorldLimits, yworld,Rvolume.ZWorldLimits);
 
 [tvnew, rnew]  = imwarp(tvdown, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear',  'OutputView', Rout);
