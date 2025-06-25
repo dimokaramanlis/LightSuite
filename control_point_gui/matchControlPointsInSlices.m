@@ -67,7 +67,8 @@ ysamplevals    = linspace(Rvolume.YWorldLimits(1), Rvolume.YWorldLimits(2), gui_
 ysamplevals    = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
 [~, atlasinds] = min(pdist2(ysamplevals',yatlasvals'), [],2);
 
-gui_data.atlasinds  = atlasinds;
+gui_data.atlasinds   = atlasinds;
+gui_data.atlasindsuse  = atlasinds;
 gui_data.slicewidth = median(diff(yatlasvals))* opts.pxsizes(1);
 gui_data.atlasvals  = yatlasvals;
 gui_data.Rmoving    = imref2d(size(gui_data.av, [2 3]));
@@ -384,11 +385,33 @@ function update_slice(gui_fig)
 % Get guidata
 gui_data = guidata(gui_fig);
 
+atlas_cpoints    = gui_data.atlas_control_points;
+hascp            = ~cellfun(@isempty,   atlas_cpoints);
+useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
+newinds          = gui_data.atlasinds;
+if nnz(hascp) > 0
+    meanrem = mean(gui_data.atlasinds(hascp));
+    newinds = gui_data.atlasinds - meanrem + mean(useratlasinds);
+    newinds = round(newinds);
+    if nnz(hascp) > 1
+        % refine remaining
+        pfit      = polyfit(gui_data.atlasinds(hascp), useratlasinds, 1);
+        newinds   = round(polyval(pfit, gui_data.atlasinds));
+    end
+end
+
+Natlas = size(gui_data.tv, 1);
+newinds(newinds<1)      = 1;
+newinds(newinds>Natlas) = Natlas;
+
+gui_data.atlasindsuse = newinds;
+
+
 cpointsatlas = gui_data.atlas_control_points{gui_data.curr_slice};
 if ~isempty(cpointsatlas)
     gui_data.atlas_slice = median(cpointsatlas(:,1));
 else
-    gui_data.atlas_slice = gui_data.atlasinds(gui_data.curr_slice);
+    gui_data.atlas_slice = gui_data.atlasindsuse(gui_data.curr_slice);
 end
 
 
