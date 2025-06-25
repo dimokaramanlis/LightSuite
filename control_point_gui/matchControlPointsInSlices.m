@@ -74,29 +74,20 @@ gui_data.atlasvals  = yatlasvals;
 gui_data.Rmoving    = imref2d(size(gui_data.av, [2 3]));
 gui_data.Rfixed     = imref2d(size(volload, [2 3]));
 
+%--------------------------------------------------------------------------
+[rows, columns] = size(gui_data.tv, [2 3]);
+linespacing     = round(min([rows, columns]/12));
 
-% chooselist = cell(3,1);
-% for ii = 1:3
-%     sids = round(size(gui_data.volume, ii)*0.1):round(size(gui_data.volume, ii)*0.9);
-%     chooselist{ii} = [sids' ii * ones(numel(sids),1) ];
-% end
-% chooselist = cat(1, chooselist{:});
-% rng(1);
-% gui_data.chooselist = chooselist(randperm(size(chooselist, 1)),:);
+xspaces = 1:linespacing:columns;
+xlinesx = [repmat(xspaces, [2 1]); nan(1, numel(xspaces))];
+xlinesy = [repmat([1; rows], [1 numel(xspaces)]) ; nan(1, numel(xspaces))];
 
-
-% Load corresponding CCF slices
-% ccf_slice_fn = fullfile(gui_data.save_path,'histology_ccf.mat');
-% aldata       = load(ccf_slice_fn);
-
-% Nslices = size(aldata.indids, 1);
-% rng(1);
-% irand   = randperm(Nslices);
-% gui_data.histology_ccf = aldata.histology_ccf(irand);
-% gui_data.volindids     = aldata.indids(irand,:);
-
-
-
+yspaces    = 1:linespacing:rows;
+ylinesy   = [repmat(yspaces, [2 1]); nan(1, numel(yspaces))];
+ylinesx   = [repmat([1; columns], [1 numel(yspaces)]) ; nan(1, numel(yspaces))];
+xlinesall = [xlinesx(:); ylinesx(:)];
+ylinesall = [xlinesy(:); ylinesy(:)];
+%--------------------------------------------------------------------------
 % Load automated alignment
 auto_ccf_alignment_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
 if exist(auto_ccf_alignment_fn,'file')
@@ -139,7 +130,9 @@ set(gui_data.histology_ax,'Position',[0,0,0.5,0.9]);
 hold on; colormap(gray); axis image off;
 gui_data.histology_im_h = imagesc(curr_image,...
     'Parent',gui_data.histology_ax,'ButtonDownFcn',@mouseclick_histology);
-clim([0,200]);
+clim([0,255]);
+gui_data.histology_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
+
 % Set up histology-aligned atlas overlay
 % (and make it invisible to mouse clicks)
 % histology_aligned_atlas_boundaries_init = ...
@@ -160,10 +153,10 @@ curr_atlas = squeeze(gui_data.tv(gui_data.atlas_slice, :, :));
 % Set up axis for atlas slice
 gui_data.atlas_ax = subplot(1,2,2,'YDir','reverse'); 
 set(gui_data.atlas_ax,'Position',[0.5,0,0.5,0.9]);
-hold on; axis image off; colormap(gray); clim([0,250]);
+hold on; axis image off; colormap(gray); clim([0,255]);
 gui_data.atlas_im_h = imagesc(curr_atlas, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
-
+gui_data.atlas_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
 title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
         gui_data.atlas_slice/gui_data.slicewidth));
 
@@ -190,6 +183,7 @@ msgbox( ...
     'Left/right: switch slice' ...
     'click: set reference points for manual alignment (3 minimum)', ...
     'space: toggle alignment overlay visibility', ...
+    'g: toggle alignment grid', ...
     'c: clear reference points', ...
     's: save'}, ...
     'Controls',CreateStruct);
@@ -221,6 +215,14 @@ switch eventdata.Key
         curr_visibility = ...
             get(gui_data.histology_aligned_atlas_boundaries,'Visible');
         set(gui_data.histology_aligned_atlas_boundaries,'Visible', ...
+            cell2mat(setdiff({'on','off'},curr_visibility)))
+         % space: toggle overlay visibility
+    case 'g'
+        curr_visibility = ...
+            get(gui_data.histology_grid,'Visible');
+        set(gui_data.histology_grid,'Visible', ...
+            cell2mat(setdiff({'on','off'},curr_visibility)))
+        set(gui_data.atlas_grid,'Visible', ...
             cell2mat(setdiff({'on','off'},curr_visibility)))
         
     % c: clear current points
@@ -431,8 +433,6 @@ set(gui_data.histology_control_points_plot, ...
 histology_aligned_atlas_boundaries_init = nan(1,2);
 set(gui_data.histology_aligned_atlas_boundaries, ...
     'XData',histology_aligned_atlas_boundaries_init(:,1), 'YData',histology_aligned_atlas_boundaries_init(:,2));
-
-
 
 % Upload gui data
 guidata(gui_fig, gui_data);
