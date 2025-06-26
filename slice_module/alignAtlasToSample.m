@@ -16,14 +16,12 @@ fprintf('Aligning atlas to 3D slice volume... '); tic;
 Xdown = cell(Nslices, 1);
 for islice = 1:Nslices
     Xcurr = Xlocs(ic == islice, :);
-    Xcurr(:, [1 3]) = tformslices(islice).transformPointsForward(Xcurr(:, [1 3]));
+    % careful with the dimensions here!!!!!!!
+    Xcurr(:, [3 1]) = tformslices(islice).transformPointsForward(Xcurr(:, [3 1]));
+    % !!!
     Ncurr  = size(Xcurr, 1);
-
     pccurr = pcdenoise(pointCloud(Xcurr));
     pccurr = pcdownsample(pccurr, 'random', Nptsperslice/Ncurr);
-
-    % pccurr = pcdownsample(pointCloud(Xcurr), 'nonuniformGridSample', ceil(Ncurr/Nptsperslice));
-    % pccurr2 = pcdenoise(pccurr,"PreserveStructure",true);
 
     Xcurr         = pccurr.Location;
     Xdown{islice} = Xcurr;
@@ -58,7 +56,7 @@ pcmov  = pcdownsample(pcatlas, 'nonuniformGridSample',  ceil(Nptsatlas/0.5e4));
 % figure;
 % pcshowpair(pctransform(pcplot, tformout.invert), pcmov);
 
-% pcshowpair(pctransform(pcplot, tformtest.invert), pcmov);
+% pcshowpair(pcplot, pcmov);
 
 
 
