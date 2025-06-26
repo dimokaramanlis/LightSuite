@@ -10,10 +10,12 @@ minperc   = 0.25;
 maxperc   = 0.75;
 signalt   = 4; % background threshold
 
+Nwindow   = max(3, round(Nbuff/5));
+
 signaly   = single(max(currslice(:, round(nx*0.2):round(nx*0.8)), [], 2));
-signaly   = signaly(:);
+signaly   = movmedian(signaly(:), Nwindow); % for robustness
 signalx   = single(max(currslice(round(ny*0.2):round(ny*0.8), :), [], 1));
-signalx   = signalx(:);
+signalx   = movmedian(signalx(:), Nwindow); % for robustness
 
 
 minxsig   = signalx(1:round(nx*minperc));
