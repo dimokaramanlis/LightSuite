@@ -75,16 +75,51 @@ xvals      = row;
 zvals      = col;
 Xinput     = [gather(xvals), gather(yvals), gather(zvals)];
 pcsample   = pointCloud(Xinput);
-
-errall = nan(3, 1);
+%--------------------------------------------------------------------------
+% optimization steps
 tformslices(sliceinfo.Nslices, 1) = rigidtform2d;
-
-for ii = 1:3
-    if ii > 1
-        tformslices     = refineSampleFromAtlas(tv_cloud, pcsample, tformrigid, 'rigid');
-    end
-    [tformrigid, errall(ii)] = alignAtlasToSample(tv_cloud, pcsample, tformslices);
+transformtypes = {'rigid', 'affine'};
+transformsteps = [1 1 2 2 1];
+errall = nan(numel(transformsteps), 1);
+for istep = 1:numel(transformsteps)
+    currtranstype               = transformtypes{transformsteps(istep)};
+    fprintf('Optimization step %d/%d: %s\n', istep, numel(transformsteps), currtranstype)
+    [tformrigid, errall(istep)] = alignAtlasToSample(tv_cloud, pcsample, tformslices);
+    tformslices                 = refineSampleFromAtlas(tv_cloud, pcsample, tformrigid, currtranstype);
+    [rrx, rry, rrz]             = reportRotationAngles(tformrigid.R);
+    fprintf('%s\n', repmat('=', [1 75]));
 end
+%--------------------------------------------------------------------------
+% for ii = 1:5
+%     ttype = 'rigid';
+%     if ii > 3, ttype = 'affine';  end
+%     if ii > 1
+%         tformslices     = refineSampleFromAtlas(tv_cloud, pcsample, tformrigid, ttype);
+%     end
+%     [tformrigid, errall(ii)] = alignAtlasToSample(tv_cloud, pcsample, tformslices);
+%     [rrx, rry, rrz] = reportRotationAngles(tformrigid.R);
+% end
+% 
+% 
+% [optimizer,metric] = imregconfig("multimodal");
+% 
+% fixedvol = gather(permute(volregister, howtoperm));
+% tformslices(sliceinfo.Nslices, 1) = rigidtform2d;
+% Rfixed   = imref3d(size(fixedvol), 1, sliceinfo.slicethickness/sliceinfo.px_register, 1);
+% Rmoving  = imref3d(size(tvreg),   1,  1, 1);
+% % tformrigidinit = alignAtlasToSample(tv_cloud, pcsample, tformslices);
+% 
+% tformrigid = alignAtlasToSampleIm(tvreg, Rmoving, fixedvol, Rfixed, tformslices);
+% reportRotationAngles(tformrigid.R);
+% tformslices     = refineSampleFromAtlasIm(tv_cloud, pcsample, ...
+%         tvreg, fixedvol, Rfixed, tformrigid, 'rigid');
+% tformrigid = alignAtlasToSampleIm(tvreg, Rmoving, fixedvol, Rfixed, tformslices);
+% reportRotationAngles(tformrigid.R);
+% tformslices     = refineSampleFromAtlasIm(tv_cloud, pcsample, ...
+%         tvreg, fixedvol, Rfixed, tformrigid, 'affine');
+% tformrigid = alignAtlasToSampleIm(tvreg, Rmoving, fixedvol, Rfixed, tformslices);
+% reportRotationAngles(tformrigid.R);
+
 
 slicevol = getRigidlyAlignedVolume(sliceinfo, slicevol, tformslices, atlasframe);
 
@@ -95,6 +130,7 @@ regopts.howtoperm    = [3 1 2];
 regopts.procpath     = sliceinfo.procpath;
 regopts.registres    = sliceinfo.px_register;
 regopts.allenres     = 10; % um
+regopts.errall       = errall;
 regopts.atlasaplims  = sliceinfo.atlasaplims;
 regopts.pxsizes      = [sliceinfo.slicethickness/sliceinfo.px_register 1 1];
 regopts.extentfactor = 6; % # slices to extend beyond rigid registration
