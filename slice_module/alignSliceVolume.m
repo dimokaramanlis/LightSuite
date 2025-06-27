@@ -15,15 +15,18 @@ orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisio
 if exist(orderfile, "file")
     tabledecisions = readtable(orderfile);
     sliceorder     = tabledecisions.NewOrderOriginalIndex;
-    flipsdo        = logical(tabledecisions.FlipState);
+    flipsdo        = tabledecisions.FlipState == 1;
+    toremove       = tabledecisions.FlipState == -1;
 else
     sliceorder = 1:sliceinfo.Nslices;
     flipsdo    = false(size(sliceorder));
+    toremove   = false(size(sliceorder));
 end
 slicevol(:, :, :, flipsdo) = flip(slicevol(:, :, :, flipsdo), 2);
 slicevol                   = slicevol(:, :, :, sliceorder);
+slicevol(:, :, :, toremove(sliceorder)) = []; % remove bad slices
 
-Nchans   = size(slicevol, 3);
+[Nchans, Nslices]   = size(slicevol, [3,4]);
 %--------------------------------------------------------------------------
 fprintf('Standardizing and filtering volume... '); tic;
 % we standarding the volume values
@@ -32,7 +35,7 @@ ireg        = 1;
 volregister = squeeze(slicevol(:, :, ireg, :));
 scalefilter = 100/sliceinfo.px_register;
 finsize     = ceil(sliceinfo.size_proc*sliceinfo.px_process/sliceinfo.px_register);
-sizedown    = [finsize sliceinfo.Nslices ];
+sizedown    = [finsize Nslices ];
 volregister = imresize3(volregister, sizedown);
 
 if sliceinfo.use_gpu
@@ -77,7 +80,7 @@ Xinput     = [gather(xvals), gather(yvals), gather(zvals)];
 pcsample   = pointCloud(Xinput);
 %--------------------------------------------------------------------------
 % optimization steps
-tformslices(sliceinfo.Nslices, 1) = rigidtform2d;
+tformslices(Nslices, 1) = rigidtform2d;
 transformtypes = {'rigid', 'affine'};
 transformsteps = [1 1 2 2 1];
 errall = nan(numel(transformsteps), 1);
@@ -136,7 +139,7 @@ regopts.pxsizes      = [sliceinfo.slicethickness/sliceinfo.px_register 1 1];
 regopts.extentfactor = 6; % # slices to extend beyond rigid registration
 save(fullfile(sliceinfo.procpath, 'regopts.mat'), '-struct', 'regopts')
 %--------------------------------------------------------------------------
-scalesize = [ceil(size(slicevol,[1 2])*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
+scalesize = [ceil(size(slicevol,[1 2])*sliceinfo.px_process/sliceinfo.px_register) Nslices];
 volsave   = single(gather(imresize3(squeeze(slicevol(:,:,1,:)), scalesize)));
 regvolfac = (2^16-1)/max(volsave, [],"all");
 voldown   = uint16(regvolfac*volsave);
@@ -150,7 +153,7 @@ end
 saveastiff(voldown, samplepath, options);
 %--------------------------------------------------------------------------
 volsamp = single(permute(volsave, howtoperm))/single(quantile(volsave, 0.999,'all'));
-rout    = imref3d([sliceinfo.Nslices size(avreg, [2 3])], 1, regopts.pxsizes(1), 1);
+rout    = imref3d([Nslices size(avreg, [2 3])], 1, regopts.pxsizes(1), 1);
 avtest  = imwarp(avreg, imref3d(size(avreg)), tformrigid, 'nearest', 'OutputView', rout);
 for idim = 1:3
     cf = plotAnnotationComparison(uint8(255*volsamp), avtest, idim, regopts.pxsizes);
@@ -166,7 +169,7 @@ fprintf('Done! Took %2.2f s\n', toc);
 fprintf('Generating downsampled volume and saving... '); tic;
 
 dpsavelowres = fullfile(sliceinfo.procpath, 'volume_for_inspection.tiff');
-scalesize    = [ceil(size(slicevol,[1 2])*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
+scalesize    = [ceil(size(slicevol,[1 2])*sliceinfo.px_process/sliceinfo.px_register) Nslices];
 voldown      = zeros([scalesize(1:2) 3 scalesize(3)], 'uint8');
 
 for ichan = 1:min(Nchans, 3)

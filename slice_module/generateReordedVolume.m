@@ -6,14 +6,17 @@ orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisio
 if exist(orderfile, "file")
     tabledecisions = readtable(orderfile);
     sliceorder     = tabledecisions.NewOrderOriginalIndex;
-    flipsdo        = logical(tabledecisions.FlipState);
+    flipsdo        = tabledecisions.FlipState == 1;
+    toremove       = tabledecisions.FlipState == -1;
 else
     sliceorder = 1:sliceinfo.Nslices;
     flipsdo    = false(size(sliceorder));
+    toremove   = false(size(sliceorder));
 end
 volread                = readDownStack(sliceinfo.volorder);
 volread(:, :, :, flipsdo) = flip(volread(:, :, :, flipsdo), 2);
 volread                = volread(:, :, :, sliceorder);
+volread(:, :, :, toremove(sliceorder)) = []; % remove bad slices
 
 options.compress = 'lzw';
 options.message  = false;
