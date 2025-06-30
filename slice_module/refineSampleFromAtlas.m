@@ -46,17 +46,22 @@ for islice = 1:Nslices
     Natcurr     = nnz(iatlascurr);
     ndown       = max(6, ceil(Natcurr/1000));
     pcatlascurr = pcdownsample(pcatlascurr, 'nonuniformGridSample', ndown);
-    % pcatlascurr = pcdownsample(pcatlascurr, 'random', min(1,1000/Natcurr));
+    % pcatlascurr = pcdownsample(pcatlascurr, 'random', min(1,1500/Natcurr));
     
     pcslicecurr = pointCloud(Xslicecurr);
     Nslicecurr  = pcslicecurr.Count;
     ndown2      = max(6, ceil(Nslicecurr/2000));
     pcslicecurr = pcdownsample(pcslicecurr, 'nonuniformGridSample', ndown2);
-    % pcslicecurr = pcdownsample(pcslicecurr, 'random',  min(1,1000/Nslicecurr));
+    % pcslicecurr = pcdownsample(pcslicecurr, 'random',  min(1,2000/Nslicecurr));
 
-    [R,T,data2] = icp(pcslicecurr.Location(:,[3 1]), pcatlascurr.Location(:,[3 1]), 100, 10, 1, 1e-6);
+    meanslice = mean(pcslicecurr.Location(:,[3 1]));
+    meanatlas = mean(pcatlascurr.Location(:,[3 1]));
+    Tdiff     = -meanatlas + meanslice;
+
+
+    [R,T,data2] = icp(pcslicecurr.Location(:,[3 1]), pcatlascurr.Location(:,[3 1]) + Tdiff, 100, 10,1, 1e-6);
     res         = mean(min(pdist2(data2', pcslicecurr.Location(:,[3 1])),[],1));
-    tformcurr   = rigidtform2d(R, T);
+    tformcurr   = rigidtform2d(R, T + Tdiff');
     
     % Options   = struct('Registration','Rigid', 'Verbose', false,'TolP', 1e-4);
     % [~, M]    = ICP_finite_2d(pcslicecurr.Location(:,[3 1]), data2', Options);
@@ -82,7 +87,7 @@ for islice = 1:Nslices
     fprintf(msg);
     %-----------------------------------------------------------------------
     % datatest = tformcurr.transformPointsInverse(pcslicecurr.Location(:,[3 1]));
-    % datatest2 = tformaff.transformPointsInverse(pcslicecurr.Location(:,[3 1]));
+    % % datatest2 = tformaff.transformPointsInverse(pcslicecurr.Location(:,[3 1]));
     % % [tformcod, regcpd] = pcregistercpd(pcatlascurr, pcslicecurr, ...
     % %     'Transform','Affine', 'Tolerance',1e-6,'OutlierRatio',0.0,'Verbose',true,'MaxIterations',100);
     % % regcpd = pctransform(pcslicecurr, tformcod.invert);
@@ -97,12 +102,12 @@ for islice = 1:Nslices
     %     datatest(:,1), datatest(:,2), 'k.')
     % axis equal; axis tight; ax = gca; ax.YDir = 'reverse';
     % title('icp')
-    % subplot(1,3,3)
-    % plot(pcatlascurr.Location(:,3), pcatlascurr.Location(:,1), 'r.',...
-    %     datatest2(:,1), datatest2(:,2), 'k.')
-    % axis equal; axis tight; ax = gca; ax.YDir = 'reverse';
-    % title('cpd')
-    % pause;
+    % % subplot(1,3,3)
+    % % plot(pcatlascurr.Location(:,3), pcatlascurr.Location(:,1), 'r.',...
+    % %     datatest2(:,1), datatest2(:,2), 'k.')
+    % % axis equal; axis tight; ax = gca; ax.YDir = 'reverse';
+    % % title('cpd')
+    % % pause;
     %-----------------------------------------------------------------------
 end
 
