@@ -15,7 +15,7 @@ movscale      = ones(1, 2) * sliceinfo.px_process * 1e-3;
 atlassizepx   = atlasspacefit.ImageSize * sliceinfo.px_register/sliceinfo.px_atlas;
 atlasinds     = transformparams.sliceids_in_sample_space;
 rahist        = imref2d(atlassizepx, 0.5, 0.5);
-Nysamp        = transformparams.space3d_sample_20um.ImageExtentInWorldY;
+Nysamp        = ceil(transformparams.space3d_sample_20um.ImageExtentInWorldY);
 
 finvol = nan([Nysamp, atlassizepx, Nchannels], 'single');
 
