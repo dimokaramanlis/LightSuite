@@ -1,11 +1,20 @@
 LightSuite is a comprehensive, semi-automated software pipeline designed for the end-to-end analysis of whole-brain imaging data acquired via light-sheet and widefield slice microscopy. The pipeline addresses the significant challenge of processing and quantifying cellular-level data from datasets in the 100GB scales. Its core functionalities are twofold: first, the robust registration of raw experimental image volumes to the standardized Allen Common Coordinate Framework (CCF) v3 for the mouse brain; and second, the automated 3D detection and quantification of labeled cells within this standardized anatomical context. LightSuite enables researchers to transition from raw image stacks to quantitative, region-specific cell counts, providing a crucial tool for systems neuroscience.
 
+## Registration
+
+![Alt text](images/example_bspline.png)
+
 ## MATLAB requirements
 
 Cell counting is done on the GPU, needs to improve.
 
-More info and updates to come.
-
+Requires:
+	- MATLAB >= R2022b
+	- Computer Vision Toolbox
+	- Image Processing Toolbox
+	- Optimization Toolbox
+	- Parallel Computing Toolbox
+	- Statistics and Machine Learning Toolbox
 
 ## elastix installation
 
