@@ -2,7 +2,7 @@ LightSuite is a comprehensive, semi-automated software pipeline designed for the
 
 ## Registration
 
-<img width=“964” alt=“example bspline registration” src=“https://github.com/dimokaramanlis/LightSuite/blob/main/images/example_bspline.png”>
+![Example bspline registration](./images/example_bspline.png)
 
 ## MATLAB requirements
 
