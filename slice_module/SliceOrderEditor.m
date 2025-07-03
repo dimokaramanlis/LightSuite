@@ -140,7 +140,7 @@ function callback_keypress(fig, eventdata)
             else, gui_data.flipState(originalSliceIdx) = -1; end
         case {'return', 'enter'}
             reorder_slice_callback(fig); return; 
-        case 's', guidata(fig, gui_data); save_and_close_confirmed(fig); return; 
+        case 's', guidata(fig, gui_data); save_processing_decisions(gui_data);return; 
         case 'escape', callback_close_gui_request(fig); return; 
     end
     guidata(fig, gui_data);
