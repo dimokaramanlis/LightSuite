@@ -1,12 +1,13 @@
 function sliceinfo = getSliceInfo(sliceinfo)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
-
+%--------------------------------------------------------------------------
 dp        = fileparts(sliceinfo.filepaths{1});
 procpath  = fullfile(dp, 'lightsuite'); makeNewDir(procpath);
+%--------------------------------------------------------------------------
 Nfiles    = numel(sliceinfo.filepaths);
 allsizes  = cell(Nfiles, 2);
-
+fprintf('Reading list of .czi files... '); czifiletic = tic;
 for ifile = 1:Nfiles
     dataim = BioformatsImage(sliceinfo.filepaths{ifile});
 
@@ -42,6 +43,6 @@ sliceinfo.procpath   = procpath;
 sliceinfo.volorder    = fullfile(sliceinfo.procpath, 'volume_for_ordering.tiff');
 sliceinfo.slicevol    = fullfile(sliceinfo.procpath, 'volume_centered');
 sliceinfo.slicevolfin = fullfile(sliceinfo.procpath, 'volume_aligned');
-
-
+fprintf('Done! Found %d valid slices. Took %2.1f s\n', sliceinfo.Nslices, toc(czifiletic)); 
+%--------------------------------------------------------------------------
 end
