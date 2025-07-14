@@ -11,10 +11,12 @@ maxperc   = 0.75;
 signalt   = 4; % background threshold
 
 Nwindow   = max(3, round(Nbuff/5));
+Nbuffx    = Nbuff;
+Nbuffy    = Nbuff;
 
-signaly   = single(max(currslice(:, round(nx*0.2):round(nx*0.8)), [], 2));
+signaly   = single(max(currslice(:, round(nx*minperc):round(nx*maxperc)), [], 2));
 signaly   = movmedian(signaly(:), Nwindow); % for robustness
-signalx   = single(max(currslice(round(ny*0.2):round(ny*0.8), :), [], 1));
+signalx   = single(max(currslice(round(ny*minperc):round(ny*maxperc), :), [], 1));
 signalx   = movmedian(signalx(:), Nwindow); % for robustness
 
 
@@ -97,9 +99,15 @@ end
 xrange  = [xmin xmax];
 yrange  = [ymin ymax];
 
+% if (xmax-xmin)/nx < 0.75
+%     Nbuffx = 2*Nbuff;
+% end
+% if (ymax-ymin)/ny < 0.75
+%     Nbuffy = 2*Nbuff;
+% end
 
-yrange = yrange(1)-Nbuff:yrange(2)+Nbuff;
-xrange = xrange(1)-Nbuff:xrange(2)+Nbuff;
+yrange = yrange(1)-Nbuffy:yrange(2)+Nbuffy;
+xrange = xrange(1)-Nbuffx:xrange(2)+Nbuffx;
 yrange(yrange<1 | yrange > ny) = [];
 xrange(xrange<1 | xrange > nx) = [];
 
