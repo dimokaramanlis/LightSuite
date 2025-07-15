@@ -1,4 +1,4 @@
-function [rx,ry,rz] = reportRotationAngles(rotationMatrix)
+function [rx,ry,rz, tstr] = reportRotationAngles(rotationMatrix, varargin)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 % 2. Extract the 3x3 rotation matrix from the rigidtform3d object.
@@ -12,6 +12,11 @@ function [rx,ry,rz] = reportRotationAngles(rotationMatrix)
 %   R(2,1) = cos(rotY)*sin(rotZ)
 %   R(1,1) = cos(rotY)*cos(rotZ)
 
+if nargin<2
+    verbose = true;
+else
+    verbose = varargin{1};
+end
 % Check for gimbal lock: This occurs when rotY is +/- 90 degrees,
 % which makes cos(rotY) = 0, causing division by zero in standard formulas.
 % This corresponds to R(3,1) being -1 or 1.
@@ -41,13 +46,15 @@ euler_angles_deg = rad2deg(euler_angles_rad);
 % - The first angle is rotation about the Z-axis.
 % - The second angle is rotation about the Y-axis.
 % - The third angle is rotation about the X-axis.
-rz = euler_angles_deg(1);
+rz    = euler_angles_deg(1);
 ry    = euler_angles_deg(2);
 rx    = euler_angles_deg(3);
 
 
 % 6. Display the final results in degrees.
-fprintf('Extracted rotation around ML: %.2f deg, DV: %.2f deg, AP: %.2f deg\n', rx,ry,rz);
-
+tstr = sprintf('Extracted rotation around ML: %.2f deg, DV: %.2f deg, AP: %.2f deg', rz,rx,ry);
+if verbose
+    fprintf('%s\n', tstr);
+end
 
 end

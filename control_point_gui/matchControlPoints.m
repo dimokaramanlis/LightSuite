@@ -18,7 +18,6 @@ gui_data.tv = uint8(single(gui_data.tv)*factv);
 gui_data.tv = imresize3(gui_data.tv,opts.downfac_reg);
 gui_data.av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
 gui_data.av = imresize3(gui_data.av,opts.downfac_reg, "Method","nearest");
-gui_data.st = loadStructureTree(fullfile(allen_atlas_path,'structure_tree_safe_2017.csv'));
 gui_data.Rmoving  = imref3d(size(gui_data.av));
 disp('Done.')
 

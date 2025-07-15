@@ -1,7 +1,12 @@
-function tformout = fitPointCloudsAffine(movingim, fixedim, pxsize)
+function tformout = fitPointCloudsAffine(movingim, fixedim, pxsize, varargin)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 % pxsize in um
+if nargin < 4
+    tformtype = 'affine';
+else
+    tformtype = 'rigid';
+end
 
 rng(1);
 
@@ -13,7 +18,7 @@ scalefilter = 100/pxsize;
 % optimizer.MaximumIterations = 600;
 % metric.NumberOfHistogramBins = 10;
 imfixsharp = imsharpen(fixedim, 'Radius', scalefilter);
-tformout   = imregtform(movingim, imfixsharp, "affine", optimizer,metric);
+tformout   = imregtform(movingim, imfixsharp, tformtype, optimizer,metric);
 
 % 
 % rfixed  = imref2d(size(fixedim)); 
