@@ -1,8 +1,8 @@
 
 % folder which contains mouse subfolders
-datafolderpath = 'D:\example_charlie'; %'J:\'; % 
+datafolderpath = 'J:\';%D:\example_charlie'; %'J:\'; % 
 sliceinfo                = struct();
-sliceinfo.mousename      = 'CGF028'; %AM152';
+sliceinfo.mousename      = 'AM130'; %'CGF027';%'AM147';%'CGF028'; %
 
 %slice thickness in um, 150 for thicker slices
 sliceinfo.slicethickness =   80; 
@@ -23,12 +23,8 @@ sliceinfo             = getSliceInfo(sliceinfo);
 %% (auto) we first generate the slice volume
 slicevol = generateSliceVolume(sliceinfo);
 
-%% (manual) reorder slices if needed
-InteractiveSliceReorder(sliceinfo.volorder)
-generateReordedVolume(sliceinfo);
-
-%% (manual) flip slices if needed
-SliceFlipper(sliceinfo.volorder)
+%% (manual) reorder, flip and discard slices if needed
+SliceOrderEditor(sliceinfo.volorder)
 generateReordedVolume(sliceinfo);
 
 %% (auto) we align slices and initialize registration
@@ -37,14 +33,15 @@ sliceinfo          = sliceinfo.sliceinfo;
 sliceinfo.use_gpu  = true;
 alignedvol         = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 
-%% (manual) match control points
+%% (manual) match control points to determine cutting angle and gaps
 
 % !!! The control point selection is currently tied to the initial
 % registration. Don't start before checking the diagnostic plots and the
 % inspection volume!!!
 
 opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
-matchControlPointsInSlices(opts)
+matchControlPointsInSliceVolume(opts)
+
 
 %% (auto) refine registation with control points and elastix
 opts            = load(fullfile(sliceinfo.procpath, "regopts.mat"));

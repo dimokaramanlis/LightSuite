@@ -498,9 +498,6 @@ switch user_confirm
 
 end   
 
-% Update toolbar GUI
-% cp_lightsheet.update_toolbar_gui(gui_data.histology_toolbar_gui);
-
 end
 
 

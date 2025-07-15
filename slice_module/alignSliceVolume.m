@@ -3,15 +3,15 @@ function [slicevol, regopts] = alignSliceVolume(slicevol, sliceinfo)
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
 fprintf('Loading data in memory... '); tic;
+orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisions.txt');
 if ~isnumeric(slicevol)
     % it is a path and we have to load it as a path
     assert(isstring(slicevol) | ischar(slicevol))
-    slicevol = loadLargeSliceVolume(slicevol);
+    slicevol = loadLargeSliceVolume(slicevol, 1:numel(sliceinfo.channames), orderfile);
 end
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
 % we first reorder the data volume
-orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisions.txt');
 if exist(orderfile, "file")
     tabledecisions = readtable(orderfile);
     sliceorder     = tabledecisions.NewOrderOriginalIndex;
@@ -43,19 +43,43 @@ if sliceinfo.use_gpu
 else
     volregister = single(volregister);
 end
-bval        = median(single(sliceinfo.backvalues(ireg,:)));
-volregister = (volregister - bval)/bval;
-volregister(volregister<0) = 0;
 
-% we perform spatial bandpass filtering
-imhigh            = spatial_bandpass(volregister, scalefilter, 3, 3, sliceinfo.use_gpu);
-imhigh            = permute(imhigh, howtoperm);
-thresuse          = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
-% thresuse          = min(6, thresuse);
-idxcp             = find(imhigh>thresuse);
-[slice, row, col] = ind2sub(size(imhigh), idxcp);
-fprintf('Done! Took %2.2f s\n', toc); 
-%--------------------------------------------------------------------------
+%==========================================================================
+minperc   = 0.25;
+maxperc   = 0.75;
+ny = sizedown(1);
+nx = sizedown(2);
+xlook = round(nx*minperc):round(nx*maxperc);
+ylook = round(ny*minperc):round(ny*maxperc);
+
+allcoords = cell(Nslices, 1);
+
+for islice = 1:Nslices
+    currslice = volregister(:, :, islice);
+    backval = quantile(currslice(currslice>0), 0.01, 'all');
+    dfimg  = (currslice- backval)./backval;
+    dfimg(isinf(dfimg) | dfimg < 0) = 0;
+
+    centvals = dfimg(ylook, xlook);
+    thresuse = max(0.5, quantile(centvals,0.99,'all')/4);
+
+    ipx = find(dfimg(:) > thresuse);
+    [row, col] = ind2sub(size(dfimg), ipx);
+    pccloud = pointCloud(gather([col, row, zeros(size(row))]));
+    Npts    = pccloud.Count;
+    targetnum = min(2e4, Npts);
+    pccloud = pcdownsample(pccloud, 'random', targetnum/Npts);
+    pccloud = pcdenoise(pccloud, 'NumNeighbors',100);
+    allcoords{islice} = [pccloud.Location(:,1:2)  islice * ones(pccloud.Count, 1)];
+end
+allpts = cat(1, allcoords{:});
+yvals      = allpts(:,3) * sliceinfo.slicethickness/sliceinfo.px_register;
+xvals      = allpts(:,2);
+zvals      = allpts(:,1);
+Xinput     = [xvals, yvals, zvals];
+pcsample   = pointCloud(Xinput);
+%==========================================================================
+
 fprintf('Loading and processing Allen Atlas template... '); tic;
 allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
 tv               = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
@@ -64,25 +88,80 @@ tv               = tv(sliceinfo.atlasaplims(1):sliceinfo.atlasaplims(2), :, :);
 av               = av(sliceinfo.atlasaplims(1):sliceinfo.atlasaplims(2), :, :);
 tvreg            = imresize3(tv, sliceinfo.px_atlas/sliceinfo.px_register);
 avreg            = imresize3(av, sliceinfo.px_atlas/sliceinfo.px_register);
-tv_points        = extractHighSFVolumePoints(tvreg, sliceinfo.px_register, sliceinfo.use_gpu);
-tv_cloud         = pointCloud(tv_points);
+atlasframe = size(tv, [2 3]);
+
+thresuse         = quantile(tvreg(tvreg>0),0.99,'all')/4;
+ipx = find(tvreg(:) > thresuse);
+[row, col, lastdim] = ind2sub(size(tvreg), ipx);
+tv_cloud = pointCloud(gather([col, row, lastdim]));
+
+
 % Npts             = size(tv_points, 1);
 % tv_cloud_use     = pcdownsample(pointCloud(tv_points),'random', 20000/Npts, 'PreserveStructure',true);
 fprintf('Done! Took %2.2f s\n', toc); 
-%--------------------------------------------------------------------------
-% we first align 3d volume to Allen
+%-------------------------------------
 
-atlasframe = size(tv, [2 3]);
-yvals      = slice * sliceinfo.slicethickness/sliceinfo.px_register;
-xvals      = row;
-zvals      = col;
-Xinput     = [gather(xvals), gather(yvals), gather(zvals)];
-pcsample   = pointCloud(Xinput);
+%==========================================================================
+% Nwindow = ceil(100/sliceinfo.px_register/2)*2 + 1;
+% 
+% volback = volregister;
+% for islice = 1:Nslices
+%     volback(:, :, islice) = medfilt2(volregister(:,:,islice), [Nwindow Nwindow]);
+% end
+% 
+% 
+% % bval        = median(single(sliceinfo.backvalues(ireg,~toremove)));
+% % volregister = (volregister - bval)/bval;
+% % volregister(volregister<0) = 0;
+% % 
+% 
+% imhigh            = spatial_bandpass(volregister-volback, scalefilter, 3, 3, sliceinfo.use_gpu);
+
+% % we perform spatial bandpass filtering
+% imhigh            = spatial_bandpass(volregister, scalefilter, 5, 2, sliceinfo.use_gpu);
+% imhigh            = permute(imhigh, howtoperm);
+% thresuse          = quantile(imhigh(randperm(numel(imhigh), 1e5)),0.99,'all')/2;
+% % thresuse          = min(6, thresuse);
+% idxcp             = find(imhigh>thresuse);
+% [slice, row, col] = ind2sub(size(imhigh), idxcp);
+% fprintf('Done! Took %2.2f s\n', toc); 
+% %--------------------------------------------------------------------------
+% fprintf('Loading and processing Allen Atlas template... '); tic;
+% allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
+% tv               = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
+% av               = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
+% tv               = tv(sliceinfo.atlasaplims(1):sliceinfo.atlasaplims(2), :, :);
+% av               = av(sliceinfo.atlasaplims(1):sliceinfo.atlasaplims(2), :, :);
+% tvreg            = imresize3(tv, sliceinfo.px_atlas/sliceinfo.px_register);
+% avreg            = imresize3(av, sliceinfo.px_atlas/sliceinfo.px_register);
+% tv_points        = extractHighSFVolumePoints(tvreg, sliceinfo.px_register, sliceinfo.use_gpu);
+% tv_cloud         = pointCloud(tv_points);
+% % Npts             = size(tv_points, 1);
+% % tv_cloud_use     = pcdownsample(pointCloud(tv_points),'random', 20000/Npts, 'PreserveStructure',true);
+% fprintf('Done! Took %2.2f s\n', toc); 
+% %--------------------------------------------------------------------------
+% % we first align 3d volume to Allen
+% 
+% yvals      = slice * sliceinfo.slicethickness/sliceinfo.px_register;
+% xvals      = row;
+% zvals      = col;
+% Xinput     = [gather(xvals), gather(yvals), gather(zvals)];
+% pcsample   = pointCloud(Xinput);
 %--------------------------------------------------------------------------
 % optimization steps
 tformslices(Nslices, 1) = rigidtform2d;
+
+
+% Tvec       = median(pcsample.Location)- range(tv_cloud.Location)/2;
+% tformrigid = rigidtform3d(eye(3),Tvec);
+% % 
+% tvclouddown = pcdownsample(tv_cloud, 'random', (2e4/tv_cloud.Count));
+% pcclouddown = pcdownsample(pcsample, 'random', (2e4/pcsample.Count));
+% 
+% [tformrigid, movreg] = pcregisterndt(tvclouddown,pcclouddown,50, 'Verbose',true);
+
 transformtypes = {'rigid', 'affine'};
-transformsteps = [1 1 2 2 1];
+transformsteps = [1 1 1];
 errall = nan(numel(transformsteps), 1);
 for istep = 1:numel(transformsteps)
     currtranstype               = transformtypes{transformsteps(istep)};
@@ -93,36 +172,6 @@ for istep = 1:numel(transformsteps)
     fprintf('%s\n', repmat('=', [1 75]));
 end
 %--------------------------------------------------------------------------
-% for ii = 1:5
-%     ttype = 'rigid';
-%     if ii > 3, ttype = 'affine';  end
-%     if ii > 1
-%         tformslices     = refineSampleFromAtlas(tv_cloud, pcsample, tformrigid, ttype);
-%     end
-%     [tformrigid, errall(ii)] = alignAtlasToSample(tv_cloud, pcsample, tformslices);
-%     [rrx, rry, rrz] = reportRotationAngles(tformrigid.R);
-% end
-% 
-% 
-% [optimizer,metric] = imregconfig("multimodal");
-% 
-% fixedvol = gather(permute(volregister, howtoperm));
-% tformslices(sliceinfo.Nslices, 1) = rigidtform2d;
-% Rfixed   = imref3d(size(fixedvol), 1, sliceinfo.slicethickness/sliceinfo.px_register, 1);
-% Rmoving  = imref3d(size(tvreg),   1,  1, 1);
-% % tformrigidinit = alignAtlasToSample(tv_cloud, pcsample, tformslices);
-% 
-% tformrigid = alignAtlasToSampleIm(tvreg, Rmoving, fixedvol, Rfixed, tformslices);
-% reportRotationAngles(tformrigid.R);
-% tformslices     = refineSampleFromAtlasIm(tv_cloud, pcsample, ...
-%         tvreg, fixedvol, Rfixed, tformrigid, 'rigid');
-% tformrigid = alignAtlasToSampleIm(tvreg, Rmoving, fixedvol, Rfixed, tformslices);
-% reportRotationAngles(tformrigid.R);
-% tformslices     = refineSampleFromAtlasIm(tv_cloud, pcsample, ...
-%         tvreg, fixedvol, Rfixed, tformrigid, 'affine');
-% tformrigid = alignAtlasToSampleIm(tvreg, Rmoving, fixedvol, Rfixed, tformslices);
-% reportRotationAngles(tformrigid.R);
-
 
 slicevol = getRigidlyAlignedVolume(sliceinfo, slicevol, tformslices, atlasframe);
 
@@ -152,7 +201,8 @@ if exist(samplepath, 'file')
 end
 saveastiff(voldown, samplepath, options);
 %--------------------------------------------------------------------------
-volsamp = single(permute(volsave, howtoperm))/single(quantile(volsave, 0.999,'all'));
+volsamp = single(permute(volsave, howtoperm));
+volsamp = volsamp./quantile(volsamp, 0.999, 'all');
 rout    = imref3d([Nslices size(avreg, [2 3])], 1, regopts.pxsizes(1), 1);
 avtest  = imwarp(avreg, imref3d(size(avreg)), tformrigid, 'nearest', 'OutputView', rout);
 for idim = 1:3

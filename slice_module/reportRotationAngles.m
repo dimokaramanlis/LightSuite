@@ -52,7 +52,7 @@ rx    = euler_angles_deg(3);
 
 
 % 6. Display the final results in degrees.
-tstr = sprintf('Extracted rotation around ML: %.2f deg, DV: %.2f deg, AP: %.2f deg', rz,rx,ry);
+tstr = sprintf('Global rotation around ML: %.1f deg, DV: %.1f deg, AP: %.1f deg', rz,rx,ry);
 if verbose
     fprintf('%s\n', tstr);
 end

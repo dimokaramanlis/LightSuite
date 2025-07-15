@@ -8,19 +8,22 @@ Xlocs          = pcsamp.Location;
 Nslices        = numel(tformslices);
 Nptsdata       = size(Xlocs, 1);
 Nptsatlas      = pcatlas.Count;
-Nptsperslice   = ceil(20000/Nslices);
+Nptsperslice   = ceil(10000/Nslices);
 assert(numel(apun) == Nslices)
 
-fprintf('Aligning atlas to 3D slice volume... '); tic;
+slicedist = median(diff(apun));
+
+fprintf('Aligning atlas to 3D slice volume...\n'); tic;
 % 
 Xdown = cell(Nslices, 1);
 for islice = 1:Nslices
     Xcurr = Xlocs(ic == islice, :);
+    Ncurr  = size(Xcurr, 1);
     % careful with the dimensions here!!!!!!!
     Xcurr(:, [3 1]) = tformslices(islice).transformPointsForward(Xcurr(:, [3 1]));
+    % Xcurr(:, 2)     = Xcurr(:, 2) + randn([Ncurr, 1]) * slicedist/4;
     % !!!
-    Ncurr  = size(Xcurr, 1);
-    pccurr = pcdenoise(pointCloud(Xcurr));
+    pccurr = pointCloud(Xcurr);
     pccurr = pcdownsample(pccurr, 'random', Nptsperslice/Ncurr);
 
     Xcurr         = pccurr.Location;
@@ -51,7 +54,7 @@ pcplot  = pointCloud(Xdown);
 pcmov  = pcdownsample(pcatlas, 'nonuniformGridSample',  ceil(Nptsatlas/0.5e4));
 
 [tformout, pcreg, res] = pcregistercpd(pcmov, pcplot, "Transform","Rigid",...
-    "Verbose",false,"OutlierRatio",0.00, 'MaxIterations', 100, 'Tolerance', 1e-6);
+    "Verbose",false,"OutlierRatio",0.00, 'MaxIterations', 10, 'Tolerance', 1e-6);
 
 % figure;
 % pcshowpair(pctransform(pcplot, tformout.invert), pcmov);
