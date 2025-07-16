@@ -231,11 +231,11 @@ switch eventdata.Key
     case {'1', '2', '3'}
         gui_data.colsuse = str2double(eventdata.Key);
         guidata(gui_fig,gui_data);
-        update_slice(gui_fig);
+        update_slice(gui_fig, true);
     case '0'
         gui_data.colsuse = [1 2 3];
         guidata(gui_fig,gui_data);
-        update_slice(gui_fig);
+        update_slice(gui_fig, true);
         
     % s: save
     case 's' 
@@ -414,9 +414,13 @@ guidata(gui_fig, gui_data);
 end
 
 
-
-function update_slice(gui_fig)
+function update_slice(gui_fig, varargin)
 % Draw histology and CCF slice
+if nargin < 2 
+    sliceonly = false;
+else
+    sliceonly = varargin{1};
+end
 
 %--------------------------------------------------------------------------
 % Get guidata
@@ -478,13 +482,15 @@ set(gui_data.histology_aligned_atlas_boundaries, ...
 % Upload gui data
 guidata(gui_fig, gui_data);
 
-% Update atlas boundaries
-align_ccf_to_histology(gui_fig)
-
-% update atlas slice
-update_atlas_slice(gui_fig)
-
-set_histology_title(gui_fig)
+if ~sliceonly
+    % Update atlas boundaries
+    align_ccf_to_histology(gui_fig)
+    
+    % update atlas slice
+    update_atlas_slice(gui_fig)
+    
+    set_histology_title(gui_fig)
+end
 %--------------------------------------------------------------------------
 end
 
