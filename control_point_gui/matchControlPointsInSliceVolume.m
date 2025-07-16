@@ -12,7 +12,7 @@ gui_data.save_path = opts.procpath;
 
 %--------------------------------------------------------------------------
 % Load atlas
-allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
 if isempty(allen_atlas_path)
     error('No CCF atlas found (add CCF atlas to path)')
 end
@@ -228,16 +228,8 @@ switch eventdata.Key
         
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
-    case '1'
-        gui_data.colsuse = 1;
-        guidata(gui_fig,gui_data);
-        update_slice(gui_fig);
-    case '2'
-        gui_data.colsuse = 2;
-        guidata(gui_fig,gui_data);
-        update_slice(gui_fig);
-    case '3'
-        gui_data.colsuse = 3;
+    case {'1', '2', '3'}
+        gui_data.colsuse = str2double(eventdata.Key);
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
     case '0'
@@ -343,17 +335,21 @@ sliceinds     = cptshistology(:, 1);
 useglobaldata = false;
 if size(cptshistology,1) == size(cptsatlas,1) && ...
         (size(cptshistology,1) >= Nmin && size(cptsatlas,1) >= Nmin)
-    
     valsout = accumarray(cptshistology(:,1), cptsatlas(:,1), [gui_data.Nslices 1], @mean);
     iuse    = valsout>0;
     if nnz(iuse) > 1
-        slicepos = interp1(find(iuse),valsout(iuse), 1:gui_data.Nslices, "linear", 'extrap');
+        xx = find(iuse);
+        yy = valsout(iuse);
+        [~, isort] = sort(xx, 'ascend');
+        slicepos = interp1(xx(isort), yy(isort), 1:gui_data.Nslices, "linear", 'extrap');
         slicepos(iuse) = valsout(iuse);
         gui_data.slicepos = slicepos;
-        gui_data.slicepos = slicepos;
+        pfit = polyfit(sliceinds, cptsatlas(:,1),1);
+        gui_data.avgspacing = pfit(1) * 20; % get this 20 from somewhere
     end
     useglobaldata = true;
 end
+
 
 
 cptsatlas     = cptsatlas(:, [2 1 3]);
@@ -382,20 +378,7 @@ elseif isfield(gui_data,'histology_ccf_auto_alignment')
     gui_data.volwrap = imwarp(gui_data.av, gui_data.Rmoving, tform, 'nearest','OutputView',gui_data.Rmoving);
 else
     % If nothing available, use identity transform
-    % allpts = ones(size(gui_data.volindids,1), 3);
-    % allpts = allpts.*size(gui_data.volume)/2;
-    % 
-    % allatlaspts = cat(1,gui_data.histology_ccf(:).slice_coords);
-    % 
-    % for idim = 1:3
-    %     icurr = gui_data.volindids(:,2) == idim;
-    %     allpts(icurr, idim) = gui_data.volindids(icurr,1);
-    % end
     tform = rigidtform3d;
-    % allatlaspts = allatlaspts(:, [2 1 3]);
-    % allpts = allpts(:, [2 1 3]);
-    % tform = fitAffineTrans3D(allatlaspts, allpts);
-
     gui_data.volwrap = imwarp(gui_data.av,gui_data.Ratlas, tform, 'nearest', 'OutputView', gui_data.Ratlas);
 end
 
@@ -421,7 +404,6 @@ av_warp_boundaries = round(conv2(curr_slice_warp,ones(3)./9,'same')) ~= curr_sli
  %    'AlphaData',av_warp_boundaries*0.6);
 set(gui_data.histology_aligned_atlas_boundaries, ...
 'XData', col, 'YData', row);
-
 
 % Update transform matrix
 gui_data.histology_ccf_manual_alignment = tform.A;
@@ -463,22 +445,21 @@ else
     unvals    = unique(histpred(:, 1));
     if numel(unvals) > 2
         valsout = accumarray(histpred(:,1), atlaspred(:,1), [gui_data.Nslices 1], @median);
-        iuse = valsout>0;
-        pfit  = interp1(find(iuse), valsout(iuse), induse, 'linear', 'extrap');
+        iuse    = valsout>0;
+        xx      = find(iuse);
+        yy      = valsout(iuse);
+        [~, isort] = sort(xx, 'ascend');
+        pfit  = interp1(xx(isort), yy(isort), induse, 'linear', 'extrap');
         appos = round(pfit);
     else
         appos      = round(gui_data.slicepos(induse));
     end
    
-
-
-    
     [xl, yl, zl] = itform.outputLimits([min(iy) max(iy)], [appos appos], [min(ix) max(ix)]);
     sluse = round(median(yl));    
     sluse = max(sluse, 1);
     gui_data.atlas_slice = sluse;
 end
-
 
 % currlim    = getImageLimits(curr_image, 0.001);
 set(gui_data.histology_im_h,'CData', curr_image)
@@ -606,7 +587,8 @@ irelevant   = gui_data.chooselist(:, 1) == currsliceid;
 
 ptscurr = cat(1, gui_data.histology_control_points{irelevant});
 
-tstr = sprintf('Current slice: %d/%d, Npts = %d', currsliceid, gui_data.Nslices, size(ptscurr, 1));
+tstr = sprintf('Current slice: %d/%d, Npts = %d, est. spacing %d um', ...
+    currsliceid, gui_data.Nslices, size(ptscurr, 1), round(gui_data.avgspacing));
 title(gui_data.histology_ax, tstr);
 
 end

@@ -4,7 +4,7 @@ function [finimage,iy,ix] = blankImage_slice(currimage, blankid, usegauss)
 [Ny, Nx, Ncols] = size(currimage);
 finimage = 0*currimage;
 if usegauss
-    sigmause = 2;
+    sigmause = 3;
     for ii = 1:Ncols
         finimage(:, :, ii) = imgaussfilt(currimage(:, :, ii), sigmause);
     end
