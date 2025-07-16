@@ -8,6 +8,7 @@ Nbuff        = ceil(300/sliceinfo.px_process); % 200um for buffer size
 size_proc    = ceil(sliceinfo.maxsize.*scalefac);
 Nchannels    = numel(sliceinfo.channames);
 idx          = 1;
+denoisedapi  = getOr(sliceinfo, 'denoisedapi', false);
 
 if nargin > 1
     idreg    = varargin{1};
@@ -60,14 +61,12 @@ for ifile = 1:Nfiles
             backval  = quantile(currim(currim>0), 0.01, 'all');
             currim(currim == 0) = backval; % to replace empty tiles
 
-            % scalefilter = 100/sliceinfo.px_process;
-            % imhigh   = spatial_bandpass(currim, scalefilter, 3, 3, true);
+            if denoisedapi && contains(lower(sliceinfo.channames(icol)), 'dapi')
+                currim = stdfilt(currim, ones(dapipx));
+            end
+
             if icol == 1
-                imtofit = currim;
-                if contains(lower(sliceinfo.channames(icol)), 'dapi')
-                    imtofit = stdfilt(currim, ones(dapipx));
-                end
-                [xrange, yrange] = extractBrainLimits3(imtofit, Nbuff);
+                [xrange, yrange] = extractBrainLimits3(currim, Nbuff);
                 % [xrange, yrange] = extractBrainLimits(imtofit, Nbuff);
                 % imagesc(currim(yrange,xrange))
                 aa = 1;
@@ -125,8 +124,11 @@ for ich = 1:min(Nchannels, 3)
   
     % backproc    = reshape(single(backvalues(ich, :)), [1 1 sliceinfo.Nslices]);
     backproc    = median(single(backvalues(ich, :)));
-    currchan    = (single(currchan) - backproc)./backproc;
-    % maxval      = quantile(currchan, 0.999, [1 2]);
+    if backproc > 0
+        currchan    = (single(currchan) - backproc)./backproc;
+    else
+        currchan    = single(currchan);
+    end
     maxval      = quantile(currchan, 0.99, 'all');
     volproc(:, :, ich, :) = uint8(255*currchan./maxval);
 end

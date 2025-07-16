@@ -1,11 +1,11 @@
 
 % folder which contains mouse subfolders
-datafolderpath = 'J:\';%D:\example_charlie'; %'J:\'; % 
+datafolderpath = 'J:\'; % 'D:\example_charlie'; %
 sliceinfo                = struct();
-sliceinfo.mousename      = 'AM130'; %'CGF027';%'AM147';%'CGF028'; %
+sliceinfo.mousename      = 'AM130';%'AM147';%'CGF028'; %'AM130'; 
 
 %slice thickness in um, 150 for thicker slices
-sliceinfo.slicethickness =   80; 
+sliceinfo.slicethickness =  80; 
 %size for processing slices in um, 1.25 for cell detection, 5 for other signals
 sliceinfo.px_process     = 1.25; 
 
@@ -21,6 +21,7 @@ sliceinfo.px_atlas    = 10; % um
 sliceinfo.atlasaplims = [180 1079]; % these limits determine where we look in the atlas
 sliceinfo             = getSliceInfo(sliceinfo);
 %% (auto) we first generate the slice volume
+sliceinfo.denoisedapi   = true; % activate if your dapi looks like crap
 slicevol = generateSliceVolume(sliceinfo);
 
 %% (manual) reorder, flip and discard slices if needed
@@ -31,6 +32,7 @@ generateReordedVolume(sliceinfo);
 sliceinfo          = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
 sliceinfo          = sliceinfo.sliceinfo;
 sliceinfo.use_gpu  = true;
+sliceinfo.regmedianfilt = true; % activate if you want to register with cell channel 
 alignedvol         = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 
 %% (manual) match control points to determine cutting angle and gaps
