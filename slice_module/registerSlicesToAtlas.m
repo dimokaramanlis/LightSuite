@@ -61,14 +61,9 @@ cptshistology(:, 2) = cptsatlas(:, 2); % there is no inherent spacing in histolo
 [avnew, rnew]  = imwarp(avdown, Ratlas, tformrigid, 'nearest', 'OutputView', Ratlas);
 newatlaspts    = tformrigid.transformPointsForward(cptsatlas);
 
-valsout = accumarray(sliceinds, cptsatlas(:,2), [Nslices 1], @mean);
-iuse    = valsout>0;
-xx      = find(iuse);
-yy      = valsout(iuse);
-[~, isort] = sort(xx, 'ascend');
-atlasindex  = interp1(xx(isort), yy(isort), 1:Nslices, 'pchip', 'extrap');
-atlasindex  = round(atlasindex);
-
+% using fourth order polynomial to fit data
+pfit           = polyfit(sliceinds, newatlaspts(:,2),4);
+atlasindex     = round(polyval(pfit, 1:Nslices));
 %=========================================================================
 % for every slice, we fit an affine transform from atlas to the slice
 % if no control points are available, we use only image info
@@ -169,7 +164,7 @@ fprintf('DONE with all slices! Took %d min\n', ceil(toc(wholetic)/60));
 regparams.atlasres         = regopts.allenres;
 regparams.how_to_perm      = regopts.howtoperm;
 regparams.atlasaplims      = regopts.atlasaplims;
-regparams.tformrigid_allen_to_samp_20um       = regopts.tformrigid;
+regparams.tformrigid_allen_to_samp_20um       = tformrigid;
 regparams.tformbspline_samp20um_to_atlas_20um = revsavepath;
 regparams.tformaffine_tform_atlas_to_image    = slicetforms;
 regparams.space_sample_20um                   = rnew;
