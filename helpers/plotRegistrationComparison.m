@@ -1,4 +1,4 @@
-function cf = plotRegistrationComparison(slice, annotations, annstr)
+function cf = plotRegistrationComparison(slice, annotations, annstr, pts)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -27,6 +27,10 @@ for ii = 1:Nannot
     [row,col] = ind2sub(size(atlasim), find(av_warp_boundaries));
   
     image(slice); ax = gca; ax.Visible = 'off';axis equal; axis tight;
+    if ii == 1 & size(pts, 1) > 0
+        line(pts(:, 1), pts(:, 2), ...
+            'Marker', '.', 'Color', 'r', 'LineStyle', 'none', 'MarkerSize', 12)
+    end
     ax.Title.Visible = 'on';
     ax.YDir = 'reverse'; ax.Colormap = gray;
     line(col, row, 'Marker','.','LineStyle','none', 'Color',[1 0.8 0.5],'MarkerSize',mksize)
