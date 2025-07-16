@@ -3,6 +3,9 @@ function matchControlPointsInSliceVolume(opts)
 %
 % Manually align histology slices and matched CCF slices
 
+% STILL TO FIX: new predictions are not based on interpolation only
+
+
 % Initialize guidata
 gui_data = struct;
 opts.downfac_reg = opts.allenres/opts.registres;
@@ -26,9 +29,12 @@ disp('Done.')
 gui_data.save_path = opts.procpath;
 
 volume_dir       = dir(fullfile(opts.procpath,'sample_register_*um.tif'));
+% volume_dir       = dir(fullfile(opts.procpath,'*inspection.tif*'));
+
 volpath          = fullfile(volume_dir.folder, volume_dir.name);
-volload          = readDownStack(volpath, 1);
-volload          = permute(volload, opts.howtoperm);
+volload          = readDownStack(volpath);
+volload          = permute(volload, [1 2 4 3]);
+volload          = permute(volload, [opts.howtoperm 4]);
 volload          = single(volload);
 minvals          = single(quantile(volload, 0.01, [2 3]));
 maxvals          = single(quantile(volload, 0.999, [2 3]));
@@ -95,9 +101,9 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
 % gui_data.curr_slice = randperm(numel(chooselist), 1);
 % curr_image = volumeIdtoImage(gui_data.volume, gui_data.volindids(1, :));
 gui_data.curr_slice = 1;
-curr_image = volumeIdtoImage(gui_data.volume, [chooselist(gui_data.curr_slice, 1) 1]);
+curr_image = squeeze(gui_data.volume(chooselist(gui_data.curr_slice, 1),:,:,:));
 curr_image = blankImage_slice(curr_image, chooselist(gui_data.curr_slice, 2:end), true);
-curr_image = adapthisteq(curr_image);
+curr_image = adapthisteq(curr_image(:, :, 1));
 
 % Set up axis for histology image
 gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
@@ -225,6 +231,18 @@ switch eventdata.Key
         
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
+    case '1'
+        gui_data.colsuse = 1;
+        update_slice(gui_fig);
+    case '2'
+        gui_data.colsuse = 2;
+        update_slice(gui_fig);
+    case '3'
+        gui_data.colsuse = 3;
+        update_slice(gui_fig);
+    case '0'
+        gui_data.colsuse = [1 2 3];
+        update_slice(gui_fig);
         
     % s: save
     case 's' 
@@ -337,8 +355,6 @@ if size(cptshistology,1) == size(cptsatlas,1) && ...
     useglobaldata = true;
 end
 
- 
-cptshistology(:, 1) = cptsatlas(:, 1); % there is no inherent spacing in histology...
 
 cptsatlas     = cptsatlas(:, [2 1 3]);
 cptshistology = cptshistology(:, [2 1 3]);
@@ -349,6 +365,8 @@ cptshistology = cptshistology(:, [2 1 3]);
 if size(cptshistology,1) == size(cptsatlas,1) && ...
         (size(cptshistology,1) >= Nmin && size(cptsatlas,1) >= Nmin)
     
+    cptshistology(:, 2) = cptsatlas(:, 2); % there is no inherent spacing in histology...
+
     % If same number of >= 3 control points, use control point alignment
     [tform, mse] = fitRigidTrans3D(cptsatlas, cptshistology);
     % [tform,iidx] = estgeotform3d(cptsatlas, cptshistology, 'rigid', 'MaxDistance',10, 'MaxNumTrials',2e3);
@@ -441,7 +459,7 @@ else
     ieq = all(gui_data.chooselist(:,2:3) == gui_data.chooselist(gui_data.curr_slice, 2:3),2);
     atlaspred = cat(1, gui_data.atlas_control_points{ieq});
     histpred  = cat(1, gui_data.histology_control_points{ieq});
-    unvals    = unique(histpred);
+    unvals    = unique(histpred(:, 1));
     if numel(unvals) > 2
         valsout = accumarray(histpred(:,1), atlaspred(:,1), [gui_data.Nslices 1], @median);
         iuse = valsout>0;
