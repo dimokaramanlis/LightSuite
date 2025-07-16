@@ -52,45 +52,25 @@ for ifile = 1:Nfiles
     for iscene = 1:Nscenes
         dataim.series = irel(iscene);
         %------------------------------------------------------------------
-        % orisize  = [dataim.height, dataim.width];
-        % newsize  = ceil(scalefac(1) * orisize);
-        % currdata = zeros([newsize Nchannels], 'uint16');
-        % backvals = zeros(Nchannels, 1, 'uint16');
-        % for icol = 1:Nchannels
-        %     currim   = dataim.getPlane(1, chanids(icol), 1, irel(iscene));
-        %     currim   = medfilt2(currim, medfiltwidth); % to remove salt n' pepper
-        %     currim   = imresize(currim, scalefac(1));
-        % 
-        %     bval  = mode(currim(currim>0), 'all');
-        %     % backval  = quantile(currim(currim>0), 0.01, 'all');
-        %     % topval   = quantile(currim(currim>0), 0.99, 'all');
-        %     currim(currim == 0 | currim > maxval*0.95) = bval; % to replace empty tiles
-        %     currdata(:, :, icol) = currim;
-        %     backvals(icol) = bval;
-        % end
-        % 
-        % [xrange, yrange] = extractBrainLimits3(currdata, Nbuff);
-        %------------------------------------------------------------------
         for icol = 1:Nchannels
             currim   = dataim.getPlane(1, chanids(icol), 1, irel(iscene));
 
             currim   = medfilt2(currim, medfiltwidth); % to remove salt n' pepper
             currim   = imresize(currim, scalefac(1));
-
-            % backval  = mode(currim(currim>0), 'all');
             backval  = quantile(currim(currim>0), 0.01, 'all');
             currim(currim == 0) = backval; % to replace empty tiles
 
-            if contains(lower(sliceinfo.channames(icol)), 'dapi')
-                currim = stdfilt(currim, ones(dapipx));
-            end
             % scalefilter = 100/sliceinfo.px_process;
             % imhigh   = spatial_bandpass(currim, scalefilter, 3, 3, true);
             if icol == 1
-                % [xrange, yrange] = extractBrainLimits(currim, Nbuff);
-                [xrange, yrange] = extractBrainLimits3(currim, Nbuff);
+                imtofit = currim;
+                if contains(lower(sliceinfo.channames(icol)), 'dapi')
+                    imtofit = stdfilt(currim, ones(dapipx));
+                end
+                [xrange, yrange] = extractBrainLimits3(imtofit, Nbuff);
+                % [xrange, yrange] = extractBrainLimits(imtofit, Nbuff);
                 % imagesc(currim(yrange,xrange))
-                % aa = 1;
+                aa = 1;
             end
 
             currim   = currim(yrange,xrange);

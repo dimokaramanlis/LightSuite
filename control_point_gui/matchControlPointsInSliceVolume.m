@@ -5,31 +5,31 @@ function matchControlPointsInSliceVolume(opts)
 
 % STILL TO FIX: new predictions are not based on interpolation only
 
-
 % Initialize guidata
 gui_data = struct;
 opts.downfac_reg = opts.allenres/opts.registres;
+gui_data.save_path = opts.procpath;
 
+%--------------------------------------------------------------------------
 % Load atlas
 allen_atlas_path = fileparts(which('template_volume_10um.npy'));
 if isempty(allen_atlas_path)
     error('No CCF atlas found (add CCF atlas to path)')
 end
 disp('Loading Allen CCF atlas...')
-gui_data.tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
+gui_data.tv = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
 factv       = 255/single(max(gui_data.tv,[],"all"));
 gui_data.tv = uint8(single(gui_data.tv(opts.atlasaplims(1):opts.atlasaplims(2), :, :))*factv);
 gui_data.tv = imresize3(gui_data.tv,opts.downfac_reg);
-gui_data.av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
-gui_data.av      = imresize3(gui_data.av(opts.atlasaplims(1):opts.atlasaplims(2), :, :),...
+gui_data.av = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
+gui_data.av = imresize3(gui_data.av(opts.atlasaplims(1):opts.atlasaplims(2), :, :),...
     opts.downfac_reg, "Method","nearest");
 gui_data.Rmoving  = imref3d(size(gui_data.av));
 disp('Done.')
+%--------------------------------------------------------------------------
 
-gui_data.save_path = opts.procpath;
-
-volume_dir       = dir(fullfile(opts.procpath,'sample_register_*um.tif'));
-% volume_dir       = dir(fullfile(opts.procpath,'*inspection.tif*'));
+% volume_dir       = dir(fullfile(opts.procpath,'sample_register_*um.tif'));
+volume_dir       = dir(fullfile(opts.procpath,'*inspection.tif*'));
 
 volpath          = fullfile(volume_dir.folder, volume_dir.name);
 volload          = readDownStack(volpath);
@@ -54,6 +54,8 @@ gui_data.slicepos   = gui_data.slicepos - median(gui_data.slicepos) + size(gui_d
 gui_data.Ratlas     = imref3d(size(gui_data.tv));
 gui_data.globalerr  = nan;
 gui_data.NpointsTOT = 0;
+gui_data.colsuse    = 1:size(volload, 4);
+gui_data.avgspacing = nan;
 %--------------------------------------------------------------------------
 [rows, columns] = size(gui_data.tv, [2 3]);
 linespacing     = round(min([rows, columns]/12));
@@ -97,21 +99,17 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
     'Units','pixels','Position',gui_position, ...
     'CloseRequestFcn',@close_gui);
 
-
-% gui_data.curr_slice = randperm(numel(chooselist), 1);
-% curr_image = volumeIdtoImage(gui_data.volume, gui_data.volindids(1, :));
 gui_data.curr_slice = 1;
 curr_image = squeeze(gui_data.volume(chooselist(gui_data.curr_slice, 1),:,:,:));
 curr_image = blankImage_slice(curr_image, chooselist(gui_data.curr_slice, 2:end), true);
-curr_image = adapthisteq(curr_image(:, :, 1));
+% curr_image = adapthisteq(curr_image(:, :, 1));
 
 % Set up axis for histology image
 gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
 set(gui_data.histology_ax,'Position',[0,0,0.5,0.9]);
 hold on; colormap(gray); axis image off;
-gui_data.histology_im_h = imagesc(curr_image,...
+gui_data.histology_im_h = image(curr_image,...
     'Parent',gui_data.histology_ax,'ButtonDownFcn',@mouseclick_histology);
-clim([0,255]);
 % setup grid
 gui_data.histology_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
 set(gui_data.histology_grid,'Visible','off')
@@ -135,12 +133,10 @@ gui_data.atlas_im_h = imagesc(curr_atlas, ...
 gui_data.atlas_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
 set(gui_data.atlas_grid,'Visible','off')
 
-
-% title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
-%         gui_data.atlas_slice/gui_data.slicewidth));
-
-gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,'.g','MarkerSize',20);
-gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,'.r','MarkerSize',20);
+gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,...
+    'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'g');
+gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,...
+    'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'r');
 
 % If there was previously auto-alignment, intitialize with that
 if isfield(gui_data,'histology_ccf_auto_alignment')
@@ -165,6 +161,7 @@ msgbox( ...
     'click: set reference points for manual alignment (3 minimum)', ...
     'space: toggle alignment overlay visibility', ...
     'enter: go to slice id',...
+    '1-3 or 0: toggle channels (0 for all)',...
     'g: toggle alignment grid', ...
     'c: clear reference points', ...
     's: save'}, ...
@@ -233,15 +230,19 @@ switch eventdata.Key
         update_slice(gui_fig);
     case '1'
         gui_data.colsuse = 1;
+        guidata(gui_fig,gui_data);
         update_slice(gui_fig);
     case '2'
         gui_data.colsuse = 2;
+        guidata(gui_fig,gui_data);
         update_slice(gui_fig);
     case '3'
         gui_data.colsuse = 3;
+        guidata(gui_fig,gui_data);
         update_slice(gui_fig);
     case '0'
         gui_data.colsuse = [1 2 3];
+        guidata(gui_fig,gui_data);
         update_slice(gui_fig);
         
     % s: save
@@ -300,7 +301,6 @@ function mouseclick_atlas(gui_fig,eventdata)
 % Get guidata
 gui_data = guidata(gui_fig);
 
-idim = 1;
 dval = gui_data.atlas_slice;
 cpt     = zeros(1,3);
 cpt([2 3]) =  flip(eventdata.IntersectionPoint(1:2));
@@ -442,9 +442,10 @@ gui_data = guidata(gui_fig);
 toplot     = [2 3];
 %--------------------------------------------------------------------------
 % Set next histology slice
-curr_image = volumeIdtoImage(gui_data.volume, [gui_data.chooselist(gui_data.curr_slice, 1) 1]);
+idvol = gui_data.chooselist(gui_data.curr_slice, 1);
+curr_image = squeeze(gui_data.volume(idvol, :, :, gui_data.colsuse));
 [curr_image, iy, ix]= blankImage_slice(curr_image,  gui_data.chooselist(gui_data.curr_slice, 2:end), true);
-curr_image = adapthisteq(curr_image);
+% curr_image = adapthisteq(curr_image);
 
 cptscurr = gui_data.atlas_control_points{gui_data.curr_slice};
 

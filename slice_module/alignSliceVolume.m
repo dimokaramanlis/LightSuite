@@ -36,6 +36,14 @@ volregister = squeeze(slicevol(:, :, ireg, :));
 scalefilter = 100/sliceinfo.px_register;
 finsize     = ceil(sliceinfo.size_proc*sliceinfo.px_process/sliceinfo.px_register);
 sizedown    = [finsize Nslices ];
+dapipx = 2*floor((15./sliceinfo.px_process)/2) + 1;
+
+if contains(lower(sliceinfo.channames(ireg)), 'dapi')
+    for islice = 1:Nslices
+        volregister(:, :, islice) = stdfilt(volregister(:, :, islice), ones(dapipx));
+    end
+end
+
 volregister = imresize3(volregister, sizedown);
 
 if sliceinfo.use_gpu
@@ -43,7 +51,7 @@ if sliceinfo.use_gpu
 else
     volregister = single(volregister);
 end
-
+fprintf('Done! Took %2.2f s\n', toc); 
 %==========================================================================
 minperc   = 0.25;
 maxperc   = 0.75;
