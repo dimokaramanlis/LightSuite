@@ -11,7 +11,7 @@ if usegauss
 
 end
 
-facround = 0.52;
+facround = 0.5;
 if blankid(1) == 1
     miny = 1;
     maxy = round(Ny*facround);

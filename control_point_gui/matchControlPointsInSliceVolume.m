@@ -234,8 +234,8 @@ switch eventdata.Key
         
     % c: clear current points
     case 'c'
-        gui_data.histology_control_points{gui_data.curr_slice} = zeros(0,3);
-        gui_data.atlas_control_points{gui_data.curr_slice} = zeros(0,3);
+        gui_data.histology_control_points{gui_data.curr_slice} = zeros(0,4);
+        gui_data.atlas_control_points{gui_data.curr_slice} = zeros(0,4);
         
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
@@ -358,8 +358,11 @@ if (all(Nhist == Natlas)) && (sum(Natlas) > Nmin)
         xx = find(iuse);
         yy = valsout(iuse);
         [~, isort] = sort(xx, 'ascend');
-        slicepos = interp1(xx(isort), yy(isort), 1:gui_data.Nslices, "linear", 'extrap');
+        slicepos = interp1(xx(isort), yy(isort), 1:gui_data.Nslices, "pchip", 'extrap');
         slicepos(iuse) = valsout(iuse);
+        % fitpred = polyfit(cptshistology(:,1), cptsatlas(:,1), 4);
+        % slicepos = polyval(fitpred, 1:gui_data.Nslices)';
+        % 
         gui_data.slicepos = slicepos;
         pfit = polyfit(sliceinds, cptsatlas(:,1),1);
         gui_data.avgspacing = pfit(1) * 20; % get this 20 from somewhere
@@ -458,23 +461,31 @@ else
     itform     = tform.invert;
 
     ieq = all(gui_data.chooselist(:,2:3) == gui_data.chooselist(gui_data.curr_slice, 2:3),2);
+    iempty = cellfun(@isempty, gui_data.atlas_control_points);
+    ieq    = ieq & ~iempty;
     atlaspred = cat(1, gui_data.atlas_control_points{ieq});
     histpred  = cat(1, gui_data.histology_control_points{ieq});
     unvals    = unique(histpred(:, 1));
     if numel(unvals) > 2
+
         valsout = accumarray(histpred(:,1), atlaspred(:,1), [gui_data.Nslices 1], @mean);
         iuse    = valsout>0;
         xx      = find(iuse);
         yy      = valsout(iuse);
         [~, isort] = sort(xx, 'ascend');
-        pfit  = interp1(xx(isort), yy(isort), induse, 'linear', 'extrap');
+        pfit  = interp1(xx(isort), yy(isort), induse, 'pchip', 'extrap');
         appos = round(pfit);
+        % 
+        % pfit = polyfit(histpred(:,1), atlaspred(:,1), 3);
+        % polyval(pfit, induse)a
+        
     else
         appos      = round(gui_data.slicepos(induse));
     end
-   
-    [xl, yl, zl] = itform.outputLimits([min(iy) max(iy)], [appos appos], [min(ix) max(ix)]);
-    sluse = round(median(yl));    
+    pout = itform.transformPointsForward([median(iy), appos, median(ix)]);
+    sluse = round(pout(:,2));
+    % [xl, yl, zl] = itform.outputLimits([min(iy) max(iy)], [appos appos], [min(ix) max(ix)]);
+    % sluse = round(median(yl));    
     sluse = max(sluse, 1);
     gui_data.atlas_slice = sluse;
 end
