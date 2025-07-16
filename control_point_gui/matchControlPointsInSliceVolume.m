@@ -74,13 +74,24 @@ ylinesall = [xlinesy(:); ylinesy(:)];
 auto_ccf_alignment_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
 if exist(auto_ccf_alignment_fn,'file')
     oldtform = load(auto_ccf_alignment_fn);
-    % gui_data.histology_ccf_auto_alignment = oldtform.atlas2histology_tform;
     gui_data.histology_control_points     = oldtform.histology_control_points;
     gui_data.atlas_control_points         = oldtform.atlas_control_points;
+    for ii = 1:numel(gui_data.histology_control_points)
+        currhist  = gui_data.histology_control_points{ii};
+        curratlas = gui_data.atlas_control_points{ii};
+        if size(currhist, 2) < 4
+            currhist(:, 4) = 0;
+        end
+        if size(curratlas, 2) < 4
+            curratlas(:, 4) = 0;
+        end
+        gui_data.histology_control_points{ii} = currhist;
+        gui_data.atlas_control_points{ii} = curratlas;
+    end
 else
     % Initialize alignment control points and tform matricies
-    gui_data.histology_control_points = repmat({zeros(0,3)},size(gui_data.chooselist, 1),1);
-    gui_data.atlas_control_points     = repmat({zeros(0,3)},size(gui_data.chooselist, 1),1);
+    gui_data.histology_control_points = repmat({zeros(0,4)},size(gui_data.chooselist, 1),1);
+    gui_data.atlas_control_points     = repmat({zeros(0,4)},size(gui_data.chooselist, 1),1);
 end
 
 % Create figure, set button functions
@@ -267,7 +278,7 @@ toplot     = [2 3];
 % Add clicked location to control points
 gui_data.histology_control_points{gui_data.curr_slice} = ...
     vertcat(gui_data.histology_control_points{gui_data.curr_slice}, ...
-    cpt);
+     [cpt convertTo(datetime('now'), 'datenum')]);
 
 set(gui_data.histology_control_points_plot, ...
     'XData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(2)), ...
@@ -301,7 +312,7 @@ cpt(1) = dval;
 % Add clicked location to control points
 gui_data.atlas_control_points{gui_data.curr_slice} = ...
     vertcat(gui_data.atlas_control_points{gui_data.curr_slice}, ...
-    cpt);
+    [cpt convertTo(datetime('now'), 'datenum')]);
 
 toplot = [2 3];
 set(gui_data.atlas_control_points_plot, ...
@@ -327,14 +338,20 @@ function align_ccf_to_histology(gui_fig)
 % Get guidata 
 gui_data = guidata(gui_fig);
 
-
-Nmin = 4;
-cptsatlas     = cat(1, gui_data.atlas_control_points{:});
-cptshistology = cat(1, gui_data.histology_control_points{:});
-sliceinds     = cptshistology(:, 1);
+Nmin          = 4;
 useglobaldata = false;
-if size(cptshistology,1) == size(cptsatlas,1) && ...
-        (size(cptshistology,1) >= Nmin && size(cptsatlas,1) >= Nmin)
+
+cptsatlas     = cat(1, gui_data.atlas_control_points{:});
+cptsatlas     = cptsatlas(:, 1:3);
+cptshistology = cat(1, gui_data.histology_control_points{:});
+cptshistology = cptshistology(:, 1:3);
+
+sliceinds     = cptshistology(:, 1);
+Nhist         = size(cptshistology,1);
+Natlas        = size(cptsatlas,1);
+
+
+if (all(Nhist == Natlas)) && (sum(Natlas) > Nmin)
     valsout = accumarray(cptshistology(:,1), cptsatlas(:,1), [gui_data.Nslices 1], @mean);
     iuse    = valsout>0;
     if nnz(iuse) > 1
@@ -350,16 +367,13 @@ if size(cptshistology,1) == size(cptsatlas,1) && ...
     useglobaldata = true;
 end
 
-
-
 cptsatlas     = cptsatlas(:, [2 1 3]);
 cptshistology = cptshistology(:, [2 1 3]);
 
 % we have to re-estimate the ap sampling based on user selection (could be
 % non-uniform)
 
-if size(cptshistology,1) == size(cptsatlas,1) && ...
-        (size(cptshistology,1) >= Nmin && size(cptsatlas,1) >= Nmin)
+if all(Nhist == Natlas) && (sum(Nhist) > Nmin)
     
     cptshistology(:, 2) = cptsatlas(:, 2); % there is no inherent spacing in histology...
 
@@ -387,7 +401,7 @@ curr_slice_warp    = volumeIdtoImage(gui_data.volwrap, [atlasid 1]);
 
 sliceid   =  gui_data.chooselist(gui_data.curr_slice,1);
 idsforref = sliceinds == sliceid; 
-if nnz(idsforref) > 3 & useglobaldata
+if all(Nhist == Natlas) && (nnz(idsforref) > 3) && useglobaldata
     raim = imref2d(size(curr_slice_warp));
     histpts = cptshistology(idsforref, :);
     atpts   = cptsatlas(idsforref, :);
@@ -448,7 +462,7 @@ else
     histpred  = cat(1, gui_data.histology_control_points{ieq});
     unvals    = unique(histpred(:, 1));
     if numel(unvals) > 2
-        valsout = accumarray(histpred(:,1), atlaspred(:,1), [gui_data.Nslices 1], @median);
+        valsout = accumarray(histpred(:,1), atlaspred(:,1), [gui_data.Nslices 1], @mean);
         iuse    = valsout>0;
         xx      = find(iuse);
         yy      = valsout(iuse);
