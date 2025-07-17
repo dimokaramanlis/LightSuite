@@ -87,7 +87,6 @@ for islice = 1:Nslices
 
     
     histim    = squeeze(volume(islice, :,:));
-
     atlasim   = squeeze(tvnew(atlasindex(islice),:,:));
     annotim   = squeeze(avnew(atlasindex(islice),:,:));
     

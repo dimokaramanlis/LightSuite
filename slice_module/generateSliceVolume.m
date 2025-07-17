@@ -8,16 +8,15 @@ Nbuff        = ceil(300/sliceinfo.px_process); % 200um for buffer size
 size_proc    = ceil(sliceinfo.maxsize.*scalefac);
 Nchannels    = numel(sliceinfo.channames);
 idx          = 1;
-denoisedapi  = getOr(sliceinfo, 'denoisedapi', false);
 
 if nargin > 1
-    idreg    = varargin{1};
-    regchan = find(strcmp(sliceinfo.channames, idreg));
+    idreg    = lower(varargin{1});
+    regchan  = find(contains(lower(sliceinfo.channames), idreg));
     assert(~isempty(regchan))
 else
-    regchan      = find(strcmp(sliceinfo.channames, 'DAPI'));
+    regchan      = find(contains(lower(sliceinfo.channames), 'dapi'));
     if isempty(regchan)
-        regchan      = find(strcmp(sliceinfo.channames, 'Cy3'));
+        regchan      = find(contains(lower(sliceinfo.channames), 'cy3'));
     end
 end
 
@@ -33,13 +32,6 @@ xrange       = 1:size_proc(2);
 yrange       = 1:size_proc(1);
 Nfiles       = numel(sliceinfo.filepaths);
 maxval = 2^16-1;
-
-%--------------------------------------------------------------------------
-fprintf('Reading atlas info... '); atlastic = tic;
-allen_atlas_path     = fileparts(which('average_template_10.nii.gz'));
-tv                   = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
-maxwindow            = size(tv, [2 3]) * sliceinfo.px_atlas/sliceinfo.px_process;
-fprintf('Done! Took %2.1f s\n', toc(atlastic)); 
 %--------------------------------------------------------------------------
 dapipx = 2*floor((15./sliceinfo.px_process)/2) + 1;
 %--------------------------------------------------------------------------
@@ -61,7 +53,7 @@ for ifile = 1:Nfiles
             backval  = quantile(currim(currim>0), 0.01, 'all');
             currim(currim == 0) = backval; % to replace empty tiles
 
-            if denoisedapi && contains(lower(sliceinfo.channames(icol)), 'dapi')
+            if sliceinfo.denoisedapi && contains(lower(sliceinfo.channames(icol)), 'dapi')
                 currim = stdfilt(currim, ones(dapipx));
             end
 
