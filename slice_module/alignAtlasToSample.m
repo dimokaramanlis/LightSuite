@@ -8,7 +8,7 @@ Xlocs          = pcsamp.Location;
 Nslices        = numel(tformslices);
 Nptsdata       = size(Xlocs, 1);
 Nptsatlas      = pcatlas.Count;
-Nptsperslice   = ceil(10000/Nslices);
+Nptsperslice   = ceil(12000/Nslices);
 assert(numel(apun) == Nslices)
 
 slicedist = median(diff(apun));
@@ -50,11 +50,11 @@ pcplot  = pointCloud(Xdown);
 
 % pcplot = pcdownsample(pcsamp, 'random', 0.05, 'PreserveStructure',true);
 
-% pcmov  = pcdownsample(pcatlas, 'random', 1e4/Nptsatlas, 'PreserveStructure',true);
-pcmov  = pcdownsample(pcatlas, 'nonuniformGridSample',  ceil(Nptsatlas/0.5e4));
+pcmov  = pcdownsample(pcatlas, 'random', 1e4/Nptsatlas, 'PreserveStructure',true);
+% pcmov  = pcdownsample(pcatlas, 'random',  10);
 
 [tformout, pcreg, res] = pcregistercpd(pcmov, pcplot, "Transform","Rigid",...
-    "Verbose",false,"OutlierRatio",0.00, 'MaxIterations', 10, 'Tolerance', 1e-6);
+    "Verbose",false,"OutlierRatio",0.00, 'MaxIterations', 20, 'Tolerance', 1e-6);
 
 % figure;
 % pcshowpair(pctransform(pcplot, tformout.invert), pcmov);

@@ -12,7 +12,7 @@ else
 end
 
 scalefilter = 100/pxsize;
-imhigh     = spatial_bandpass_3d(voluse, scalefilter, 3, 3, usegpu);
+imhigh     = spatial_bandpass_3d(voluse, scalefilter, 6, 3, usegpu);
 ptthres    = quantile(imhigh, 0.99, 'all')/2;
 ipts       = find(imhigh>ptthres);
 [rr,cc,dd] = ind2sub(size(voluse), ipts);
