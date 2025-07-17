@@ -355,14 +355,14 @@ if (all(Nhist == Natlas)) && (sum(Natlas) > Nmin)
     valsout = accumarray(cptshistology(:,1), cptsatlas(:,1), [gui_data.Nslices 1], @mean);
     iuse    = valsout>0;
     if nnz(iuse) > 1
-        xx = find(iuse);
-        yy = valsout(iuse);
-        [~, isort] = sort(xx, 'ascend');
-        slicepos = interp1(xx(isort), yy(isort), 1:gui_data.Nslices, "pchip", 'extrap');
-        slicepos(iuse) = valsout(iuse);
-        % fitpred = polyfit(cptshistology(:,1), cptsatlas(:,1), 4);
-        % slicepos = polyval(fitpred, 1:gui_data.Nslices)';
-        % 
+        % xx = find(iuse);
+        % yy = valsout(iuse);
+        % [~, isort] = sort(xx, 'ascend');
+        % slicepos = interp1(xx(isort), yy(isort), 1:gui_data.Nslices, "pchip", 'extrap');
+        % slicepos(iuse) = round(valsout(iuse));
+        fitpred = polyfit(cptshistology(:,1), cptsatlas(:,1), 1);
+        slicepos = polyval(fitpred, 1:gui_data.Nslices)';
+
         gui_data.slicepos = slicepos;
         pfit = polyfit(sliceinds, cptsatlas(:,1),1);
         gui_data.avgspacing = pfit(1) * 20; % get this 20 from somewhere
@@ -404,7 +404,7 @@ curr_slice_warp    = volumeIdtoImage(gui_data.volwrap, [atlasid 1]);
 
 sliceid   =  gui_data.chooselist(gui_data.curr_slice,1);
 idsforref = sliceinds == sliceid; 
-if all(Nhist == Natlas) && (nnz(idsforref) > 3) && useglobaldata
+if all(Nhist == Natlas) && (nnz(idsforref) > 2) && useglobaldata
     raim = imref2d(size(curr_slice_warp));
     histpts = cptshistology(idsforref, :);
     atpts   = cptsatlas(idsforref, :);
@@ -458,29 +458,33 @@ else
     tform = rigidtform3d(gui_data.histology_ccf_manual_alignment);
     
     induse     = gui_data.chooselist(gui_data.curr_slice, 1);
-    itform     = tform.invert;
+    appos      = round(gui_data.slicepos(induse));
 
+    itform     = tform.invert;
     ieq = all(gui_data.chooselist(:,2:3) == gui_data.chooselist(gui_data.curr_slice, 2:3),2);
     iempty = cellfun(@isempty, gui_data.atlas_control_points);
     ieq    = ieq & ~iempty;
-    atlaspred = cat(1, gui_data.atlas_control_points{ieq});
-    histpred  = cat(1, gui_data.histology_control_points{ieq});
-    unvals    = unique(histpred(:, 1));
-    if numel(unvals) > 2
+    
+    if nnz(ieq) > 0
+        atlaspred = cat(1, gui_data.atlas_control_points{ieq});
+        histpred  = cat(1, gui_data.histology_control_points{ieq});
+        unvals    = unique(histpred(:, 1));
+        if numel(unvals) > 2
 
-        valsout = accumarray(histpred(:,1), atlaspred(:,1), [gui_data.Nslices 1], @mean);
-        iuse    = valsout>0;
-        xx      = find(iuse);
-        yy      = valsout(iuse);
-        [~, isort] = sort(xx, 'ascend');
-        pfit  = interp1(xx(isort), yy(isort), induse, 'pchip', 'extrap');
-        appos = round(pfit);
-        % 
-        % pfit = polyfit(histpred(:,1), atlaspred(:,1), 3);
-        % polyval(pfit, induse)a
-        
-    else
-        appos      = round(gui_data.slicepos(induse));
+            % we replce this part with scattered interpolant!!!!
+    
+
+            % valsout = accumarray(histpred(:,1), atlaspred(:,1), [gui_data.Nslices 1], @mean);
+            % iuse    = valsout>0;
+            % xx      = find(iuse);
+            % yy      = valsout(iuse);
+            % [~, isort] = sort(xx, 'ascend');
+            % pfit  = interp1(xx(isort), yy(isort), induse, 'pchip', 'extrap');
+            % appos = round(pfit);
+            % 
+            pfit = polyfit(histpred(:,1), atlaspred(:,1), 1);
+            appos = round(polyval(pfit, induse));
+        end
     end
     pout = itform.transformPointsForward([median(iy), appos, median(ix)]);
     sluse = round(pout(:,2));
@@ -507,10 +511,10 @@ set(gui_data.histology_aligned_atlas_boundaries, ...
 % Upload gui data
 guidata(gui_fig, gui_data);
 
+% Update atlas boundaries
+align_ccf_to_histology(gui_fig)
 if ~sliceonly
-    % Update atlas boundaries
-    align_ccf_to_histology(gui_fig)
-    
+
     % update atlas slice
     update_atlas_slice(gui_fig)
     
@@ -527,8 +531,7 @@ function scroll_atlas_slice(gui_fig,eventdata)
 gui_data = guidata(gui_fig);
 
 % Move slice point
-gui_data.atlas_slice = ...
-    gui_data.atlas_slice + eventdata.VerticalScrollCount;
+gui_data.atlas_slice = gui_data.atlas_slice + eventdata.VerticalScrollCount;
 
 gui_data.atlas_slice = max(gui_data.atlas_slice, 1);
 gui_data.atlas_slice = min(gui_data.atlas_slice, size(gui_data.tv, 1));
@@ -552,8 +555,7 @@ user_confirm = questdlg('\fontsize{14} Save?','Confirm exit',opts);
 switch user_confirm
     case 'Yes'
         % Save and close
-        atlas2histology_tform = ...
-            gui_data.histology_ccf_manual_alignment;
+        atlas2histology_tform    = gui_data.histology_ccf_manual_alignment;
         histology_control_points = gui_data.histology_control_points;
         atlas_control_points     = gui_data.atlas_control_points;
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
@@ -589,7 +591,7 @@ if atlasize < sluse
     sluse = atlasize;
 end
 %--------------------------------------------------------------------------
-curr_atlas = volumeIdtoImage(gui_data.tv, [sluse 1]);
+curr_atlas = squeeze(gui_data.tv(sluse, :, :));
 curr_atlas = adapthisteq(curr_atlas);
 
 set(gui_data.atlas_im_h,'CData', curr_atlas);
