@@ -341,18 +341,23 @@ gui_data = guidata(gui_fig);
 Nmin          = 4;
 useglobaldata = false;
 
-cptsatlas     = cat(1, gui_data.atlas_control_points{:});
+cptsatlas     = gui_data.atlas_control_points;
+cptshistology = gui_data.histology_control_points;
+Nptsatlas     = cellfun(@(x) size(x, 1), cptsatlas);
+Nptshisto     = cellfun(@(x) size(x, 1), cptshistology);
+iuse          = Nptsatlas == Nptshisto;
+cptsatlas     = cat(1, cptsatlas{iuse});
+cpthisto      = cat(1, cptshistology{iuse});
 cptsatlas     = cptsatlas(:, 1:3);
-cptshistology = cat(1, gui_data.histology_control_points{:});
-cptshistology = cptshistology(:, 1:3);
+cpthisto      = cpthisto(:, 1:3);
 
-sliceinds     = cptshistology(:, 1);
-Nhist         = size(cptshistology,1);
+sliceinds     = cpthisto(:, 1);
+Nhist         = size(cpthisto,1);
 Natlas        = size(cptsatlas,1);
 
 
 if (all(Nhist == Natlas)) && (sum(Natlas) > Nmin)
-    valsout = accumarray(cptshistology(:,1), cptsatlas(:,1), [gui_data.Nslices 1], @mean);
+    valsout = accumarray(cpthisto(:,1), cptsatlas(:,1), [gui_data.Nslices 1], @mean);
     iuse    = valsout>0;
     if nnz(iuse) > 1
         % xx = find(iuse);
@@ -360,7 +365,7 @@ if (all(Nhist == Natlas)) && (sum(Natlas) > Nmin)
         % [~, isort] = sort(xx, 'ascend');
         % slicepos = interp1(xx(isort), yy(isort), 1:gui_data.Nslices, "pchip", 'extrap');
         % slicepos(iuse) = round(valsout(iuse));
-        fitpred = polyfit(cptshistology(:,1), cptsatlas(:,1), 1);
+        fitpred = polyfit(cpthisto(:,1), cptsatlas(:,1), 1);
         slicepos = polyval(fitpred, 1:gui_data.Nslices)';
 
         gui_data.slicepos = slicepos;
@@ -370,18 +375,18 @@ if (all(Nhist == Natlas)) && (sum(Natlas) > Nmin)
     useglobaldata = true;
 end
 
-cptsatlas     = cptsatlas(:, [2 1 3]);
-cptshistology = cptshistology(:, [2 1 3]);
+cptsatlas = cptsatlas(:, [2 1 3]);
+cpthisto  = cpthisto(:, [2 1 3]);
 
 % we have to re-estimate the ap sampling based on user selection (could be
 % non-uniform)
 
 if all(Nhist == Natlas) && (sum(Nhist) > Nmin)
     
-    cptshistology(:, 2) = cptsatlas(:, 2); % there is no inherent spacing in histology...
+    cpthisto(:, 2) = cptsatlas(:, 2); % there is no inherent spacing in histology...
 
     % If same number of >= 3 control points, use control point alignment
-    [tform, mse] = fitRigidTrans3D(cptsatlas, cptshistology);
+    [tform, mse] = fitRigidTrans3D(cptsatlas, cpthisto);
     % [tform,iidx] = estgeotform3d(cptsatlas, cptshistology, 'rigid', 'MaxDistance',10, 'MaxNumTrials',2e3);
     gui_data.volwrap = imwarp(gui_data.av, gui_data.Ratlas, tform, 'nearest','OutputView',gui_data.Ratlas);
 
@@ -406,7 +411,7 @@ sliceid   =  gui_data.chooselist(gui_data.curr_slice,1);
 idsforref = sliceinds == sliceid; 
 if all(Nhist == Natlas) && (nnz(idsforref) > 2) && useglobaldata
     raim = imref2d(size(curr_slice_warp));
-    histpts = cptshistology(idsforref, :);
+    histpts = cpthisto(idsforref, :);
     atpts   = cptsatlas(idsforref, :);
     newpts  = tform.transformPointsForward(atpts);
     taff  = fitgeotform2d(newpts(:, [3 1]), histpts(:, [3 1]),'affine');
@@ -466,14 +471,18 @@ else
     ieq    = ieq & ~iempty;
     
     if nnz(ieq) > 0
-        atlaspred = cat(1, gui_data.atlas_control_points{ieq});
-        histpred  = cat(1, gui_data.histology_control_points{ieq});
-        unvals    = unique(histpred(:, 1));
+        atlaspred = gui_data.atlas_control_points(ieq);
+        histpred  = gui_data.histology_control_points(ieq);
+        Nptsatlas = cellfun(@(x) size(x, 1), atlaspred);
+        Nptshisto = cellfun(@(x) size(x, 1), histpred);
+        iuse      = Nptsatlas == Nptshisto;
+        histvec   = cat(1, histpred{iuse});
+        atlasvec  = cat(1, atlaspred{iuse});
+        unvals    = unique(histvec);
         if numel(unvals) > 2
 
             % we replce this part with scattered interpolant!!!!
-    
-
+          
             % valsout = accumarray(histpred(:,1), atlaspred(:,1), [gui_data.Nslices 1], @mean);
             % iuse    = valsout>0;
             % xx      = find(iuse);
@@ -482,7 +491,7 @@ else
             % pfit  = interp1(xx(isort), yy(isort), induse, 'pchip', 'extrap');
             % appos = round(pfit);
             % 
-            pfit = polyfit(histpred(:,1), atlaspred(:,1), 1);
+            pfit = polyfit(histvec(:,1), atlasvec(:,1), 1);
             appos = round(polyval(pfit, induse));
         end
     end
@@ -517,8 +526,24 @@ if ~sliceonly
 
     % update atlas slice
     update_atlas_slice(gui_fig)
-    
+    % update title
     set_histology_title(gui_fig)
+
+    % clear points that are not used
+    cptsatlas     = gui_data.atlas_control_points;
+    cptshistology = gui_data.histology_control_points;
+    Nptsatlas     = cellfun(@(x) size(x, 1), cptsatlas);
+    Nptshisto     = cellfun(@(x) size(x, 1), cptshistology);
+    badpts        = find(~(Nptsatlas == Nptshisto));
+    for ii = 1:numel(badpts)
+        % curratlas = cptsatlas{badpts(ii)};
+        % currhisto = cptshistology{badpts(ii)};
+        % temp fix, clearing bad stuff, use timestamps later
+        gui_data.atlas_control_points{badpts(ii)} = {zeros(0,4)};
+        gui_data.histology_control_points{badpts(ii)} = {zeros(0,4)};
+    end
+
+
 end
 %--------------------------------------------------------------------------
 end
