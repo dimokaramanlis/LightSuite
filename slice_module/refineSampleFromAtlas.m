@@ -26,6 +26,11 @@ switch lower(transformtype)
     case 'affine'
         tformslices(Nslices, 1) = affinetform2d;
         isaffine = true;
+        texttrans = 'Affine';
+    case 'similarity'
+        tformslices(Nslices, 1) = affinetform2d;
+        isaffine = true;
+        texttrans = 'Size';
 end
 
 fprintf('Refining slices... ');
@@ -68,7 +73,7 @@ for islice = 1:Nslices
     % tformaff = rigidtform2d(M);
 
     if isaffine
-        Options   = struct('Registration','Affine', 'Verbose', false,'TolP', 1e-4);
+        Options   = struct('Registration', texttrans, 'Verbose', false,'TolP', 1e-4);
         [~, M]    = ICP_finite_2d(pcslicecurr.Location(:,[3 1]), data2', Options);
         tformcurr = affinetform2d(tformcurr.A * M);
     end
