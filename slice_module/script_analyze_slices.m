@@ -23,6 +23,7 @@ generateReordedVolume(sliceinfo);
 %% (auto) we align slices and initialize registration
 sliceinfo          = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
 sliceinfo          = sliceinfo.sliceinfo;
+sliceinfo          = copyStructBtoA(sliceinfo, settings);
 alignedvol         = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 
 %% (manual) match control points to determine cutting angle and gaps
