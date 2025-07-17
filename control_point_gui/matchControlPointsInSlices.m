@@ -1,6 +1,4 @@
 function matchControlPointsInSlices(opts)
-% Part of AP_histology toolbox
-%
 % Manually align histology slices and matched CCF slices
 
 % Initialize guidata
@@ -24,49 +22,118 @@ disp('Done.')
 
 gui_data.save_path = opts.procpath;
 
-volume_dir       = dir(fullfile(opts.procpath,'sample_register_*um.tif'));
-volpath          = fullfile(volume_dir.folder, volume_dir.name);
-volload          = readDownStack(volpath, 1);
-volload          = permute(volload, opts.howtoperm);
-gui_data.volume  = volload;
+% --- Load sample volume ---
+volume_dir       = dir(fullfile(opts.procpath,'*inspection.tif*'));
 
-factv            = 255/single(max(gui_data.volume,[],"all"));
-gui_data.volume  = uint8(single(gui_data.volume)*factv);
+volpath          = fullfile(volume_dir.folder, volume_dir.name);
+volload          = readDownStack(volpath);
+volload          = permute(volload, [1 2 4 3]);
+volload          = permute(volload, [opts.howtoperm 4]);
+volload          = single(volload);
+minvals          = single(quantile(volload, 0.01, [2 3]));
+maxvals          = single(quantile(volload, 0.999, [2 3]));
+volload          = 255 * (volload - minvals)./(maxvals - minvals);
+gui_data.volume  = uint8(volload);
 gui_data.Nslices = size(gui_data.volume, 1);
+gui_data.colsuse    = 1:size(volload, 4);
 
 nfac    = opts.extentfactor;
+
+% --- Setup spatial referencing ---
 Ratlas  = imref3d(size(gui_data.tv));
-Rvolume = imref3d(size(gui_data.volume), 1, opts.pxsizes(1), 1);
+Rvolume = imref3d(size(gui_data.volume, 1:3), 1, opts.pxsizes(1), 1);
 yworld  = [Rvolume.YWorldLimits(1)-opts.pxsizes(1)*nfac, Rvolume.YWorldLimits(2)+nfac*opts.pxsizes(1)];
 ypix    = ceil(range(yworld));
 Rout    = imref3d([ypix, size(gui_data.tv, [2 3])], Rvolume.XWorldLimits, yworld,Rvolume.ZWorldLimits);
-gui_data.tv = imwarp(gui_data.tv, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear',  'OutputView', Rout);
-gui_data.av = imwarp(gui_data.av, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest', 'OutputView', Rout);
 
-% Ratlas         = imref3d(size(gui_data.av));
-% Rvolume        = imref3d(size(volload), 1, opts.pxsizes(1), 1);
-% [avnew,    ~]  = imwarp(gui_data.av, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest');
-% [tvnew, rnew]  = imwarp(gui_data.tv, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear');
-% 
-% xworld     = [Rvolume.XWorldLimits(1) + 0.5, Rvolume.XWorldLimits(2) - 0.5];
-% zworld     = [Rvolume.ZWorldLimits(1) + 0.5, Rvolume.ZWorldLimits(2) - 0.5];
-% zworld(1)  = max(zworld(1), rnew.ZWorldLimits(1));
-% zworld(2)  = min(zworld(2), rnew.ZWorldLimits(2));
-% yworld     = [Rvolume.YWorldLimits(1) + 0.5 - 10*opts.pxsizes(1),...
-%     Rvolume.YWorldLimits(2) + 10*opts.pxsizes(1) - 0.5];
-% yworld(1)  = max(yworld(1), rnew.YWorldLimits(1));
-% yworld(2)  = min(yworld(2), rnew.YWorldLimits(2));
-% 
-% [yy,xx,zz]     = rnew.worldToSubscript(xworld, yworld, zworld);
-% gui_data.av    = avnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
-% gui_data.tv    = tvnew(yy(1):yy(2), xx(1):xx(2), zz(1):zz(2));
-% gui_data.tv    = smoothdata(gui_data.tv, 1, 'gaussian', opts.pxsizes(1)/2);
+% --- START: MODIFIED SECTION ---
+
+% Define path to the saved cutting angle data
+angle_data_path = fullfile(opts.procpath, 'cutting_angle_data.mat');
+
+% Check if the cutting angle data file exists
+if exist(angle_data_path, 'file')
+    fprintf('Found saved cutting angle data. Overwriting transformation rotation...\n');
+    
+    % --- 1. Load and process angle data ---
+    data = load(angle_data_path);
+    cutting_angle_data = data.cutting_angle_data;
+    
+    if ~isfield(cutting_angle_data, 'saved_slice_vectors')
+        error('The GUI must be updated to save "saved_slice_vectors" for this to work.');
+    end
+    
+    saved_vectors = cutting_angle_data.saved_slice_vectors;
+    valid_vectors = saved_vectors(~cellfun(@(v) any(isnan(v)), saved_vectors));
+    
+    if isempty(valid_vectors)
+        error('cutting_angle_data.mat exists but contains no valid saved vectors.');
+    end
+    
+    vector_matrix = cell2mat(valid_vectors);
+    
+    % --- 2. Calculate rotation in the intuitive GUI coordinate system (AP, ML, DV) ---
+    
+    % **FIX 1**: Invert the average vector. The GUI camera vector points "back",
+    % but the slicing normal should point "forward". This fixes the AP inversion.
+    avg_slice_normal = -mean(vector_matrix, 1);
+    avg_slice_normal = avg_slice_normal / norm(avg_slice_normal);
+
+    original_AP_direction = [1, 0, 0]; % Default AP is along the X-axis in the GUI's space
+    
+    rotation_axis = cross(original_AP_direction, avg_slice_normal);
+    rotation_angle_rad = acos(dot(original_AP_direction, avg_slice_normal));
+    
+    if norm(rotation_axis) > 1e-6 
+        k = rotation_axis / norm(rotation_axis);
+        K = [  0   -k(3)  k(2); k(3)   0   -k(1); -k(2)  k(1)   0   ];
+        R_gui = eye(3) + sin(rotation_angle_rad)*K + (1 - cos(rotation_angle_rad))*(K*K);
+    else
+        R_gui = eye(3) * dot(original_AP_direction, avg_slice_normal);
+    end
+    
+    % --- 3. Permute the rotation to match the imwarp world coordinate system ---
+    P = [0 0 1; 1 0 0; 0 1 0]; % Maps (AP,ML,DV) -> (DV,AP,ML)
+    R_permuted = P * R_gui * P';
+    
+    % **FIX 2**: The final matrix needs to be transposed to correct the in-plane
+    % DV/ML view. This addresses the "transposed view" symptom.
+    R_final = R_permuted';
+
+    % --- 4. Create new transformation preserving the center of rotation ---
+    original_A = opts.tformrigid_allen_to_samp_20um.A;
+    R_orig = original_A(1:3, 1:3);
+    T_orig = original_A(1:3, 4);
+    
+    atlas_center = [mean(Ratlas.XWorldLimits); mean(Ratlas.YWorldLimits); mean(Ratlas.ZWorldLimits)];
+    T_new = T_orig + (R_orig * atlas_center) - (R_final * atlas_center);
+    
+    new_A = eye(4);
+    new_A(1:3, 1:3) = R_final;
+    new_A(1:3, 4) = T_new;
+    
+    final_tform = rigidtform3d(new_A);
+    
+    % --- 5. Apply the new transformation ---
+    disp('Applying new transformation with corrected rotation.');
+    gui_data.tv = imwarp(gui_data.tv, Ratlas, final_tform, 'linear',  'OutputView', Rout);
+    gui_data.av = imwarp(gui_data.av, Ratlas, final_tform, 'nearest', 'OutputView', Rout);
+    
+else
+    % If no saved data, use the original pre-calculated transformation
+    disp('No cutting angle data found. Using pre-calculated transformation.');
+    gui_data.tv = imwarp(gui_data.tv, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear',  'OutputView', Rout);
+    gui_data.av = imwarp(gui_data.av, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest', 'OutputView', Rout);
+end
+
+% --- END: MODIFIED SECTION ---
+
+% This section remains the same
 yatlasvals     = linspace(yworld(1), yworld(2), ypix + 1);
 yatlasvals     = yatlasvals(1:end-1) + median(diff(yatlasvals))/2;
 ysamplevals    = linspace(Rvolume.YWorldLimits(1), Rvolume.YWorldLimits(2), gui_data.Nslices+1);
 ysamplevals    = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
 [~, atlasinds] = min(pdist2(ysamplevals',yatlasvals'), [],2);
-
 gui_data.atlasinds   = atlasinds;
 gui_data.atlasindsuse  = atlasinds;
 gui_data.slicewidth = median(diff(yatlasvals))* opts.pxsizes(1);
@@ -121,17 +188,18 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
 % gui_data.curr_slice = randperm(numel(chooselist), 1);
 % curr_image = volumeIdtoImage(gui_data.volume, gui_data.volindids(1, :));
 gui_data.curr_slice = 1;
-curr_image = volumeIdtoImage(gui_data.volume, [gui_data.curr_slice 1]);
-curr_image = adapthisteq(curr_image);
+curr_image = squeeze(gui_data.volume(gui_data.curr_slice, :, :, :));
+
+% curr_image = adapthisteq(curr_image);
 
 % Set up axis for histology image
 gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
 set(gui_data.histology_ax,'Position',[0,0,0.5,0.9]);
 hold on; colormap(gray); axis image off;
-gui_data.histology_im_h = imagesc(curr_image,...
+gui_data.histology_im_h = image(curr_image,...
     'Parent',gui_data.histology_ax,'ButtonDownFcn',@mouseclick_histology);
-clim([0,255]);
 gui_data.histology_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
+set(gui_data.histology_grid,'Visible','off')
 
 % Set up histology-aligned atlas overlay
 % (and make it invisible to mouse clicks)
@@ -145,7 +213,7 @@ histology_aligned_atlas_boundaries_init = ...
     zeros(size(curr_image));
 gui_data.histology_aligned_atlas_boundaries = ...
     plot(histology_aligned_atlas_boundaries_init(:,1), histology_aligned_atlas_boundaries_init(:,2),...
-    'r.','MarkerSize',3, 'Parent',gui_data.histology_ax, 'PickableParts','none');
+    'w.','MarkerSize',2, 'Parent',gui_data.histology_ax, 'PickableParts','none');
 
 gui_data.atlas_slice = gui_data.atlasinds(1);
 curr_atlas = squeeze(gui_data.tv(gui_data.atlas_slice, :, :));
@@ -157,11 +225,15 @@ hold on; axis image off; colormap(gray); clim([0,255]);
 gui_data.atlas_im_h = imagesc(curr_atlas, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
 gui_data.atlas_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
+set(gui_data.atlas_grid,'Visible','off')
+
 title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
         gui_data.atlas_slice/gui_data.slicewidth));
 
-gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,'.g','MarkerSize',20);
-gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,'.r','MarkerSize',20);
+gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,...
+    'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'g');
+gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,...
+    'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'r');
 
 % If there was previously auto-alignment, intitialize with that
 if isfield(gui_data,'histology_ccf_auto_alignment')
@@ -185,6 +257,7 @@ msgbox( ...
     'space: toggle alignment overlay visibility', ...
     'g: toggle alignment grid', ...
     'c: clear reference points', ...
+    '1-3 or 0: toggle channels (0 for all)',...
     's: save'}, ...
     'Controls',CreateStruct);
 
@@ -224,6 +297,14 @@ switch eventdata.Key
             cell2mat(setdiff({'on','off'},curr_visibility)))
         set(gui_data.atlas_grid,'Visible', ...
             cell2mat(setdiff({'on','off'},curr_visibility)))
+    case {'1', '2', '3'}
+        gui_data.colsuse = str2double(eventdata.Key);
+        guidata(gui_fig,gui_data);
+        update_slice(gui_fig, true);
+    case '0'
+        gui_data.colsuse = [1 2 3];
+        guidata(gui_fig,gui_data);
+        update_slice(gui_fig, true);
         
     % c: clear current points
     case 'c'
@@ -255,11 +336,10 @@ toplot   = [2 3];
 cpt(1)   = gui_data.curr_slice;
 cpt(2:3) = flip(eventdata.IntersectionPoint(1:2));
 
-
 % Add clicked location to control points
 gui_data.histology_control_points{gui_data.curr_slice} = ...
     vertcat(gui_data.histology_control_points{gui_data.curr_slice}, ...
-    cpt);
+     [cpt convertTo(datetime('now'), 'datenum')]);
 
 set(gui_data.histology_control_points_plot, ...
     'XData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(2)), ...
@@ -293,7 +373,7 @@ toplot   = [2 3];
 % Add clicked location to control points
 gui_data.atlas_control_points{gui_data.curr_slice} = ...
     vertcat(gui_data.atlas_control_points{gui_data.curr_slice}, ...
-    cpt);
+    [cpt convertTo(datetime('now'), 'datenum')]);
 
 set(gui_data.atlas_control_points_plot, ...
     'XData',gui_data.atlas_control_points{gui_data.curr_slice}(:,toplot(2)), ...
@@ -381,8 +461,14 @@ guidata(gui_fig, gui_data);
 end
 
 
-function update_slice(gui_fig)
+function update_slice(gui_fig, varargin)
 % Draw histology and CCF slice
+
+if nargin < 2 
+    sliceonly = false;
+else
+    sliceonly = varargin{1};
+end
 
 % Get guidata
 gui_data = guidata(gui_fig);
@@ -419,12 +505,11 @@ end
 
 toplot     = [2 3];
 
-curr_image = volumeIdtoImage(gui_data.volume, [gui_data.curr_slice 1]);
-curr_image = adapthisteq(curr_image);
-currlim    = getImageLimits(curr_image, 0.001);
+% Set next histology slice
 
+curr_image = squeeze(gui_data.volume(gui_data.curr_slice, :, :, gui_data.colsuse));
 set(gui_data.histology_im_h,'CData', curr_image)
-gui_data.histology_ax.CLim = [0 currlim(2)];
+
 % Plot control points for slice
 set(gui_data.histology_control_points_plot, ...
     'XData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(2)), ...
@@ -440,9 +525,27 @@ guidata(gui_fig, gui_data);
 % Update atlas boundaries
 align_ccf_to_histology(gui_fig)
 
-update_atlas_slice(gui_fig)
+if ~sliceonly
 
+    % update atlas slice
+    update_atlas_slice(gui_fig)
+    % update title
+    % set_histology_title(gui_fig)
 
+    % % clear points that are not used
+    % cptsatlas     = gui_data.atlas_control_points;
+    % cptshistology = gui_data.histology_control_points;
+    % Nptsatlas     = cellfun(@(x) size(x, 1), cptsatlas);
+    % Nptshisto     = cellfun(@(x) size(x, 1), cptshistology);
+    % badpts        = find(~(Nptsatlas == Nptshisto));
+    % for ii = 1:numel(badpts)
+    %     % curratlas = cptsatlas{badpts(ii)};
+    %     % currhisto = cptshistology{badpts(ii)};
+    %     % temp fix, clearing bad stuff, use timestamps later
+    %     gui_data.atlas_control_points{badpts(ii)} = {zeros(0,4)};
+    %     gui_data.histology_control_points{badpts(ii)} = {zeros(0,4)};
+    % end
+end
 
 end
 

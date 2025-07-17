@@ -25,7 +25,9 @@ sliceinfo          = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
 sliceinfo          = sliceinfo.sliceinfo;
 sliceinfo          = copyStructBtoA(sliceinfo, settings);
 alignedvol         = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
-
+%% (manual) determine cutting angle gui if you are not happy with the original estimation
+opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
+determineCuttingAngleGUI(opts)
 %% (manual) match control points to determine cutting angle and gaps
 
 % !!! The control point selection is currently tied to the initial
@@ -33,9 +35,7 @@ alignedvol         = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 % inspection volume!!!
 
 opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
-matchControlPointsInSliceVolume(opts)
-
-
+matchControlPointsInSlices(opts)
 %% (auto) refine registation with control points and elastix
 opts            = load(fullfile(sliceinfo.procpath, "regopts.mat"));
 transformparams = registerSlicesToAtlas(opts);
