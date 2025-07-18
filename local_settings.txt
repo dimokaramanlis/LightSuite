@@ -2,11 +2,11 @@
 % Edit the values below. Lines starting with % or # are comments.
 % Settings not found in this file will use internal defaults.
 
-denoisedapi = true
+denoisedapi = false
 slicethickness = 80
 px_process = 1.25
 px_register = 20
 px_atlas = 10
 atlasaplims = [180 1079]
-regchan = 'cy3'
-medianfiltreg = true
+regchan = 'dapi'
+medianfiltreg = false
