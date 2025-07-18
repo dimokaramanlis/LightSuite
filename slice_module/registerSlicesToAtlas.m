@@ -77,8 +77,10 @@ hascp            = ~cellfun(@isempty,   atlas_cpoints);
 useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
 if nnz(hascp) > 3
     % refine remaining
-    pfit      = polyfit(atlasinds(hascp), useratlasinds, 1);
-    atlasinds = round(polyval(pfit, atlasinds));
+    % pfit      = polyfit(atlasinds(hascp), useratlasinds, 1);
+    % atlasinds = round(polyval(pfit, atlasinds));
+    ivals     = interp1(find(hascp), useratlasinds, 1:Nslices, 'linear', 'extrap')';
+    atlasinds = round(ivals);
 end
 atlasinds(hascp) = useratlasinds;
 %=========================================================================
