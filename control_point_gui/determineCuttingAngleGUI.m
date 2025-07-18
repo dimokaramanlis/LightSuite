@@ -6,7 +6,7 @@ function determineCuttingAngleGUI(opts)
 % the correct vector data for post-processing.
 %
 % --- User-configurable parameters ---
-rotation_step = 0.1; % Degrees to rotate per key press
+rotation_step = 0.3; % Degrees to rotate per key press
 % Initialize the main data structure for the GUI
 gui_data = struct;
 gui_data.rotation_step = rotation_step;

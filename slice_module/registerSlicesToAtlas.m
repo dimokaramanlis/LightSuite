@@ -144,7 +144,10 @@ for islice = 1:Nslices
     %------------------------------------------------------------------
     % transformix for illustration
     avreg     = transformAnnotationVolume(bspltformpath, affannotim, opts.registres*1e-3);
-    sliceplot = uint8(255 * single(histim)/single(quantile(histim, 0.999, 'all')));
+    sliceplot = single(histim);
+    minslice  = quantile(sliceplot, 0.01, 'all');
+    maxslice  = quantile(sliceplot, 0.999, 'all');
+    sliceplot = uint8(255 * (sliceplot - minslice)/(maxslice - minslice));
     txtstr1   = sprintf('affine (Npts = %d)', Nmov);
     cf = plotRegistrationComparison(sliceplot, cat(3, affannotim, avreg), ...
         {txtstr1, 'bspline'}, fixedpts);
