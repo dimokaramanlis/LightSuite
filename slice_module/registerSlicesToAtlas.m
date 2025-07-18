@@ -31,7 +31,7 @@ else
 end
 %==========================================================================
 downfac_reg = regopts.allenres/regopts.registres;
-nfac        = regopts.extentfactor;
+nfac        = ceil(regopts.extentfactor * 7.5/regopts.pxsizes(1));
 
 
 allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
@@ -41,29 +41,46 @@ tv      = tv(regopts.atlasaplims(1):regopts.atlasaplims(2), :, :);
 av      = av(regopts.atlasaplims(1):regopts.atlasaplims(2), :, :);
 tvdown  = imresize3(tv, downfac_reg);
 avdown  = imresize3(av, downfac_reg, "Method", "nearest");
+
 Ratlas  = imref3d(size(tvdown));
+Rvolume = imref3d(size(volume), 1, regopts.pxsizes(1), 1);
+yworld  = [Rvolume.YWorldLimits(1)-regopts.pxsizes(1)*nfac, Rvolume.YWorldLimits(2)+nfac*regopts.pxsizes(1)];
+ypix    = ceil(range(yworld));
+Rout    = imref3d([ypix, size(tvdown, [2 3])], Rvolume.XWorldLimits, yworld,Rvolume.ZWorldLimits);
+%--------------------------------------------------------------------------
+% Check if the cutting angle data file exists
+tformuse        = regopts.tformrigid_allen_to_samp_20um;
+angle_data_path = fullfile(opts.procpath, 'cutting_angle_data.mat');
+
+if exist(angle_data_path, 'file')
+    fprintf('Found saved cutting angle data. Overwriting transformation rotation...\n');
+    % --- 1. Load and process angle data ---
+    data = load(angle_data_path);
+    cutting_angle_data = data.cutting_angle_data;
+    tformuse = applyAngleToTransform(tformuse, Ratlas, cutting_angle_data);
+end
+%--------------------------------------------------------------------------
+
+[tvnew, rnew]  = imwarp(tvdown, Ratlas, tformuse, 'linear',  'OutputView', Rout);
+[avnew, rnew]  = imwarp(avdown, Ratlas, tformuse, 'nearest', 'OutputView', Rout);
+
+% get original prediction indices
+yatlasvals       = linspace(yworld(1), yworld(2), ypix + 1);
+yatlasvals       = yatlasvals(1:end-1) + median(diff(yatlasvals))/2;
+ysamplevals      = linspace(Rvolume.YWorldLimits(1), Rvolume.YWorldLimits(2), Nslices+1);
+ysamplevals      = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
+[~, atlasinds]   = min(pdist2(ysamplevals',yatlasvals'), [],2);
+
 %=========================================================================
-% let's optimize the transform
-cptsatlas     = cat(1, atlas_cpoints{:});
-cptsatlas     = cptsatlas(:, 1:3);
-cptshistology = cat(1, histology_cpoints{:});
-cptshistology = cptshistology(:, 1:3);
-
-sliceinds     = cptshistology(:, 1);
-
-cptsatlas     = cptsatlas(:, [2 1 3]);
-cptshistology = cptshistology(:, [2 1 3]);
-cptshistology(:, 2) = cptsatlas(:, 2); % there is no inherent spacing in histology...
-
-[tformrigid, mse]  = fitRigidTrans3D(cptsatlas, cptshistology);
-
-[tvnew, rnew]  = imwarp(tvdown, Ratlas, tformrigid, 'linear',  'OutputView', Ratlas);
-[avnew, rnew]  = imwarp(avdown, Ratlas, tformrigid, 'nearest', 'OutputView', Ratlas);
-newatlaspts    = tformrigid.transformPointsForward(cptsatlas);
-
-% using fourth order polynomial to fit data
-pfit           = polyfit(sliceinds, newatlaspts(:,2),4);
-atlasindex     = round(polyval(pfit, 1:Nslices));
+% deal with missing control points
+hascp            = ~cellfun(@isempty,   atlas_cpoints);
+useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
+if nnz(hascp) > 3
+    % refine remaining
+    pfit      = polyfit(atlasinds(hascp), useratlasinds, 1);
+    atlasinds = round(polyval(pfit, atlasinds));
+end
+atlasinds(hascp) = useratlasinds;
 %=========================================================================
 % for every slice, we fit an affine transform from atlas to the slice
 % if no control points are available, we use only image info
@@ -87,25 +104,14 @@ for islice = 1:Nslices
 
     
     histim    = squeeze(volume(islice, :,:));
-    atlasim   = squeeze(tvnew(atlasindex(islice),:,:));
-    annotim   = squeeze(avnew(atlasindex(islice),:,:));
+    atlasim   = squeeze(tvnew(atlasinds(islice),:,:));
+    annotim   = squeeze(avnew(atlasinds(islice),:,:));
     
-    idfixed      = sliceinds == islice;
-    fixedpts     = cptshistology(idfixed, [3 1]);
-    movingpts    = newatlaspts(idfixed, [3 1]);
-    Nmov         = size(movingpts, 1);
-
-
-    % subplot(1,2,1)
-    % imagesc(histim); hold on;
-    % plot(fixedpts(:,1), fixedpts(:,2),'ro')
-    % axis image off;
-    % subplot(1,2,2)
-    % imagesc(atlasim); hold on;
-    % plot(movingpoints(:,1), movingpoints(:,2),'ro')
-    % axis image off;
-    % pause;
-
+    fixedpts  = histology_cpoints{islice}(:, [3 2]);
+    fixedpts  = reshape(fixedpts, [], 2);
+    movingpts = atlas_cpoints{islice}(:, [3 2]);
+    movingpts = reshape(movingpts, [], 2);
+    Nmov      = size(movingpts, 1);
     %------------------------------------------------------------------
     % affine estimation
 
@@ -163,14 +169,14 @@ fprintf('DONE with all slices! Took %d min\n', ceil(toc(wholetic)/60));
 regparams.atlasres         = regopts.allenres;
 regparams.how_to_perm      = regopts.howtoperm;
 regparams.atlasaplims      = regopts.atlasaplims;
-regparams.tformrigid_allen_to_samp_20um       = tformrigid;
+regparams.tformrigid_allen_to_samp_20um       = tformuse;
 regparams.tformbspline_samp20um_to_atlas_20um = revsavepath;
 regparams.tformaffine_tform_atlas_to_image    = slicetforms;
 regparams.space_sample_20um                   = rnew;
 regparams.space_atlas_20um                    = ratlas;
-regparams.space3d_sample_20um                 = Ratlas;
+regparams.space3d_sample_20um                 = Rout;
 regparams.space3d_atlas_20um                  = Ratlas;
-regparams.sliceids_in_sample_space            = atlasindex;
+regparams.sliceids_in_sample_space            = atlasinds;
 save(fullfile(opts.procpath, 'transform_params.mat'), '-struct', 'regparams')
 %==========================================================================
 end

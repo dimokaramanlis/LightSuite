@@ -5,16 +5,13 @@ function determineCuttingAngleGUI(opts)
 % This version provides robust view restoration within the GUI while saving
 % the correct vector data for post-processing.
 %
-
 % --- User-configurable parameters ---
-rotation_step = 0.5; % Degrees to rotate per key press
-
+rotation_step = 0.1; % Degrees to rotate per key press
 % Initialize the main data structure for the GUI
 gui_data = struct;
 gui_data.rotation_step = rotation_step;
 opts.downfac_reg = opts.allenres/opts.registres;
 gui_data.save_path = opts.procpath;
-
 %--------------------------------------------------------------------------
 % Load atlas
 allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
@@ -31,7 +28,6 @@ gui_data.av = imresize3(gui_data.av(opts.atlasaplims(1):opts.atlasaplims(2), :, 
     opts.downfac_reg, "Method","nearest");
 gui_data.Rmoving  = imref3d(size(gui_data.av));
 disp('Done.')
-
 %--------------------------------------------------------------------------
 % Load user's 3D brain volume
 volume_dir       = dir(fullfile(opts.procpath,'*inspection.tif*'));
@@ -46,7 +42,6 @@ volload          = 255 * (volload - minvals)./(maxvals - minvals);
 gui_data.volume  = uint8(volload);
 gui_data.num_user_slices = size(gui_data.volume, 1);
 gui_data.colsuse = 1:size(gui_data.volume, 4);
-
 % --- 2. GUI Setup ---
 screen_size_px = get(0,'screensize');
 gui_aspect_ratio = 1.7;
@@ -58,7 +53,6 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
     'Toolbar','none','Menubar','none','color','w', ...
     'Units','pixels','Position',gui_position, ...
     'CloseRequestFcn',@close_gui);
-
 % Left subplot
 gui_data.user_slice_ax = subplot('Position', [0 0 0.5 1]);
 hold(gui_data.user_slice_ax, 'on');
@@ -68,14 +62,15 @@ gui_data.user_slice_img = image(gui_data.user_slice_ax, initial_slice_img, 'CDat
 colormap(gui_data.user_slice_ax, 'gray');
 gui_data.curr_user_slice = 1;
 gui_data.user_slice_title = title(gui_data.user_slice_ax, 'Unsaved Slice 1');
+gui_data.stats_text = uicontrol('Style', 'text', 'String', 'Marked: 0', ...
+    'Units', 'normalized', 'Position', [0.05, 0.88, 0.4, 0.05], ...
+    'BackgroundColor', 'w', 'FontSize', 9, 'HorizontalAlignment', 'center');
 set(gui_data.user_slice_ax, 'YDir', 'reverse');
-
 % Boundary overlay
 gui_data.atlas_boundary_overlay = line(gui_data.user_slice_ax, NaN, NaN, ...
     'Color', 'r', 'LineStyle', 'none', 'Marker', '.', 'MarkerSize', 4, 'Visible', 'off');
-
 % Right subplot
-gui_data.atlas_ax = subplot('Position', [0.5 0 0.5 0.9]);
+gui_data.atlas_ax = subplot('Position', [0.55 0 0.45 0.9]);
 hold(gui_data.atlas_ax, 'on');
 axis(gui_data.atlas_ax, 'vis3d', 'equal', 'manual', 'off');
 set(gui_data.atlas_ax, 'Color', 'k', 'ZDir', 'reverse');
@@ -85,25 +80,23 @@ xlim(gui_data.atlas_ax, [1, ap_max]); ylim(gui_data.atlas_ax, [1, ml_max]); zlim
 colormap(gui_data.atlas_ax, 'gray');
 clim(gui_data.atlas_ax,[0,255]);
 gui_data.atlas_slice_plot = surface(gui_data.atlas_ax, 'EdgeColor', 'none');
-
 % uicontrol for title
 gui_data.atlas_title_handle = uicontrol('Style', 'text', 'String', 'Atlas View', ...
     'Units', 'normalized', 'Position', [0.55, 0.92, 0.4, 0.06], ...
     'BackgroundColor', 'w', 'FontSize', 10, 'HorizontalAlignment', 'center');
-
 % Initialize atlas parameters
-% **FIX**: Store both the view angles (for GUI restore) and vectors (for saving)
 gui_data.saved_views = repmat({nan(1, 2)}, gui_data.num_user_slices, 1);
 gui_data.saved_slice_vectors = repmat({nan(1, 3)}, gui_data.num_user_slices, 1);
 gui_data.saved_slice_points = nan(gui_data.num_user_slices, 3);
 gui_data.atlas_slice_point = camtarget(gui_data.atlas_ax);
 
 guidata(gui_fig, gui_data);
-update_atlas_view(gui_fig);
+update_user_slice_view(gui_fig); % Initial view setup
+update_stats_display(gui_fig);   % Initial stats display
 show_controls_dialog();
 end
 
-% --- 3. Callback Functions ---
+
 function keypress(gui_fig, eventdata)
     gui_data = guidata(gui_fig);
     is_shift = any(strcmp(eventdata.Modifier, 'shift'));
@@ -146,12 +139,30 @@ function keypress(gui_fig, eventdata)
                 update_boundary_overlay(gui_fig);
             end
         case 'return'
-            % **FIX**: Save both the view angles (for GUI) and the vector (for file)
+            % Save the current view and position for this slice
             gui_data.saved_views{gui_data.curr_user_slice} = get(gui_data.atlas_ax, 'View');
             gui_data.saved_slice_vectors{gui_data.curr_user_slice} = get_camera_vector(gui_data);
             gui_data.saved_slice_points(gui_data.curr_user_slice, :) = gui_data.atlas_slice_point;
             guidata(gui_fig, gui_data);
             update_user_slice_view(gui_fig);
+            update_stats_display(gui_fig);
+
+        %% MODIFICATION START: Add a case to clear the current slice's saved data
+        case 'c'
+            slice_idx = gui_data.curr_user_slice;
+            % Reset data for the current slice to default 'unsaved' state
+            gui_data.saved_views{slice_idx} = nan(1, 2);
+            gui_data.saved_slice_vectors{slice_idx} = nan(1, 3);
+            gui_data.saved_slice_points(slice_idx, :) = nan(1, 3);
+            
+            disp(['Cleared saved position for slice ' num2str(slice_idx)]);
+            guidata(gui_fig, gui_data);
+            
+            % Refresh the view and stats display
+            update_user_slice_view(gui_fig);
+            update_stats_display(gui_fig);
+        %% MODIFICATION END
+
         case {'1', '2', '3'}
              if str2double(eventdata.Key) <= size(gui_data.volume, 4)
                 gui_data.colsuse = str2double(eventdata.Key);
@@ -181,9 +192,11 @@ function close_gui(gui_fig, ~)
     if strcmp(answer, 'Yes')
         disp('Saving alignment data...');
         cutting_angle_data = struct();
-        % **FIX**: Save the vectors needed for post-processing
         cutting_angle_data.saved_slice_vectors = gui_data.saved_slice_vectors;
         cutting_angle_data.slice_points = gui_data.saved_slice_points;
+        %% MODIFICATION START: Save view data to allow for full session restoration
+        cutting_angle_data.saved_views = gui_data.saved_views;
+        %% MODIFICATION END
         save_filename = fullfile(gui_data.save_path, 'cutting_angle_data.mat');
         save(save_filename, 'cutting_angle_data');
         fprintf('Data saved to: %s\n', save_filename);
@@ -193,30 +206,84 @@ function close_gui(gui_fig, ~)
         delete(gui_fig);
     end
 end
-% --- 4. Helper & Drawing Functions ---
+
+%% MODIFICATION START: Add helper function to get the mean of saved view angles
+function mean_view = get_mean_view(gui_data)
+    % Find which views have been saved
+    is_saved = ~cellfun(@(v) all(isnan(v)), gui_data.saved_views);
+    
+    if ~any(is_saved)
+        % If no slices are saved yet, return a default view
+        mean_view = [90, 0]; 
+        return;
+    end
+    
+    % Get the matrix of saved [azimuth, elevation] pairs
+    saved_views_matrix = cell2mat(gui_data.saved_views(is_saved));
+    
+    % Calculate the mean view
+    mean_view = mean(saved_views_matrix, 1);
+end
+%% MODIFICATION END
+
+function update_stats_display(gui_fig)
+    gui_data = guidata(gui_fig);
+    is_saved = ~cellfun(@(v) all(isnan(v)), gui_data.saved_views);
+    num_marked = sum(is_saved);
+    if num_marked == 0
+        stats_str = sprintf('Marked: 0 / %d', gui_data.num_user_slices);
+    else
+        saved_views_matrix = cell2mat(gui_data.saved_views(is_saved));
+        dv_angles = saved_views_matrix(:, 1) - 90;
+        ml_angles = saved_views_matrix(:, 2);
+        avg_dv_angle = mean(dv_angles);
+        avg_ml_angle = mean(ml_angles);
+        stats_str = sprintf('Marked: %d / %d | Avg Angle (DV: %.1f°, ML: %.1f°)', ...
+                          num_marked, gui_data.num_user_slices, avg_dv_angle, avg_ml_angle);
+    end
+    set(gui_data.stats_text, 'String', stats_str);
+end
+
+%% MODIFICATION START: Update function to use learning behavior for unsaved slices
 function update_user_slice_view(gui_fig)
     gui_data = guidata(gui_fig);
     slice_idx = gui_data.curr_user_slice;
     set(gui_data.user_slice_img, 'CData', squeeze(gui_data.volume(slice_idx, :, :, gui_data.colsuse)));
 
+    % Check if the current slice has a saved position
     if all(~isnan(gui_data.saved_slice_points(slice_idx, :)))
-        % **FIX**: Restore the saved view angles for perfect visual feedback
+        % --- SLICE IS SAVED ---
+        % Restore the specific saved view angles
         saved_view = gui_data.saved_views{slice_idx};
-        if all(~isnan(saved_view))
-            view(gui_data.atlas_ax, saved_view);
-        end
+        view(gui_data.atlas_ax, saved_view);
         
+        % Restore the saved slice plane position
         gui_data.atlas_slice_point = gui_data.saved_slice_points(slice_idx, :);
         guidata(gui_fig, gui_data);
-        update_atlas_view(gui_fig);
+        
+        % Update title to show "SAVED"
         gui_data.user_slice_title.String = sprintf('Slice %d - SAVED', slice_idx);
         gui_data.user_slice_title.Color = 'g';
+        
     else
+        % --- SLICE IS UNSAVED (APPLY LEARNING) ---
+        % Calculate the mean angle from all other saved slices
+        mean_view = get_mean_view(gui_data);
+        
+        % Set the atlas view to the predicted mean angle
+        view(gui_data.atlas_ax, mean_view);
+        
+        % Update title to show "Unsaved"
         gui_data.user_slice_title.String = sprintf('Unsaved Slice %d', slice_idx);
         gui_data.user_slice_title.Color = 'k';
     end
+
+    % Update the atlas slice plane and boundary overlay for both cases
+    update_atlas_view(gui_fig);
     update_boundary_overlay(gui_fig);
 end
+%% MODIFICATION END
+
 function update_atlas_view(gui_fig)
     gui_data = guidata(gui_fig);
     
@@ -236,8 +303,6 @@ function update_atlas_view(gui_fig)
     title_str2 = sprintf('Slice Position: %.2f mm', plane_offset_mm);
     
     set(gui_data.atlas_title_handle, 'String', {title_str1, title_str2});
-    
-    update_boundary_overlay(gui_fig);
 end
 function update_boundary_overlay(gui_fig)
     gui_data = guidata(gui_fig);
@@ -248,6 +313,11 @@ function update_boundary_overlay(gui_fig)
     
     [~, av_slice] = get_atlas_slice(gui_data, 1);
     
+    if all(isnan(av_slice), 'all')
+        set(gui_data.atlas_boundary_overlay, 'XData', NaN, 'YData', NaN);
+        return;
+    end
+
     av_boundaries = round(conv2(av_slice, ones(2)./4, 'same')) ~= av_slice;
     [rows, cols] = find(av_boundaries);
     
@@ -291,6 +361,8 @@ function [tv_slice, av_slice, plane_coords] = get_atlas_slice(gui_data, spacing)
     tv_slice(valid_mask) = gui_data.tv(indices);
     av_slice(valid_mask) = gui_data.av(indices);
 end
+
+%% MODIFICATION START: Update controls dialog to include the new 'c' key
 function show_controls_dialog()
     CreateStruct.Interpreter = 'tex';
     CreateStruct.WindowStyle = 'non-modal';
@@ -302,6 +374,8 @@ function show_controls_dialog()
         'Spacebar: Toggle atlas boundary overlay', ...
         'Scroll Wheel: Move atlas slice plane', ...
         '1-3 or 0: Toggle channels (0 for all)',...
-        'Enter: Save atlas position for current slice'}, ...
+        'Enter: Save atlas position for current slice', ...
+        '''c'': Clear saved position for current slice'}, ...
         'Controls',CreateStruct);
 end
+%% MODIFICATION END

@@ -37,7 +37,7 @@ gui_data.volume  = uint8(volload);
 gui_data.Nslices = size(gui_data.volume, 1);
 gui_data.colsuse    = 1:size(volload, 4);
 
-nfac    = opts.extentfactor;
+nfac    = ceil(opts.extentfactor * 7.5/opts.pxsizes(1));
 
 % --- Setup spatial referencing ---
 Ratlas  = imref3d(size(gui_data.tv));
@@ -45,9 +45,8 @@ Rvolume = imref3d(size(gui_data.volume, 1:3), 1, opts.pxsizes(1), 1);
 yworld  = [Rvolume.YWorldLimits(1)-opts.pxsizes(1)*nfac, Rvolume.YWorldLimits(2)+nfac*opts.pxsizes(1)];
 ypix    = ceil(range(yworld));
 Rout    = imref3d([ypix, size(gui_data.tv, [2 3])], Rvolume.XWorldLimits, yworld,Rvolume.ZWorldLimits);
-
-% --- START: MODIFIED SECTION ---
-
+tformuse =  opts.tformrigid_allen_to_samp_20um;
+%-------------------------------------------------------------------------
 % Define path to the saved cutting angle data
 angle_data_path = fullfile(opts.procpath, 'cutting_angle_data.mat');
 
@@ -58,76 +57,16 @@ if exist(angle_data_path, 'file')
     % --- 1. Load and process angle data ---
     data = load(angle_data_path);
     cutting_angle_data = data.cutting_angle_data;
-    
     if ~isfield(cutting_angle_data, 'saved_slice_vectors')
         error('The GUI must be updated to save "saved_slice_vectors" for this to work.');
     end
-    
-    saved_vectors = cutting_angle_data.saved_slice_vectors;
-    valid_vectors = saved_vectors(~cellfun(@(v) any(isnan(v)), saved_vectors));
-    
-    if isempty(valid_vectors)
-        error('cutting_angle_data.mat exists but contains no valid saved vectors.');
-    end
-    
-    vector_matrix = cell2mat(valid_vectors);
-    
-    % --- 2. Calculate rotation in the intuitive GUI coordinate system (AP, ML, DV) ---
-    
-    % **FIX 1**: Invert the average vector. The GUI camera vector points "back",
-    % but the slicing normal should point "forward". This fixes the AP inversion.
-    avg_slice_normal = -mean(vector_matrix, 1);
-    avg_slice_normal = avg_slice_normal / norm(avg_slice_normal);
-
-    original_AP_direction = [1, 0, 0]; % Default AP is along the X-axis in the GUI's space
-    
-    rotation_axis = cross(original_AP_direction, avg_slice_normal);
-    rotation_angle_rad = acos(dot(original_AP_direction, avg_slice_normal));
-    
-    if norm(rotation_axis) > 1e-6 
-        k = rotation_axis / norm(rotation_axis);
-        K = [  0   -k(3)  k(2); k(3)   0   -k(1); -k(2)  k(1)   0   ];
-        R_gui = eye(3) + sin(rotation_angle_rad)*K + (1 - cos(rotation_angle_rad))*(K*K);
-    else
-        R_gui = eye(3) * dot(original_AP_direction, avg_slice_normal);
-    end
-    
-    % --- 3. Permute the rotation to match the imwarp world coordinate system ---
-    P = [0 0 1; 1 0 0; 0 1 0]; % Maps (AP,ML,DV) -> (DV,AP,ML)
-    R_permuted = P * R_gui * P';
-    
-    % **FIX 2**: The final matrix needs to be transposed to correct the in-plane
-    % DV/ML view. This addresses the "transposed view" symptom.
-    R_final = R_permuted';
-
-    % --- 4. Create new transformation preserving the center of rotation ---
-    original_A = opts.tformrigid_allen_to_samp_20um.A;
-    R_orig = original_A(1:3, 1:3);
-    T_orig = original_A(1:3, 4);
-    
-    atlas_center = [mean(Ratlas.XWorldLimits); mean(Ratlas.YWorldLimits); mean(Ratlas.ZWorldLimits)];
-    T_new = T_orig + (R_orig * atlas_center) - (R_final * atlas_center);
-    
-    new_A = eye(4);
-    new_A(1:3, 1:3) = R_final;
-    new_A(1:3, 4) = T_new;
-    
-    final_tform = rigidtform3d(new_A);
-    
-    % --- 5. Apply the new transformation ---
-    disp('Applying new transformation with corrected rotation.');
-    gui_data.tv = imwarp(gui_data.tv, Ratlas, final_tform, 'linear',  'OutputView', Rout);
-    gui_data.av = imwarp(gui_data.av, Ratlas, final_tform, 'nearest', 'OutputView', Rout);
-    
-else
-    % If no saved data, use the original pre-calculated transformation
-    disp('No cutting angle data found. Using pre-calculated transformation.');
-    gui_data.tv = imwarp(gui_data.tv, Ratlas, opts.tformrigid_allen_to_samp_20um, 'linear',  'OutputView', Rout);
-    gui_data.av = imwarp(gui_data.av, Ratlas, opts.tformrigid_allen_to_samp_20um, 'nearest', 'OutputView', Rout);
+    data = load(angle_data_path);
+    cutting_angle_data = data.cutting_angle_data;
+    tformuse = applyAngleToTransform(tformuse, Ratlas, cutting_angle_data);    
 end
-
-% --- END: MODIFIED SECTION ---
-
+gui_data.tv = imwarp(gui_data.tv, Ratlas, tformuse, 'linear',  'OutputView', Rout);
+gui_data.av = imwarp(gui_data.av, Ratlas, tformuse, 'nearest', 'OutputView', Rout);
+%-------------------------------------------------------------------------
 % This section remains the same
 yatlasvals     = linspace(yworld(1), yworld(2), ypix + 1);
 yatlasvals     = yatlasvals(1:end-1) + median(diff(yatlasvals))/2;
@@ -476,17 +415,25 @@ gui_data = guidata(gui_fig);
 atlas_cpoints    = gui_data.atlas_control_points;
 hascp            = ~cellfun(@isempty,   atlas_cpoints);
 useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
-newinds          = gui_data.atlasinds;
+replaceinds      = gui_data.atlasinds;
+
 if nnz(hascp) > 0
-    meanrem = mean(gui_data.atlasinds(hascp));
-    newinds = gui_data.atlasinds - meanrem + mean(useratlasinds);
-    newinds = round(newinds);
-    if nnz(hascp) > 1
-        % refine remaining
-        pfit      = polyfit(gui_data.atlasinds(hascp), useratlasinds, 1);
-        newinds   = round(polyval(pfit, gui_data.atlasinds));
-    end
+    meanrem     = mean(gui_data.atlasinds(hascp));
+    newinds     = gui_data.atlasinds - meanrem + mean(useratlasinds);
+    replaceinds = round(newinds);
 end
+if nnz(hascp) > 1
+    % refine remaining
+    pfit        = polyfit(gui_data.atlasinds(hascp), useratlasinds, 1);
+    replaceinds = round(polyval(pfit, gui_data.atlasinds));
+end
+if nnz(hascp) > 3
+    % refine remaining
+    pfit        = interp1(find(hascp), useratlasinds, 1:gui_data.Nslices, 'linear', 'extrap')';
+    replaceinds = round(pfit);
+end
+
+newinds = replaceinds;
 
 Natlas = size(gui_data.tv, 1);
 newinds(newinds<1)      = 1;
