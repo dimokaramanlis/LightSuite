@@ -136,6 +136,7 @@ regopts.tformrigid_allen_to_samp_20um = tformrigid;
 regopts.howtoperm    = [3 1 2];
 regopts.procpath     = sliceinfo.procpath;
 regopts.registres    = sliceinfo.px_register;
+regopts.processres   = sliceinfo.px_process;
 regopts.allenres     = 10; % um
 regopts.errall       = errall;
 regopts.atlasaplims  = sliceinfo.atlasaplims;

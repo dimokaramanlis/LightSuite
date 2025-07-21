@@ -174,6 +174,8 @@ fprintf('DONE with all slices! Took %d min\n', ceil(toc(wholetic)/60));
 regparams.atlasres         = regopts.allenres;
 regparams.how_to_perm      = regopts.howtoperm;
 regparams.atlasaplims      = regopts.atlasaplims;
+regparams.processres       = regopts.processres;
+regparams.registres        = regopts.registres;
 regparams.tformrigid_allen_to_samp_20um       = tformuse;
 regparams.tformbspline_samp20um_to_atlas_20um = revsavepath;
 regparams.tformaffine_tform_atlas_to_image    = slicetforms;
