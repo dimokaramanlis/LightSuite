@@ -166,11 +166,13 @@ function keypress(gui_fig, eventdata)
         case {'1', '2', '3'}
              if str2double(eventdata.Key) <= size(gui_data.volume, 4)
                 gui_data.colsuse = str2double(eventdata.Key);
+                update_atlas_view(gui_fig);
                 guidata(gui_fig,gui_data);
                 update_user_slice_view(gui_fig);
              end
         case '0'
             gui_data.colsuse = 1:size(gui_data.volume, 4);
+            update_atlas_view(gui_fig);
             guidata(gui_fig,gui_data);
             update_user_slice_view(gui_fig);
     end
@@ -214,7 +216,8 @@ function mean_view = get_mean_view(gui_data)
     
     if ~any(is_saved)
         % If no slices are saved yet, return a default view
-        mean_view = [90, 0]; 
+        %ANAS - MODIFICATION: if nothing is saved, keep the current view.
+        mean_view = get(gui_data.atlas_ax, 'View');%[90, 0]; 
         return;
     end
     

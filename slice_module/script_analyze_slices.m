@@ -1,6 +1,6 @@
 
 % folder which contains mouse subfolders
-datafolderpath = 'J:\'; %'D:\example_charlie'; %'J:\'; % 
+datafolderpath = 'D:\Histology\Experiments\TRAP\'; %'D:\example_charlie'; %'J:\'; % 
 mousename      = 'AM130';%'AM147';%'CGF028'; %'AM130'; 'CGF027';
 
 dp = fullfile(datafolderpath, sprintf('*%s*', mousename));
