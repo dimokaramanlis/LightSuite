@@ -10,7 +10,8 @@ ipts       = find(testout>ptthres);
 [rr,cc,dd] = ind2sub(size(voluse), ipts);
 X          = [cc,rr,dd];
 ptcloud    = pointCloud(X);
-ptcloud    = pcdownsample(ptcloud,'gridAverage', 30);
+pdown      = min(1, Nfit/ptcloud.Count);
+ptcloud    = pcdownsample(ptcloud,'random', pdown);
 
  % scatter3(ptcloud.Location(:,1),ptcloud.Location(:,2),ptcloud.Location(:,3),2)
 end

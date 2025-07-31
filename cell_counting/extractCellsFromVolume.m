@@ -40,6 +40,9 @@ end
 
 i0 = 0; itrack = 0; % counters
 cell_locations = nan(1e6, 5, 'single');
+nsigma         = prod(2*4*sigmause(1:2)+1);
+% cell_images    = nan(1e6, nsigma, 'single');
+
 msg = []; tic;
 
 for ibatchz = 1:NbatchesZ
@@ -90,7 +93,7 @@ for ibatchz = 1:NbatchesZ
             datgpu = gpuArray(dat(iloady, iloadx, :));
             datgpu = single(datgpu) * normfac;
             %----------------------------------------------------------------------
-            [ccents, pdiscard] = cellDetector(datgpu, cellradius, sigmause, anisotropy, thresuse);
+            [ccents, pdiscard, cim] = cellDetector(datgpu, cellradius, sigmause, anisotropy, thresuse);
             if ~isempty(ccents)
                 % RECONSIDER THIS, MAYBE WE ARE LOSING SOME CELLS IN EDGES
                 ikeepz = ccents(:, 3)> startbuffz & (ccents(:, 3) < (numel(iloadz) - endbuffz));
@@ -105,10 +108,12 @@ for ibatchz = 1:NbatchesZ
                 
                 if i0+nnz(ikeep)>size(cell_locations,1)
                     cell_locations(1e6 + size(cell_locations,1), 1) = 0;
+                    % cell_images(1e6 + size(cell_locations,1), 1) = 0;
                 end
             
             
                 cell_locations(i0 + (1:nnz(ikeep)), :) = ccents;
+                % cell_images(i0 + (1:nnz(ikeep)), :) = cim(ikeep, :);
                 i0 = i0 + nnz(ikeep);
             end
             %----------------------------------------------------------------------
@@ -143,9 +148,12 @@ if ispath
     fclose(fid);
 end
 cell_locations = cell_locations(1:i0, :);
+% cell_images    = cell_images(1:i0, :);
+
 % we finally remove weird entries
 irem = any(isnan(cell_locations) | isinf(cell_locations), 2);
 cell_locations(irem, :) = [];
+% cell_images(irem, :)    = [];
 %--------------------------------------------------------------------------
 % after we are done, save cells
 if isfield(opts, 'savepath')
@@ -153,6 +161,7 @@ if isfield(opts, 'savepath')
         makeNewDir(opts.savepath)
         fsavename = fullfile(opts.savepath, 'cell_locations_sample.mat');
         save(fsavename, 'cell_locations')
+        % save(fsavename, 'cell_locations', 'cell_images')
     end
 end
 % delete(opts.fproc)

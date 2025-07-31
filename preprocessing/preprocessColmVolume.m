@@ -17,6 +17,8 @@ scaledownz   = opts.pxsize(3)/opts.registres;
 [Ny, Nx, Nz] = deal(opts.Ny, opts.Nx,opts.Nz);
 diaminpx     = opts.celldiam./opts.pxsize(1);
 medwithfull  = 2*ceil((2.5*diaminpx)/2) + 1;
+downfac      = floor(diaminpx/2);
+medwith      = 2*ceil((2.5*diaminpx/downfac)/2) + 1;
 %--------------------------------------------------------------------------
 % initialize collections
 voluse   = nan(Ny, Nx, Nsidez+1,   'single');
@@ -38,10 +40,12 @@ for islice = 1:Nz+Nsidez
     % meduse(:, :, end) = nan;
     if islice <= Nz
         currim = imread(fullfile(tiffpaths(islice).folder, tiffpaths(islice).name));
-        
+       
         % this step is time-limiting 
-
-        filtim            = ordfilt2(currim, Nmed, matuse);
+        filtim = ordfilt2(currim, Nmed, matuse);
+        % filtim = imresize(...
+        %     medfilt2(imresize(currim, 1/downfac ,'bicubic'), [medwith medwith]), ...
+        %     [Ny Nx], 'bicubic');
         voluse(:, :, end) = medfilt2(currim, [3 3]); % to remove speckles and line artifacts; 
         meduse(:, :, end) = filtim;
     end
@@ -69,7 +73,7 @@ for islice = 1:Nz+Nsidez
         % imwrite(cellimage, fname,"tif","Compression","packbits")
         %------------------------------------------------------------------
         % save background
-        backvol(:, :, indscrr(Nsidez + 1)) = imresize(backsignal, scaledownxy);
+        backvol(:, :, indscrr(Nsidez + 1)) = imresize(backsignal, scaledownxy, "bicubic");
         %------------------------------------------------------------------
     end
     %----------------------------------------------------------------------

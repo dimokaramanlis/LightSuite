@@ -7,16 +7,16 @@ function matchControlPoints(opts)
 gui_data = struct;
 
 % Load atlas
-allen_atlas_path = fileparts(which('template_volume_10um.npy'));
+allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
 if isempty(allen_atlas_path)
     error('No CCF atlas found (add CCF atlas to path)')
 end
 disp('Loading Allen CCF atlas...')
-gui_data.tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
+gui_data.tv = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
 factv       = 255/single(max(gui_data.tv,[],"all"));
 gui_data.tv = uint8(single(gui_data.tv)*factv);
 gui_data.tv = imresize3(gui_data.tv,opts.downfac_reg);
-gui_data.av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
+gui_data.av = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
 gui_data.av = imresize3(gui_data.av,opts.downfac_reg, "Method","nearest");
 gui_data.Rmoving  = imref3d(size(gui_data.av));
 disp('Done.')
@@ -191,8 +191,7 @@ switch eventdata.Key
         
     % s: save
     case 's'
-        atlas2histology_tform = ...
-            gui_data.histology_ccf_manual_alignment{end};
+        atlas2histology_tform = gui_data.histology_ccf_manual_alignment;
         histology_control_points = gui_data.histology_control_points;
         atlas_control_points     = gui_data.atlas_control_points;
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
@@ -398,7 +397,13 @@ switch idim
 end
 
 sluse = max(sluse, 1);
-gui_data.atlas_slice = sluse;
+
+cpointsatlas = gui_data.atlas_control_points{gui_data.curr_slice};
+if ~isempty(cpointsatlas)
+    gui_data.atlas_slice = round(median(cpointsatlas(:,idim)));
+else
+    gui_data.atlas_slice = sluse;
+end
 
 
 currlim    = getImageLimits(curr_image, 0.001);
@@ -504,6 +509,7 @@ toplot  = find(alldims~=idim);
 % end
 % 
 curr_atlas = volumeIdtoImage(gui_data.tv, [sluse idim]);
+curr_atlas = adapthisteq(curr_atlas);
 
 set(gui_data.atlas_im_h,'CData', curr_atlas);
 set(gui_data.atlas_control_points_plot, ...

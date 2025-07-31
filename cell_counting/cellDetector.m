@@ -1,4 +1,4 @@
-function [cpoints, prem] = cellDetector(volumeuse, avgcellradius, sigmause, anisotropyratio, thresSNR)
+function [cpoints, prem, cellimages] = cellDetector(volumeuse, avgcellradius, sigmause, anisotropyratio, thresSNR)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -36,7 +36,6 @@ cinfo  = regionprops3(imgidx, gather(volumeuse),...
 %-------------------------------------------------------------------------
 % improve equivalent diameter and cell filtering
 
-% [cellimages, cellproperties] = getCellImages2D(volumeuse, cinfo)
 
 % we find unique pairs of x-y pixels, take their sum as the area of the
 % cell, then find diameter. to remove z-blurring
@@ -56,7 +55,10 @@ cinfo  = regionprops3(imgidx, gather(volumeuse),...
 % [aa,bb] = pca(localfun);
 % iweird = find(localdist>80);
 prem   = 0;
+cellimages = zeros(0, prod(2*4*sigmause(1:2)+1));
 if ~isempty(cinfo)
+    % cellimages = getCellImages2D(volumeuse, cinfo, sigmause*4);
+
     elips   = cinfo.PrincipalAxisLength(:,1)./cinfo.PrincipalAxisLength(:,2);
     ilong   = elips>2.5;
     ismall  = cinfo.EquivDiameter<avgcellradius/2;
@@ -72,10 +74,11 @@ if ~isempty(cinfo)
     % imshowpair(uint8(max(volumeuse,[],3)*255/thresSNR(1)),max(imgidx,[],3));
 
     cinfo(iweird, :) = [];    
+    % cellimages(iweird, :) = [];
 end
 %--------------------------------------------------------------------------
 % package cell properties
-cpoints = [cinfo.WeightedCentroid cinfo.EquivDiameter cinfo.MeanIntensity];
+cpoints    = [cinfo.WeightedCentroid cinfo.EquivDiameter cinfo.MeanIntensity];
 %--------------------------------------------------------------------------
    
 end

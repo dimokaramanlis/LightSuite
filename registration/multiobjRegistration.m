@@ -63,12 +63,9 @@ cpaffine   = tform_aff.transformPointsForward(cptsatlas);
 %==========================================================================
 % load atlas
 fprintf('Loading and warping Allen atlas... \n'); tic;
-allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-tv     = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
-% tvdown = imresize3(tv,regopts.downfac_reg);
-av     = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um_by_index.npy'));
-% av     = imresize3(av,regopts.downfac_reg, "Method","nearest");
-
+allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
+tv      = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
+av      = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
 
 Rmoving  = imref3d(size(tv));
 Rfixed   = imref3d(size(volume));

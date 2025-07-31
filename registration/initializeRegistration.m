@@ -32,9 +32,9 @@ ls_cloud   = extractVolumePoints(uint16(volumereg * (2^16-1)), 15);
 
 %==========================================================================
 % load atlas and extract corresponding points
-allen_atlas_path = fileparts(which('template_volume_10um.npy'));
-tv = readNPY(fullfile(allen_atlas_path,'template_volume_10um.npy'));
-av = readNPY(fullfile(allen_atlas_path,'annotation_volume_10um.npy'));
+allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
+tv      = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
+av      = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
 % atlas needs to match volume dimensions
 % tv    = permute(tv, [1 3 2]);
 tvreg = imresize3(tv, downfac);
@@ -59,9 +59,9 @@ transinit = pcregistercpd(ls_cloud, tv_cloud,'Transform', 'Rigid','OutlierRatio'
 % volshow(tvreg,Parent=viewerUnregistered,RenderingStyle="Isosurface", Colormap=[0 1 0],Alphamap=1);
 
 avtest = imwarp(avreg, Rtemplate, transinit.invert,'nearest', 'OutputView',Rsample);
-
+volmax = quantile(volumereg,0.999,'all');
 for idim = 1:3
-    cf = plotAnnotationComparison(uint8(255*volumereg/0.5), avtest, idim);
+    cf = plotAnnotationComparison(uint8(255*volumereg/volmax), avtest, idim);
     savepngFast(cf, opts.savepath, sprintf('dim%d_initial_registration', idim), 300, 2);
     close(cf);
 end
