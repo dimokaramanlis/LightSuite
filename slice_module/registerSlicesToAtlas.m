@@ -146,12 +146,13 @@ for islice = 1:Nslices
     avreg     = transformAnnotationVolume(bspltformpath, affannotim, opts.registres*1e-3);
     sliceplot = single(histim);
     minslice  = quantile(sliceplot, 0.01, 'all');
-    maxslice  = quantile(sliceplot, 0.999, 'all');
+    maxslice  = quantile(sliceplot, 0.995, 'all');
     sliceplot = uint8(255 * (sliceplot - minslice)/(maxslice - minslice));
     txtstr1   = sprintf('affine (Npts = %d)', Nmov);
     cf = plotRegistrationComparison(sliceplot, cat(3, affannotim, avreg), ...
         {txtstr1, 'bspline'}, fixedpts);
-    savepngFast(cf, forsavepath, sprintf('%03d_slice_registration_comparison', islice), 300, 2);
+    % savepngFast(cf, forsavepath, sprintf('%03d_slice_registration_comparison', islice), 300, 2);
+    print(cf, fullfile( forsavepath, sprintf('%03d_slice_registration_comparison', islice)), '-dpng')
     close(cf);
     %------------------------------------------------------------------
     % inverting
