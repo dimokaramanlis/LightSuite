@@ -115,6 +115,9 @@ for islice = 1:Nslices
     movingpts = reshape(movingpts, [], 2);
     Nmov      = size(movingpts, 1);
     %------------------------------------------------------------------
+    % timeshistology = histology_cpoints{islice}(:, 4);
+    % timesatlas     = atlas_cpoints{islice}(:, 4);
+    %------------------------------------------------------------------
     % affine estimation
 
     if isempty(movingpts) || (Nmov < 5)
@@ -151,7 +154,6 @@ for islice = 1:Nslices
     txtstr1   = sprintf('affine (Npts = %d)', Nmov);
     cf = plotRegistrationComparison(sliceplot, cat(3, affannotim, avreg), ...
         {txtstr1, 'bspline'}, fixedpts);
-    % savepngFast(cf, forsavepath, sprintf('%03d_slice_registration_comparison', islice), 300, 2);
     print(cf, fullfile( forsavepath, sprintf('%03d_slice_registration_comparison', islice)), '-dpng')
     close(cf);
     %------------------------------------------------------------------
