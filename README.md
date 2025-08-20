@@ -1,20 +1,15 @@
 LightSuite is a comprehensive, semi-automated software pipeline designed for the end-to-end analysis of whole-brain imaging data acquired via light-sheet and widefield slice microscopy. The pipeline addresses the significant challenge of processing and quantifying cellular-level data from datasets in the 100GB scales. Its core functionalities are twofold: first, the robust registration of raw experimental image volumes to the standardized Allen Common Coordinate Framework (CCF) v3 for the mouse brain; and second, the automated 3D detection and quantification of labeled cells within this standardized anatomical context. LightSuite enables researchers to transition from raw image stacks to quantitative, region-specific cell counts, providing a crucial tool for systems neuroscience.
 
-## Registration
-
-![Example bspline registration](./images/example_bspline.PNG)
-
 ## MATLAB requirements
 
-Cell counting is done on the GPU, needs to improve.
-
-Requires:
-	- MATLAB >= R2022b
-	- Computer Vision Toolbox
-	- Image Processing Toolbox
-	- Optimization Toolbox
-	- Parallel Computing Toolbox
-	- Statistics and Machine Learning Toolbox
+- MATLAB >= R2022b
+- Computer Vision Toolbox
+- Image Processing Toolbox
+- Optimization Toolbox
+- Parallel Computing Toolbox
+- Statistics and Machine Learning Toolbox
+- [matlab_elastix](https://github.com/dimokaramanlis/matlab_elastix), forked by Rob Campbell's repo
+- [yamlmatlab](https://github.com/raacampbell/yamlmatlab) by Rob Campbell 
 
 ## elastix installation
 
@@ -29,9 +24,11 @@ LightSuite calls Elastix from the command line, so its executables must be globa
 3. Verification: To confirm that Elastix is installed correctly, open a new terminal or command prompt and type elastix --version. You should see the version information printed to the screen. If you get a "command not found" error, the PATH is not set correctly.
 
 
-
 ## Allen Atlas
-[2020 version](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html), download all files [here](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#image_volumes/Allen-CCF-2020/20230630/)
-and all metadate [here](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#metadata/Allen-CCF-2020/20230630/)
+LightSuite used the [2020 version](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) of the Allen Brain Atlas for registration. To be able to use the software you have to download all [volume files](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#image_volumes/Allen-CCF-2020/20230630/) along with all relevant [metadata](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#metadata/Allen-CCF-2020/20230630/) and make them available to the MATLAB path.
 
+## Registration
 
+![Example bspline registration](./images/example_bspline.PNG)
+
+## Cell counting
