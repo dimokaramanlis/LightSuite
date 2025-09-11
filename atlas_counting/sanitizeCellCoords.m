@@ -1,4 +1,4 @@
-function finalpts = sanitizeCellCoords(cellcoords, annvol)
+function [finalpts, ikept] = sanitizeCellCoords(cellcoords, annvol)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -16,5 +16,6 @@ finalpts(irem, :) = [];
 indcells = sub2ind(size(annvol), finalpts(:,2), finalpts(:,1), finalpts(:,3));
 irem     = annvol(indcells) == 0;
 finalpts(irem, :) = [];
+ikept = find(~irem);
 %--------------------------------------------------------------------------
 end

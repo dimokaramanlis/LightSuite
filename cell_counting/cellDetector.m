@@ -1,7 +1,13 @@
-function [cpoints, prem, cellimages] = cellDetector(volumeuse, avgcellradius, sigmause, anisotropyratio, thresSNR)
+function [cpoints, prem, cellimages] = cellDetector(volumeuse, avgcellradius, ...
+    sigmause, anisotropyratio, thresSNR, varargin)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
-
+if nargin < 6
+    saveim = false;
+else
+    saveim = varargin{1};
+end
+%--------------------------------------------------------------------------
 [Ny, Nx, Nz] = size(volumeuse);
 %--------------------------------------------------------------------------
 cubsize = 4*sigmause ;
@@ -57,7 +63,6 @@ cinfo  = regionprops3(imgidx, gather(volumeuse),...
 prem   = 0;
 cellimages = zeros(0, prod(2*4*sigmause(1:2)+1));
 if ~isempty(cinfo)
-    % cellimages = getCellImages2D(volumeuse, cinfo, sigmause*4);
 
     elips   = cinfo.PrincipalAxisLength(:,1)./cinfo.PrincipalAxisLength(:,2);
     ilong   = elips>2.5;
@@ -73,8 +78,12 @@ if ~isempty(cinfo)
     % imgidx(indtest) = true;
     % imshowpair(uint8(max(volumeuse,[],3)*255/thresSNR(1)),max(imgidx,[],3));
 
+    if saveim
+        cellimages = getCellImages2D(volumeuse, cinfo, sigmause*4);
+        cellimages(iweird, :) = [];
+    end
     cinfo(iweird, :) = [];    
-    % cellimages(iweird, :) = [];
+
 end
 %--------------------------------------------------------------------------
 % package cell properties

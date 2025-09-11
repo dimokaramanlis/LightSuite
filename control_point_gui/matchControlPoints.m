@@ -29,7 +29,7 @@ volload         = readDownStack(volpath);
 volload         = permute(volload, opts.permute_sample_to_atlas);
 Rvolume         = imref3d(size(volload));
 gui_data.volume = imwarp(volload, Rvolume, opts.original_trans, 'OutputView',gui_data.Rmoving);
-factv       = 255/single(max(gui_data.volume,[],"all"));
+factv           = 255/single(quantile(gui_data.volume,0.999,"all"));
 gui_data.volume = uint8(single(gui_data.volume)*factv);
 chooselist      = generate_cp_list_alt(gui_data.volume);
 gui_data.chooselist = chooselist;
@@ -99,7 +99,7 @@ set(gui_data.histology_ax,'Position',[0,0,0.5,0.9]);
 hold on; colormap(gray); axis image off;
 gui_data.histology_im_h = imagesc(curr_image,...
     'Parent',gui_data.histology_ax,'ButtonDownFcn',@mouseclick_histology);
-clim([0,200]);
+clim([0,255]);
 % Set up histology-aligned atlas overlay
 % (and make it invisible to mouse clicks)
 % histology_aligned_atlas_boundaries_init = ...
