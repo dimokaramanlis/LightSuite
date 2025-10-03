@@ -32,3 +32,11 @@ LightSuite used the [2020 version](https://alleninstitute.github.io/abc_atlas_ac
 ![Example bspline registration](./images/example_bspline.PNG)
 
 ## Cell counting
+
+## Slice module
+
+LightSuite also works for slices acquired through a conventional wide-field microscope.
+
+Registration is included, but manual adjustments should be done on a per-slice basis.
+
+![Example slice registration](./images/example_slice_registration.png)
