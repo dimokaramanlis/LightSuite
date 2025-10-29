@@ -1,13 +1,13 @@
-function [cout, sigout, volout, nameout, indsout] = ...
-    reorganizeAreas(counts, signals, volumes, parcelinfo, aggtype)
+function resout = reorganizeAreas(counts, signals, volumes, parcelinfo, aggtype)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
+% count and volume correspond to half a hemisphere
 %--------------------------------------------------------------------------
 [Ngroups, ~, Nmice] = size(counts);
 % smat    = atlasTreeToMat(st);
 % smat    = smat(1:Ngroups, :);
 [agglist, aggnames, parcelout] = getAggList(parcelinfo, aggtype);
-[agglistcoarse, coarsenames] = getAggList(parcelinfo, 'division');
+[agglistcoarse, coarsenames]   = getAggList(parcelinfo, 'division');
 
 indsout = parcelout.parcellation_index;
 %--------------------------------------------------------------------------
@@ -20,14 +20,14 @@ nameout    = cell(numel(aggnames), 3);
 for ii = 1:numel(aggnames)
     row  = find(agglist== ii);
     % counts are averaged in hemispheres
-    countsignal = 2*squeeze(mean(counts(row, :, :), 2, 'omitmissing'));
-    % countsignal = 2*squeeze(max(counts(row, :, :), [], 2, 'omitmissing'));
+    countsignal = squeeze(mean(counts(row, :, :), 2, 'omitmissing'));
+    % countsignal = squeeze(max(counts(row, :, :), [], 2, 'omitmissing'));
 
     countsignal = reshape(countsignal, numel(row), Nmice);
     cout(ii, :) = sum(countsignal, 1, 'omitmissing');
     % volumes are the whole volme
     volssel         = volumes(row);
-    volout(ii, :)   = sum(volssel, 1, 'omitmissing');
+    volout(ii, :)   = sum(volssel, 1, 'omitmissing')/2;
     
     % signal is averaged based on volume area
     wtscurr      = volssel/sum(volssel);
@@ -61,16 +61,15 @@ iclassrem = contains(lower(nameout(:,3)), 'nerves') |...
 % ikeeptype   = ~any(ismember(smat, st.id(find(iclassrem))), 2);
 % ikeepvolume = volout > 1e-5;
 
-ikeep      =  ~iclassrem; % & ikeeptype;
-cout  = cout(ikeep,  :);
-volout = volout(ikeep, :);
-sigout = sigout(ikeep, :);
-nameout = nameout(ikeep, :);
-indsout = indsout(ikeep, :);
+ikeep   = ~iclassrem; % & ikeeptype;
+resout.counts   = cout(ikeep,  :);
+resout.volumes  = volout(ikeep, :);
+resout.signal   = sigout(ikeep, :);
+resout.names    = nameout(ikeep, :);
+resout.indices  = indsout(ikeep, :);
 % smatnew    = smat(ikeep, :);
 
 %--------------------------------------------------------------------------
-
 % areaids   = sorg(toindex);
 % [unids, ~, ic] = unique(areaids);
 % Nareas         = numel(unids);

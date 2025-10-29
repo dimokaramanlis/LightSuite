@@ -73,7 +73,7 @@ for islice = 1:Nz+Nsidez
         % imwrite(cellimage, fname,"tif","Compression","packbits")
         %------------------------------------------------------------------
         % save background
-        backvol(:, :, indscrr(Nsidez + 1)) = imresize(backsignal, scaledownxy, "bicubic");
+        backvol(:, :, indscrr(Nsidez + 1)) = imresize(backsignal, scaledownxy);
         %------------------------------------------------------------------
     end
     %----------------------------------------------------------------------

@@ -1,3 +1,4 @@
 *.asv
 slice_module/script_analyze_slices.m
 slice_module/script_analyze_slices_in_batch.m
+batch_run_colm_suite.m

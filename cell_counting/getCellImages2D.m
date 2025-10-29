@@ -25,8 +25,11 @@ zind(~zkeep) =1;
 indsout = sub2ind([Ny, Nx, Nz], yind(:), xind(:), zind(:));
 Xmat    = reshape(volumeuse(indsout), size(zind));
 Xmat(~ykeep | ~xkeep | ~zkeep) = 0;
-Xmat = max(reshape(Xmat, Ncells, numel(dty), numel(dtx), numel(dtz)), [], 4);
-cellimages = gather(Xmat);
+Xmat = reshape(Xmat, Ncells, numel(dty), numel(dtx), numel(dtz));
+Xmat1 = reshape(max(Xmat, [], 2), Ncells, []);
+Xmat2 = reshape(max(Xmat, [], 3), Ncells, []);
+Xmat3 = reshape(max(Xmat, [], 4), Ncells, []);
+cellimages = gather([Xmat1 Xmat2 Xmat3]);
 
 
 % tic;

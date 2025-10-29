@@ -68,7 +68,7 @@ dist_matrix = max(dist_matrix, 1e-6); % Avoid NaN
 lpf = 1 ./ (1 + (dist_matrix / f_upper).^(2 * n));
 hpf = 1 - 1 ./ (1 + (dist_matrix / f_lower).^(2 * n));
 bpf = single(lpf .* hpf);  % Convert to single precision
-clear lpf hpf dist_matrix cx cy cz
+clear lpf hpf dist_matrix cx cy cz;
 power_retained_spectrum = (sum(bpf(:).^2) / (hf*wf*tf));
 bpf = maybe_gpu(use_gpu, bpf);
 

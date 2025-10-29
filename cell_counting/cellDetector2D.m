@@ -80,10 +80,12 @@ if ~isempty(cinfo)
     iweird = ilong | ismall | ilow ;
     prem   = nnz(iweird)/size(cinfo, 1);
     
-    allvoxels =  cat(1,cinfo(~iweird).PixelList);
-    indtest = sub2ind(size(fout),allvoxels(:,2), allvoxels(:,1));
-    imgout(indtest) = true;
-    % imshowpair(uint8(sliceuse*255/thresSNR(1)),imgout);
+    if nnz(~iweird) > 0
+        allvoxels =  cat(1,cinfo(~iweird).PixelList);
+        indtest = sub2ind(size(fout),allvoxels(:,2), allvoxels(:,1));
+        imgout(indtest) = true;
+        % imshowpair(uint8(sliceuse*255/thresSNR(1)),imgout);
+    end
 
     cinfo(iweird) = [];    
 end
