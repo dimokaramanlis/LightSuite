@@ -1,5 +1,9 @@
 LightSuite is a comprehensive, semi-automated software pipeline designed for the end-to-end analysis of whole-brain imaging data acquired via light-sheet and widefield slice microscopy. The pipeline addresses the significant challenge of processing and quantifying cellular-level data from datasets in the 100GB scales. Its core functionalities are twofold: first, the robust registration of raw experimental image volumes to the standardized Allen Common Coordinate Framework (CCF) v3 for the mouse brain; and second, the automated 3D detection and quantification of labeled cells within this standardized anatomical context. LightSuite enables researchers to transition from raw image stacks to quantitative, region-specific cell counts, providing a crucial tool for systems neuroscience.
 
+## Lightsheet microscopy data
+
+The script `ls_analyze_slice_volume.m` will guide you through data loading, preprocessing, cell detection and brain registration. The currently supported format is a series of 2D tiff files of a single color. We are working on expanding this to 3D tiff files and allowing the user to select any channel for registration.
+
 ## MATLAB requirements
 
 - MATLAB >= R2022b
@@ -9,7 +13,7 @@ LightSuite is a comprehensive, semi-automated software pipeline designed for the
 - Parallel Computing Toolbox
 - Statistics and Machine Learning Toolbox
 - [matlab_elastix](https://github.com/dimokaramanlis/matlab_elastix), forked by Rob Campbell's repo
-- [yamlmatlab](https://github.com/raacampbell/yamlmatlab) by Rob Campbell 
+- [yamlmatlab](https://github.com/raacampbell/yamlmatlab) by Rob Campbell
 
 ## elastix installation
 
@@ -35,8 +39,6 @@ LightSuite used the [2020 version](https://alleninstitute.github.io/abc_atlas_ac
 
 ## Slice module
 
-LightSuite also works for slices acquired through a conventional wide-field microscope.
-
-Registration is included, but manual adjustments should be done on a per-slice basis.
+LightSuite also works for slices acquired through a conventional wide-field microscope. You can start by using the script `ls_analyze_slice_volume.m`. Registration is included, but manual adjustments should be done on a per-slice basis.
 
 ![Example slice registration](./images/example_slice_registration.png)
