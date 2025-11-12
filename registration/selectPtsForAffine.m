@@ -2,6 +2,13 @@ function ikeep = selectPtsForAffine(cptshistology)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
+
+% Npts   = size(cptshistology, 1);
+% k      = floor(Npts/2);
+% idx    = kmeans(cptshistology, k, 'Replicates', 20);
+% ikeep  = accumarray(idx, (1:Npts)', [], @(x) x(1));
+
+% 
 % 1. Calculate the centroid of the points
 centroid = mean(cptshistology);
 
@@ -41,5 +48,5 @@ for i = 1:numPoints
 end
 
 [~, isort] = sort(distances, 'descend');
-ikeep      = isort(1:floor(numel(distances)/2));
+ikeep      = isort(1:floor(numel(distances)*0.5));
 end

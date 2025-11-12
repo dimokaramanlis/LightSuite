@@ -48,9 +48,16 @@ cptsatlas     = cptsatlas/regopts.downfac_reg;
 
 % we use only a subset of control points for fitting the affine transform, 
 % specifically the ones closest to the edges
+% 
+% ls_cloud = extractVolumePoints(volume, 15);
+% tvreg = imresize3(tv, regopts.downfac_reg);
+% tv_cloud = extractVolumePoints(tvreg, 15);
+% transinit = pcregistercpd(ls_cloud, tv_cloud,'Transform', 'Affine','OutlierRatio',0.0,...
+%     'Verbose',true,'MaxIterations',100,'Tolerance',1e-6);
 
 iuseaff    = selectPtsForAffine(cptshistology);
 tform_aff  = fitAffineTrans3D(cptsatlas(iuseaff,:), cptshistology(iuseaff,:));
+
 cpaffine   = tform_aff.transformPointsForward(cptsatlas);
 
 
@@ -60,6 +67,7 @@ cpaffine   = tform_aff.transformPointsForward(cptsatlas);
 % subplot(1,2,2)
 % plot(cptshistology(:),cpaffine(:),'o')
 % title('Conrol points - after affine transform')
+
 %==========================================================================
 % load atlas
 fprintf('Loading and warping Allen atlas... \n'); tic;
@@ -74,7 +82,7 @@ avaffine = imwarp(av, Rmoving, tform_aff, 'nearest','OutputView',Rfixed);
 fprintf('Done! Took %2.2f s\n', toc);
 %==========================================================================
 % we plot the affine step
-voltoshow = uint8(255*single(volume)/20000);
+voltoshow = uint8(255*single(volume)/single(quantile(volume, 0.999, 'all')));
 for idim = 1:3
     cf = plotAnnotationComparison(voltoshow, single(avaffine), idim);
     savepngFast(cf, regopts.savepath, sprintf('%s_dim%d_affine_registration', opts.mousename, idim), 300, 2);
@@ -109,7 +117,7 @@ end
 % here we obtain the inverse transform
 outdir     = fullfile(regopts.savepath, 'elastix_inverse_temp');
 invstats   = invertElastixTransformCP( pathbspl, outdir);
-tformpath = fullfile(regopts.savepath, 'bspline_samp_to_atlas_20um.txt');
+tformpath  = fullfile(regopts.savepath, 'bspline_samp_to_atlas_20um.txt');
 elastix_paramStruct2txt(tformpath, invstats.TransformParameters{1});
 %==========================================================================
 % data saving

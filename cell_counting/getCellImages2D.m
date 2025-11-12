@@ -7,8 +7,8 @@ dtx = single(-sigmause(2):sigmause(2));
 dtz = single(-sigmause(3):sigmause(3));
 
 [Ny, Nx, Nz] = size(volumeuse);
-ccents  =  round(cinfo.WeightedCentroid);
-Ncells  = size(ccents, 1);
+ccents       = round(cinfo.WeightedCentroid);
+Ncells       = size(ccents, 1);
 [xx, yy, zz] = meshgrid(dtx, dty, dtz);
 
 xind   = ccents(:,1)  + xx(:)';
