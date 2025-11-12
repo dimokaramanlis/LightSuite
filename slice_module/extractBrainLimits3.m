@@ -2,6 +2,8 @@ function [xrange, yrange] = extractBrainLimits3(currslice, Nbuff)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 
+rng(1); % for reproducibility
+
 Nwidth = floor(Nbuff/4)*2 + 1;
 [ny, nx]  = size(currslice);
 
