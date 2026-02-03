@@ -4,63 +4,72 @@ function params_pts_to_atlas = multiobjRegistration(opts, contol_point_wt, usemu
 
 %==========================================================================
 % read reg volume and control points
-volpath = dir(fullfile(opts.savepath,'*20um.tif'));
-cppath   = dir(fullfile(opts.savepath,'*tform.mat'));
+fprintf('Loading data volume and pre-computed clouds...'); tic;
+volpath  = dir(fullfile(opts.savepath,'*20um.tif'));
 optspath = dir(fullfile(opts.savepath,'*regopts.mat'));
 
 % load volume and control points
 dp       = fullfile(volpath.folder, volpath.name);
-dpcp     = fullfile(cppath.folder,   cppath.name);
 dpopts   = fullfile(optspath.folder,   optspath.name);
 
 volume   = readDownStack(dp);
-cpdata   = load(dpcp);
 regopts  = load(dpopts);
 regopts  = regopts.opts;
 
 % we permute the volume to match atlas
 volume  = permute(volume, regopts.permute_sample_to_atlas);
-
-% make sure control points work
-np1           = cellfun(@(x) size(x,1),cpdata.atlas_control_points);
-np2           = cellfun(@(x) size(x,1),cpdata.histology_control_points);
-ikeep         = np1==np2 & np1>0;
-cptsatlas     = cat(1, cpdata.atlas_control_points{ikeep});
-cptshistology = cat(1, cpdata.histology_control_points{ikeep});
-
-% make sure x is in the correct place
-cptsatlas     = cptsatlas(:, [2 1 3]);
-cptshistology = cptshistology(:, [2 1 3]);
+fprintf('Done! Took %2.2f s\n', toc);
 %==========================================================================
-% 1st transform - AFFINE BASED ON CONTROL POINTS 
-% TODO: Do affine with control points + intensity?
+% we load automated control points
+autocptshistology = regopts.autocpsample;
+autocptsatlas     = regopts.autocpatlas/regopts.downfac_reg;
+distancethin      = 1000/regopts.atlasres;
+if ~opts.augmentpoints
+    distancethin = 3*distancethin;
+end
+%==========================================================================
+% we also load user points
+cppath        = dir(fullfile(opts.savepath,'*tform.mat'));
+cptshistology = zeros(0, 3);
+cptsatlas     = zeros(0, 3);
+if ~isempty(cppath)
+    dpcp     = fullfile(cppath.folder,   cppath.name);
+    cpdata   = load(dpcp);
+    
+    % make sure control points work
+    np1           = cellfun(@(x) size(x,1),cpdata.atlas_control_points);
+    np2           = cellfun(@(x) size(x,1),cpdata.histology_control_points);
+    ikeep         = np1==np2 & np1>0;
+    cptsatlas     = cat(1, cpdata.atlas_control_points{ikeep});
+    cptshistology = cat(1, cpdata.histology_control_points{ikeep});
+    
+    % make sure x is in the correct place
+    cptsatlas     = cptsatlas(:, [2 1 3]);
+    cptshistology = cptshistology(:, [2 1 3]);
+    cptshistology = regopts.original_trans.transformPointsInverse(cptshistology);
+    cptsatlas     = cptsatlas/regopts.downfac_reg;
 
-% we first bring the histology points back to the original space
+    Dall              = pdist2(cptsatlas, autocptsatlas);
+    ikeepatlas        = all(Dall > distancethin, 1);
 
-cptshistology = regopts.original_trans.transformPointsInverse(cptshistology);
-cptsatlas     = cptsatlas/regopts.downfac_reg;
-
-% cptsatlas     = (cptsatlas - 0.5)/regopts.downfac_reg + 0.5;
-
-
-% tform_aff     = fitAffineTrans3D(cptsatlas, cptshistology);
-% cpaffine      = tform_aff.transformPointsForward(cptsatlas);
-
-% we use only a subset of control points for fitting the affine transform, 
-% specifically the ones closest to the edges
-% 
-% ls_cloud = extractVolumePoints(volume, 15);
-% tvreg = imresize3(tv, regopts.downfac_reg);
-% tv_cloud = extractVolumePoints(tvreg, 15);
-% transinit = pcregistercpd(ls_cloud, tv_cloud,'Transform', 'Affine','OutlierRatio',0.0,...
-%     'Verbose',true,'MaxIterations',100,'Tolerance',1e-6);
-
-iuseaff    = selectPtsForAffine(cptshistology);
-tform_aff  = fitAffineTrans3D(cptsatlas(iuseaff,:), cptshistology(iuseaff,:));
-
-cpaffine   = tform_aff.transformPointsForward(cptsatlas);
-
-
+    autocptshistology = autocptshistology(ikeepatlas, :);
+    autocptsatlas     = autocptsatlas(ikeepatlas, :);
+    fprintf('Found %d user-defined control points.\n', size(cptshistology, 1));    
+end
+%==========================================================================
+idxkeep         = thinPointList(autocptsatlas, distancethin);
+fprintf('Augmentation with %d auto-extracted control points.\n', nnz(idxkeep));
+afcptsatlas     = [cptsatlas; autocptsatlas(idxkeep, :)];
+afcptshistology = [cptshistology; autocptshistology(idxkeep, :)];
+tform_aff       = fitAffineTrans3D(afcptsatlas, afcptshistology);
+cpaffine        = tform_aff.transformPointsForward(cptsatlas);
+if size(cpaffine, 1) == 0
+    % revert to automated mode
+    contol_point_wt = contol_point_wt/2;
+    cptshistology   = autocptshistology(idxkeep, :);
+    cpaffine        = tform_aff.transformPointsForward(autocptsatlas(idxkeep, :));
+end
+%==========================================================================
 % subplot(1,2,1)
 % plot(cptshistology(:),cptsatlas(:),'o')
 % title('Conrol points -  no alignment')

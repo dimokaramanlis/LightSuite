@@ -19,16 +19,16 @@ end
 
 
 % 1. Retrieve Data
-centers = align_out.centers;   
-p_ant   = align_out.pred_ant;
-p_pos   = align_out.pred_pos;
+centers = [align_out.fit_x align_out.fit_y];  
+theta   = align_out.fit_theta + pi;
+% p_ant   = align_out.pred_ant;
+% p_pos   = align_out.pred_pos;
 Nslices = size(centers, 1);
 
 % Handle potential missing data (NaNs)
 if any(isnan(centers(:)))
     centers = fillmissing(centers, 'nearest');
-    p_ant   = fillmissing(p_ant, 'nearest');
-    p_pos   = fillmissing(p_pos, 'nearest');
+    theta   = fillmissing(theta, 'nearest');
 end
 
 % Pre-allocate
@@ -43,13 +43,14 @@ for i = 1:Nslices
     cy = centers(i, 2);
     
     % Calculate Vector: From Anterior -> Posterior
-    vec = p_pos(i,:) - p_ant(i,:);
+    % vec = p_pos(i,:) - p_ant(i,:);
     
     % Calculate Current Angle of this vector
-    theta_curr = atan2(vec(2), vec(1));
+    % theta_curr = atan2(vec(2), vec(1));
+    theta_curr = theta(i);
     
     % Calculate Rotation needed (Target - Current)
-    theta_rot = theta_target - theta_curr;
+    theta_rot = circ_dist(theta_target, theta_curr);
     
     % --- 2. Build Matrices (Pre-Multiplication) ---
     

@@ -20,5 +20,3 @@ nav:
       - Lightsheet brain: usage_lightsheet_brain.md
       - Slice Module: usage_slice.md
       - Lightsheet spinal cord: usage_spinal_cord.md
-  - Reference:
-      - Folder Structure: structure.md
