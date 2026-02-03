@@ -1,0 +1,24 @@
+site_name: LightSuite
+site_url: https://lightsuite.readthedocs.io/
+repo_url: https://github.com/dimokaramanlis/LightSuite
+repo_name: dimokaramanlis/LightSuite
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    primary: teal
+    accent: purple
+  features:
+    - navigation.sections
+    - navigation.expand
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage:
+      - Lightsheet brain: usage_lightsheet_brain.md
+      - Slice Module: usage_slice.md
+      - Lightsheet spinal cord: usage_spinal_cord.md
+  - Reference:
+      - Folder Structure: structure.md
