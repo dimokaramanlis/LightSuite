@@ -4,12 +4,25 @@ function opts = initializeRegistration(opts, varargin)
 % this function re-orients the sample to match the atlas and facilitate
 % control point selection
 %==========================================================================
-if nargin < 2
-    backvol  = readDownStack(opts.regvolpath);
+p = inputParser;
+addRequired(p,  'opts', @isstruct);
+addParameter(p, 'FlipX', false, @islogical);
+addParameter(p, 'Volume', [], @isnumeric);
+addParameter(p, 'bpcdpath', 'C:\GitHub\bcpd\win\bcpd.exe', ...
+    @(x) isstring(x) | ischar(x) );
+parse(p, opts, varargin{:});
+params = p.Results;
+opts   = params.opts;
+%==========================================================================
+if ~isempty(params.Volume)
+    backvol = params.Volume;
 else
-    backvol = varargin{1};
+    backvol = readDownStack(opts.regvolpath);
 end
 downfac = opts.atlasres/opts.registres;
+%==========================================================================
+flipvec = [params.FlipX, false, false];
+Tflip   = affinetform3d(createFlipTransform(size(backvol), flipvec));
 %==========================================================================
 %%
 % we fist preprocess the registration volume
@@ -17,49 +30,49 @@ centpx    = round(size(backvol)/2);
 
 naround   = round(min(centpx)/3);
 centind   = round(size(backvol)/2) + (-naround:naround)';
-bvalinds  = randperm(numel(backvol), 1e5);
 topval    = quantile(backvol(centind(:,1), centind(:,2),centind(:,3)), 0.999,'all')*2;
-% bottomval = quantile(backvol(bvalinds), 0.01, 'all');
 bottomval = 0;
 newvol    = (single(backvol)-single(bottomval))/single(topval-bottomval);
-
-% newvol    = uint8(newvol * 255);
 %==========================================================================
 % we then prepare the volume and extract corresponding points 
 % volumereg  = imresize3(newvol, 0.5);
+fprintf('Creating cloud for sample volume... '); tic;
 volumereg  = permute(newvol, [1 3 2]);
-ls_cloud   = extractVolumePoints(uint16(volumereg * (2^16-1)), 15);
-
+ls_cloud   = extractSamplePoints(volumereg, 5);
+fprintf('Done! Took %2.1f s. Found %d points.\n', toc, ls_cloud.Count);
 %==========================================================================
 % load atlas and extract corresponding points
+fprintf('Loading atlas data and generating the atlas cloud... '); tic;
 allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
 tv      = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
 av      = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
+tvreg   = imresize3(tv, downfac);
+avreg   = imresize3(av, downfac, 'Method','nearest');
+
+% tv_cloud = extractVolumePoints(tvreg, 15);
+tvforpoints             = single(tvreg);
+tvforpoints(avreg == 0) = 0;
+tv_cloud                = extractVolumePointsGradient(tvforpoints, 20, 5);
+fprintf('Done! Took %2.1f s. Found %d points.\n', toc, tv_cloud.Count);
 % atlas needs to match volume dimensions
 % tv    = permute(tv, [1 3 2]);
-tvreg = imresize3(tv, downfac);
-avreg = imresize3(av, downfac, 'Method','nearest');
-
-tv_cloud = extractVolumePoints(tvreg, 15);
 
 % tvaffine = imwarp(tv, Rmoving, tform, 'OutputView',Rfixed);
 %==========================================================================
 % the first step is to make sure our sample is nicely aligned
+fprintf('Obtaining initial similarity transform... '); tic;
+transinit = originalSimilarityTform(ls_cloud, tv_cloud, params, Tflip);
+fprintf('Done! Took %2.1f s. \n', toc);
 
-Rtemplate = imref3d(size(tvreg));
-Rsample   = imref3d(size(volumereg));
-
-transinit = pcregistercpd(ls_cloud, tv_cloud,'Transform', 'Rigid','OutlierRatio',0.0,...
-    'Verbose',false,'MaxIterations',100,'Tolerance',1e-6);
-% volumetest = imwarp(volumereg, Rsample, transinit, 'OutputView',Rtemplate);
+fprintf('Identifying candidate corresponding points... '); tic;
+[cpsample, cpatlas] = triageAndMatchClouds(ls_cloud, tv_cloud, transinit, params);
+fprintf('Done! Took %2.1f s. \n', toc);
 %==========================================================================
 % we plot the first step
-% viewerUnregistered = viewer3d(BackgroundColor="black",BackgroundGradient="off");
-% volshow(volumetest,Parent=viewerUnregistered,RenderingStyle="Isosurface", Colormap=[1 0 1],Alphamap=1);
-% volshow(tvreg,Parent=viewerUnregistered,RenderingStyle="Isosurface", Colormap=[0 1 0],Alphamap=1);
-
-avtest = imwarp(avreg, Rtemplate, transinit.invert,'nearest', 'OutputView',Rsample);
-volmax = quantile(volumereg,0.999,'all');
+Rtemplate = imref3d(size(tvreg));
+Rsample   = imref3d(size(volumereg));
+avtest    = imwarp(avreg, Rtemplate, transinit.invert,'nearest', 'OutputView',Rsample);
+volmax    = quantile(volumereg,0.999,'all');
 for idim = 1:3
     cf = plotAnnotationComparison(uint8(255*volumereg/volmax), avtest, idim);
     savepngFast(cf, opts.savepath, sprintf('dim%d_initial_registration', idim), 300, 2);
@@ -70,7 +83,8 @@ end
 opts.permute_sample_to_atlas = [1 3 2];
 opts.original_trans          = transinit;
 opts.downfac_reg             = downfac;
-
+opts.autocpsample            = cpsample;
+opts.autocpatlas             = cpatlas;
 % save registration
 save(fullfile(opts.savepath, 'regopts.mat'), 'opts')
 %==========================================================================

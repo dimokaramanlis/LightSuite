@@ -48,7 +48,7 @@ opts.tofliprc     = frontsum < backsum;
 if opts.tofliprc
     fprintf('Spinal cord is in caudorostral direction, flipping...\n')
     tv   = flip(tv, 3);
-    av   = flip(tv, 3);
+    av   = flip(av, 3);
     tvpts(:, 3) = size(tv, 3) - tvpts(:, 3);
 end
 opts.cordarea = cordarea;
@@ -67,55 +67,6 @@ if mean(ihigh) > 0.01
     end
 end
 opts.ikeeprange = ikeep;
-%--------------------------------------------------------------------------
-% Example Data (Replace with your actual 'area' vectors)
-% Sample: The fixed "target" (e.g., your spinal cord sample)
-% Atlas: The "moving" reference you want to stretch/warp
-binatlas  = imbinarize(tv);
-atlasarea = squeeze(sum(binatlas, 1:2));
-cordmatch = cordarea(ikeep(1):ikeep(2));
-%%
-sample = cordmatch./median(cordmatch(cordmatch>0)); 
-atlas  = atlasarea./median(atlasarea);     
-
-atlas  = [0; atlas];
-
-% 1. Run Standard DTW
-% ix corresponds to sample indices, iy to atlas indices
-[dist, ix, iy] = dtw(sample, atlas, 100);
-
-% 2. Calculate the Warping Function
-% We need to know: for every point in 'sample', what is the corresponding 
-% index in 'atlas'?
-% Since 'ix' (sample indices) will have duplicates (repeats), we average 
-% the corresponding 'iy' values to find the center of the match.
-
-len_sample = length(sample);
-warp_path = zeros(1, len_sample);
-
-for k = 1:len_sample
-    % Find all indices in the warping path that correspond to sample index 'k'
-    matches = (ix == k);
-    
-    % Take the average atlas index that matches this sample point
-    warp_path(k) = mean(iy(matches)); 
-end
-opts.atlaswarppath = warp_path;
-% % 3. Warp the Atlas to the Sample's Grid
-% % We now interpolate the Atlas values at these new mapped coordinates.
-% % 'linear' or 'pchip' (shape-preserving) are good options.
-% atlas_aligned = interp1(1:length(atlas), atlas, warp_path, 'pchip');
-% 
-% % --- Visualization ---
-% figure;
-% subplot(3,1,1); plot(sample, 'b'); title('Fixed Sample'); grid on;
-% subplot(3,1,2); plot(atlas, 'r'); title('Original Atlas'); grid on;
-% subplot(3,1,3); 
-% plot(sample, 'b', 'LineWidth', 2); hold on;
-% plot(atlas_aligned, 'r--', 'LineWidth', 2);
-% title('Atlas Warped to Match Sample'); 
-% legend('Sample', 'Aligned Atlas'); grid on;
-%%
 %--------------------------------------------------------------------------
 % reducing volume
 
