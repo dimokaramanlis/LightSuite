@@ -18,5 +18,5 @@ nav:
   - Installation: installation.md
   - Usage:
       - Lightsheet brain: usage_lightsheet_brain.md
-      - Slice Module: usage_slice.md
       - Lightsheet spinal cord: usage_spinal_cord.md
+      - Slice Module: usage_slice.md
