@@ -41,11 +41,11 @@ paramsall = nbreg([ones(size(XX, 1), 1) XX], yy, 'regularization',1e-4);
 alpha    = paramsall.alpha;
 
 
-mu      = allpreds;  
-amu     = alpha*mu;
-amup1   = 1 + amu;
-cvlogli = sum( yy.*log( amu./amup1 ) - (1/alpha)*log(amup1) + gammaln(yy + 1/alpha) - gammaln(yy + 1) - gammaln(1/alpha));
-cverr   = rsquare(yy, allpreds);
+mu        = allpreds;  
+amu       = alpha*mu;
+amup1     = 1 + amu;
+cvlogli   = sum( yy.*log( amu./amup1 ) - (1/alpha)*log(amup1) + gammaln(yy + 1/alpha) - gammaln(yy + 1) - gammaln(1/alpha));
+cverr     = rsquare(yy, allpreds);
 paramsall = paramsall.b;
 
 end

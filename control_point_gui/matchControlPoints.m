@@ -148,6 +148,7 @@ msgbox( ...
     'Left/right: switch slice' ...
     'click: set reference points for manual alignment (3 minimum)', ...
     'space: toggle alignment overlay visibility', ...
+    'enter: go to slice', ...
     'c: clear reference points', ...
     's: save'}, ...
     'Controls',CreateStruct);
@@ -161,7 +162,19 @@ function keypress(gui_fig,eventdata)
 gui_data = guidata(gui_fig);
 
 switch eventdata.Key
-    
+
+    % Enter: Go to slice
+    case 'return'
+        input_slice = inputdlg(sprintf('Go to slice (max %d):',  size(gui_data.chooselist,1)));
+        if ~isempty(input_slice)
+            new_slice = str2double(input_slice{1});
+            if ~isnan(new_slice) && new_slice >= 1 && new_slice <= size(gui_data.chooselist,1)
+                gui_data.curr_slice = new_slice;
+                guidata(gui_fig,gui_data);
+                update_slice(gui_fig);
+            end
+        end
+
     % left/right arrows: move slice
     case 'leftarrow'
         gui_data.curr_slice = max(gui_data.curr_slice - 1,1);
@@ -284,7 +297,7 @@ function align_ccf_to_histology(gui_fig)
 gui_data = guidata(gui_fig);
 
 
-Nmin = 8;
+Nmin = 15;
 cptsatlas     = cat(1, gui_data.atlas_control_points{:});
 cptsatlas     = cptsatlas(:, [2 1 3]);
 cptshistology = cat(1, gui_data.histology_control_points{:});
