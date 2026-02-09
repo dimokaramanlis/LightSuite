@@ -1,6 +1,10 @@
 # Installation
 
-LightSuite is a MATLAB-based pipeline that relies on external tools and repositories. Follow these steps to set up your environment correctly.
+LightSuite is a MATLAB-based pipeline that relies on external tools and repositories. To install LightSuite and stay up-to-date, close the LightSuite repository and add it to MATLAB's path. If you're not familiar with GitHub, the easiest starting point is using [GitHub Desktop](https://github.com/apps/desktop). The cleanest way to add a repository to MATLAB's path is by adding the following line to `~\Documents\MATLAB\startup.m`:
+
+```addpath(genpath('~\Documents\GitHub\LightSuite'))```
+
+Follow these steps to set up your environment correctly. 
 
 ### 1. MATLAB Requirements
 You need **MATLAB R2022b** or newer. Ensure the following toolboxes are installed:
@@ -11,53 +15,29 @@ You need **MATLAB R2022b** or newer. Ensure the following toolboxes are installe
 * Parallel Computing Toolbox
 * Statistics and Machine Learning Toolbox
 
-### 2. MATLAB-based Repositories
-Clone the following three repositories and add them to MATLAB's path: 
+### 2. Install repository dependencies
+Clone the following two repositories and add them to MATLAB's path: 
 
-* [LightSuite](https://github.com/dimokaramanlis/LightSuite), the actual repository
-* [yamlmatlab](https://github.com/raacampbell/yamlmatlab) by Rob Campbell
 * [matlab_elastix](https://github.com/dimokaramanlis/matlab_elastix), updated fork based on Rob Campbell's repository
+* [bcpd](https://github.com/ohirose/bcpd), by Osamu Hirose
 
-If you're not familiar with GitHub, the easiest starting point is using [GitHub Desktop](https://github.com/apps/desktop). The cleanest way to add a repository to MATLAB's path is by adding the following line to `~\Documents\MATLAB\startup.m`:
-```addpath(genpath('C:\Users\username\GitHub\LightSuite'))```
+### 3. Install Elastix
+LightSuite calls Elastix from the command line, so its executables must be globally accessible. 
 
+1. Download the [version 5.1.0 executables](https://github.com/SuperElastix/elastix/releases/tag/5.1.0) and unzip the archive to a permanent location on your computer (e.g., C:\elastix or /opt/elastix).
 
-## 4. Install Elastix
-LightSuite uses **Elastix** for image registration.
-
-1.  **Download**: Get the **5.1.0** version executables from [GitHub](https://github.com/SuperElastix/elastix/releases).
-2.  **Unzip**: Extract to a permanent location (e.g., `C:\elastix`).
-3.  **Add to PATH (Critical)**:
-    * **Windows**: Add the `elastix\bin` folder to your System Environment Variable `Path`.
-    * **Linux/macOS**: Add `export PATH="/path/to/elastix/bin:$PATH"` to your shell config.
+2. Add Elastix to the system PATH: This is the most critical step. You must add the directory containing the elastix and transformix executables to your system's PATH environment variable.
+	- Windows: Search for "Edit the system environment variables," click "Environment Variables," and add a new System variable named elastix with the path to your bin directory (e.g., C:\elastix).
+	- Linux/macOS: Add export PATH="/path/to/your/elastix/bin:$PATH" to your shell configuration file.
 	
-### 3. BCPD (For Spinal Cord)
-If you plan to use the Spinal Cord module, you must install **Bayesian Coherent Point Drift (BCPD)**.
-
-1.  **Download/Clone**:
-    ```bash
-    git clone [https://github.com/ohirose/bcpd.git](https://github.com/ohirose/bcpd.git)
-    ```
-2.  **Binaries**:
-    * **Windows**: The repository usually contains a `win/bcpd.exe` folder. Ensure this executable is accessible.
-    * **Linux/Mac**: You may need to compile the source code using `make` following the instructions in the BCPD repository.
-
-!!! important "Update MATLAB Path"
-    Once downloaded, add `matlab_elastix`, `yamlmatlab`, and the `bcpd` folder to your **MATLAB Path** (Home -> Set Path -> Add with Subfolders).
+3. Verification: To confirm that Elastix is installed correctly, open a new terminal or command prompt and type elastix --version. You should see the version information printed to the screen. If you get a "command not found" error, the PATH is not set correctly.
 
 
-### 5. Atlas Data
-LightSuite requires reference atlas files to perform registration.
+### 4. Install Atlas Data
 
-### Allen Brain Atlas (CCFv3)
-For whole-brain lightsheet or slice analysis:
-1.  Download the **Allen CCF v3 (2020)** volume files and metadata.
-2.  Place them in a dedicated folder (e.g., `D:\AllenAtlas\`).
+LightSuite uses the [2020 version](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) of the Allen Brain Atlas for brain registration. To be able to use the software you have to download all [volume files](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#image_volumes/Allen-CCF-2020/20230630/) along with all relevant [metadata](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#metadata/Allen-CCF-2020/20230630/) and make them available to the MATLAB path.
 
-### Spinal Cord Atlas
-For the spinal cord module, you need the specific spinal cord reference volume:
-1.  Obtain the **Allen Cord Atlas** (e.g., `allen_cord_20um_v1.1`).
-2.  Place this in your atlas directory (e.g., `D:\AllenAtlas\extra_spine\`).
+For spinal cord registration, LightSuite uses the [Fiederling et al 2021](https://www.sciencedirect.com/science/article/pii/S2667237521001260) spinal cord atlas. Download the compressed file from [here](https://data.mendeley.com/datasets/4rrggzv5d5/1), extract its contents and make them available to the MATLAB path.
 
-## 5. Install LightSuite
-Finally, clone the main repository.
+### 5. Check installation
+Finally, run `check_lightsuite_installation.m` to verify whether you have installed everything correctly. If you encounter no errors, you're good to go.
