@@ -57,7 +57,7 @@ function compositeTransform = composeTransforms(transformArray)
 
     % Convert to cell array if it's an object array for uniform access
     if ~iscell(transformArray)
-        if isobject(transformArray) && numel(transformArray) > 0 && ismethod(transformArray(1), 'A')
+        if isobject(transformArray) && numel(transformArray) > 0
             tempArray = cell(1, numel(transformArray));
             for k_idx = 1:numel(transformArray)
                 tempArray{k_idx} = transformArray(k_idx);
@@ -75,7 +75,7 @@ function compositeTransform = composeTransforms(transformArray)
     end
 
     firstTransform = transformArray{1};
-    if ~isobject(firstTransform) || ~isprop(firstTransform, 'A') || ~ismethod(firstTransform,'A')
+    if ~isobject(firstTransform) || ~isprop(firstTransform, 'A')
          error('MATLAB:composeTransforms:InvalidTransformObject', ...
                'Elements in transformArray must be valid transform objects with an "A" property/method.');
     end
@@ -156,7 +156,7 @@ function compositeTransform = composeTransforms(transformArray)
     for i = 2:numel(transformArray)
         currentTransform = transformArray{i};
 
-        if ~isobject(currentTransform) || ~isprop(currentTransform, 'A') || ~ismethod(currentTransform,'A')
+        if ~isobject(currentTransform) || ~isprop(currentTransform, 'A') 
              error('MATLAB:composeTransforms:InvalidTransformObject', ...
                    'Element at index %d is not a valid transform object with an "A" property.', i);
         end

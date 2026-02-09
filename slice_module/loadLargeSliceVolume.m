@@ -16,6 +16,7 @@ if nargin<2
 else
     chanids = varargin{1};
 end
+chanids(chanids>Nchannels) = [];
 %-------------------------------------------------------------------------
 
 info       = imfinfo(filepaths{chanids(1)});

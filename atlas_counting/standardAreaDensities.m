@@ -22,7 +22,7 @@ for ii = 1:size(densout, 1)
     if numel(indsfind) == 1
         currdens = [densfile.("Neurons [mm-3]")(indsfind) ...
             densfile.("Excitatory [mm-3]")(indsfind) ...
-            densfile.("Excitatory [mm-3]")(indsfind)];
+            densfile.("Glia [mm-3]")(indsfind)];
         densout(ii, :) = currdens;
     end
 end

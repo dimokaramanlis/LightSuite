@@ -16,7 +16,8 @@ for ii = 1:5:opts.Nz
     allnyx(ii, :) = [tinfo.Height tinfo.Width];
 end
 icheck = ~isnan(sum(allnyx,2));
-assert(all(allnyx(icheck, :) == [Ny Nx], "all"), 'some slices do not have matching size!')
+assert(all(allnyx(icheck, :) == [Ny Nx], "all"), ...
+    "some slices do not have matching size, LightSuite cannot proceed")
 %--------------------------------------------------------------------------
 opts.Nx  = Nx; 
 opts.Ny  = Ny; 
