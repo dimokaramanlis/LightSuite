@@ -1,11 +1,10 @@
 % set main data path - where the tiffs are
 dpspinesample      = 'D:\spine_registration\sample1';
-bcpdpath           = 'C:\Users\karamanl\Documents\GitHub\bcpd\win\bcpd.exe';
+bcpdpath           = which('bcpd.exe');
 %% load sample and atlas - set resolution and channel for registration
 sampleres          = 20; % in micrometers
 [cordvol, opts]    = readSpinalCordSample(dpspinesample, sampleres);
 %%
-opts.dpspineatlas  = 'D:\AllenAtlas\extra_spine\allen_cord_20um_v1.1';
 opts.regchan       = 2; % choose registration channel
 opts.bcpdpath      = bcpdpath;
 regopts            = prepareCordSampleForRegistration(cordvol, opts);

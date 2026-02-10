@@ -3,7 +3,7 @@ function regopts = prepareCordSampleForRegistration(cordvol, opts)
 %   Detailed explanation goes here
 %==========================================================================
 fprintf('Loading cord atlas and extracting point clouds... '); tic;
-[tv, av, tvpts]     = loadSpinalCordAtlasAndPoints(opts.dpspineatlas, opts.sampleres);
+[tv, av, tvpts]     = loadSpinalCordAtlasAndPoints( opts.sampleres);
 fprintf('Done! Took %2.2f s.\n', toc)
 %--------------------------------------------------------------------------
 iregchan  = opts.regchan;
