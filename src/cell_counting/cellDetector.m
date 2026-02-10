@@ -10,7 +10,7 @@ end
 %--------------------------------------------------------------------------
 [Ny, Nx, Nz] = size(volumeuse);
 %--------------------------------------------------------------------------
-cubsize = 4*sigmause ;
+cubsize = ceil(4*sigmause.*anisotropyratio) + 1;
 seuse   = strel('cuboid', cubsize);
 
 usegpu  = isgpuarray(volumeuse);
@@ -18,14 +18,14 @@ usegpu  = isgpuarray(volumeuse);
 % % let's learn cells from data
 % 4 times as big as the cell
 % 1.5 times smaller than the cell
-[fout, ~] = spatial_bandpass_3d(volumeuse, avgcellradius, 4, 1.5, usegpu, anisotropyratio);
+[fout, ~] = spatial_bandpass_3d(volumeuse, avgcellradius, 3, 3, usegpu, anisotropyratio);
 
 % find maxima in filtered space
-smin           = -my_min(-fout, 2*sigmause, 1:3);
+smax           = my_max(fout, 4*sigmause, 1:3);
 
 % we keep maxima with a minimum snr
 % this snr should be probably in filtered space
-imgidx = (fout>smin-1e-3) & (fout > thresSNR(1));
+imgidx = (fout==smax) & (fout > thresSNR(1));
 imgidx = gather(imgidx);
 imgidx = imdilate(imgidx, seuse) & gather(fout > thresSNR(2));
 

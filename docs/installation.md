@@ -4,7 +4,7 @@ LightSuite is a MATLAB-based pipeline that relies on external tools and reposito
 
 ```addpath(genpath('~\Documents\GitHub\LightSuite'))```
 
-Follow these steps to set up your environment correctly. 
+Follow these steps to set up your environment correctly: 
 
 ### 1. MATLAB Requirements
 You need **MATLAB R2022b** or newer. Ensure the following toolboxes are installed:
@@ -14,6 +14,8 @@ You need **MATLAB R2022b** or newer. Ensure the following toolboxes are installe
 * Optimization Toolbox
 * Parallel Computing Toolbox
 * Statistics and Machine Learning Toolbox
+* [Bioformats Image Toolbox](https://ch.mathworks.com/matlabcentral/fileexchange/129249-bioformats-image-toolbox)
+* [Bioformats functions](https://downloads.openmicroscopy.org/bio-formats/5.5.0/artifacts/bfmatlab.zip)
 
 ### 2. Install repository dependencies
 Clone the following two repositories and add them to MATLAB's path: 
@@ -33,7 +35,7 @@ LightSuite calls Elastix from the command line, so its executables must be globa
 3. Verification: To confirm that Elastix is installed correctly, open a new terminal or command prompt and type elastix --version. You should see the version information printed to the screen. If you get a "command not found" error, the PATH is not set correctly.
 
 
-### 4. Install Atlas Data
+### 4. Download Atlas Data
 
 LightSuite uses the [2020 version](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) of the Allen Brain Atlas for brain registration. To be able to use the software you have to download all [volume files](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#image_volumes/Allen-CCF-2020/20230630/) along with all relevant [metadata](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#metadata/Allen-CCF-2020/20230630/) and make them available to the MATLAB path.
 

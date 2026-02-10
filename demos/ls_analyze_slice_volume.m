@@ -1,9 +1,9 @@
 
 % folder which contains mouse subfolders
-datafolderpath = 'D:\Histology\Experiments\TRAP\'; %'D:\example_charlie'; %'J:\'; % 
+datafolderpath = 'D:\Histology\Experiments\TRAP\';
 mousename      = 'AM130';%'AM147';%'CGF028'; %'AM130'; 'CGF027';
 
-dp = fullfile(datafolderpath, sprintf('*%s*', mousename));
+dp = fullfile(datafolderpath, sprintf(s'*%s*', mousename));
 dp = dir(dp);
 dp = fullfile(dp.folder, dp.name);
 sliceinfo = parseSettingsFile(fullfile(dp, 'local_settings.txt'));

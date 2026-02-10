@@ -1,14 +1,6 @@
 
-mouseIds   = {'YX002', 'YX004','YX016', 'YX017', 'DK025','DK027',...
-    'YX001', 'YX003','YX005','YX007','YX009','DK026', 'DK028',...
-    'YX011','YX013', 'DK031',...
-    'YX012'};
+[mouseids, mousechar] = loadMouseListTRAP();
 
-isolo  = [7:13];
-ijoint = [1:6];
-iobs   = [14:16];
-
-% DK025, DK027 joint
 
 allen_atlas_path = fileparts(which('annotation_10.nii.gz'));
 av = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
@@ -23,7 +15,7 @@ isub      = contains(parcelinfo.parcellation_term_set_name, 'substructure');
 parcelred = sortrows(parcelinfo(isub,:),'parcellation_index');
 Ngroups   = numel(groupinds);
 
-Nmice           = numel(mouseIds);
+Nmice           = numel(mouseids);
 groupstrs       = lower(parcelred.parcellation_term_name);
 groupstrsshort  = lower(parcelred.parcellation_term_acronym);
 
@@ -33,16 +25,26 @@ diametall = nan(Ngroups, 2, Nmice, 'single');
 
 locsall   = cell(Nmice, 1);
 for mouseid = 1:Nmice
-    atlasptcoords                    = loadMouseAtlasPoints(mouseIds{mouseid});
+    atlasptcoords                    = loadMouseAtlasPoints(mouseids{mouseid});
+    if isempty(atlasptcoords)
+        continue;
+    end
     cleanatlaspts                    = sanitizeCellCoords(atlasptcoords, av);
+    % do we perform cell selection?
+    cleanatlaspts(cleanatlaspts(:,5)<1, :) = [];
+
     [areacounts, areavols, idcareas] = groupCellsIntoLeafRegions(cleanatlaspts, av, groupinds);
 
-    % diametall(:, 1, :) = accumarray(idcareas{1}(:,2), cleanatlaspts(idcareas{1}(:,1),4),[],@median);
+    % allareas = cat(1, idcareas{:});
+    % diametall = accumarray(allareas(:,2), cleanatlaspts(allareas(:,1),4),[],@median);
+
+    % diametall(groupinds(2:end))
+
     % diametall(:, 2, :) = accumarray(idcareas{2}(:,2), cleanatlaspts(idcareas{2}(:,1),4),[],@median);
     % % cellstats1 = accumarray(idcareas{1}(:,2), cleanatlaspts(idcareas{1}(:,1),4),[],@(x) {x});
     % % cellstats2 = accumarray(idcareas{2}(:,2), cleanatlaspts(idcareas{2}(:,1),4),[],@median);
 
-    bgcurr                           = loadMouseBackgroundSignal(mouseIds{mouseid});
+    bgcurr                           = loadMouseBackgroundSignal(mouseids{mouseid});
 
     bkgsigall(:, :, mouseid)    = bgcurr;
 
@@ -82,7 +84,7 @@ for imouse = 1:Nmice
     plot(bkgplot(:,1,imouse), bkgplot(:,2,imouse), '.', [0 30], [0 30], 'MarkerSize', 5)
     axis equal; xlim([-1 40]); ylim([-1 40])
     xticks([0 20 40]);yticks([0 20 40]);
-    title(sprintf('%s, bkg', mouseIds{imouse}))
+    title(sprintf('%s, bkg', mouseids{imouse}))
     xlabel('Right hemisphere')
     yticklabels([])
     if icol == 1
@@ -115,7 +117,7 @@ for imouse = 1:Nmice
     plot(log10(countsplot(:,1,imouse)), log10(countsplot(:,2,imouse)), '.', [0 10], [0 10], 'MarkerSize', 5)
     axis equal; xlim([-0.5 6]); ylim([-0.5  6])
     xticks([0 3 6]);yticks([0 3 6]);
-    title(sprintf('%s, log10(counts)', mouseIds{imouse}))
+    title(sprintf('%s, log10(counts)', mouseids{imouse}))
     xlabel('Right hemisphere')
     yticklabels([])
     if icol == 1
@@ -170,7 +172,7 @@ for imouse = 1:Nmice
     plot(log10(densplot(:,1)), log10(currdensities),'.', 'MarkerSize', 4)
     axis square; xlim([4.2 6]); ylim([-1 5])
     xticks([4.5 5 5.5 6]);yticks([0 3 5]);
-    title(mouseIds{imouse})
+    title(mouseids{imouse})
     xlabel('log expected (cells/mm3)')
     yticklabels([])
     if icol == 1
@@ -184,7 +186,7 @@ for imouse = 1:Nmice
     text(6, 0.2, sprintf('rho_{neu}  = %.2f', rho(1)), 'HorizontalAlignment', 'right')
     text(6, -0.5, sprintf('rho_{exc} = %.2f', rho(2)), 'HorizontalAlignment', 'right')
 
-    glmfit()
+    % glmfit()
 
 
 end
@@ -218,7 +220,7 @@ for imouse = 1:Nmice
         '.', 'MarkerSize', 5)
     axis square; xlim([-100 5000]); ylim([-0.1 3])
     xticks([0 2500 5000 ]);yticks([0 1 2 3 ]);
-    title(mouseIds{imouse})
+    title(mouseids{imouse})
     xlabel('Area cell density (cells/mm3)')
     yticklabels([])
     if icol == 1
@@ -308,11 +310,16 @@ p.de.margintop = 18;
 % maxc = round(maxc/100)*100;
 ytext = 'Density (cortex norm.)';
 
-isolo  = [7:13];
-ijoint = [1:6];
-% isolo  = [7:11];
-% ijoint = [1:4];
-psurprise = surpriseKruskalWallis(groupdensities(:, ijoint), groupdensities(:, isolo));
+
+hascells = sum(groupcounts,1) > 0;
+% isolo  = mousechar.issolo & hascells' & ~mousechar.issequence;
+% ijoint = mousechar.isjoint & hascells' & ~mousechar.issequence;
+
+isolo  = mousechar.issolo & hascells' ;
+ijoint = mousechar.isjoint & hascells';
+% psurprise = surpriseKruskalWallis(groupdensities(:, ijoint), groupdensities(:, isolo));
+psurprise = surpriseRankSum(groupdensities(:, ijoint), groupdensities(:, isolo));
+
 
 for ii = 1:numel(unnames)
     icol = floor((ii-1)/4) + 1;
@@ -326,7 +333,7 @@ for ii = 1:numel(unnames)
     stdall    = std(groupdensities(ishow, :), [], 2);
     jointdens = groupdensities(ishow, ijoint);
     solodens  = groupdensities(ishow, isolo);
-    obsdens  = groupdensities(ishow, iobs);
+    % obsdens  = groupdensities(ishow, iobs);
 
     indexplot  = (meanjoint - meansolo)./stdall;
     indexplot  = psurprise(ishow);
@@ -336,24 +343,27 @@ for ii = 1:numel(unnames)
     p(irow, icol).select(); cla;
 
     plot(1:nnz(ishow),jointdens(isort,:), 'r',1:nnz(ishow),solodens(isort,:), 'b')
+
     plot(1:nnz(ishow), indexplot(isort), 'k')
-    line([1 nnz(ishow)], [0 0], 'LineStyle','--')
-    % plot(1:nnz(ishow),jointdens(isort,:), 'r',1:nnz(ishow),solodens(isort,:), 'b',...
-    %     1:nnz(ishow),obsdens(isort,:), 'g')
+    yline(1.3, 'r')
+
+    % line([1 nnz(ishow)], [0 0], 'LineStyle','--')
+
     ylabel(ytext)
     xticklabels(acrosort)
     xticks(1:nnz(ishow))
     ylim([0 maxc]); xlim([0.5 nnz(ishow)+1])
     yticks([0 maxc/2 maxc]);
-    ylim([-0.11 2.5]); ylabel('k-w surprise');yticks([-2 -1 0 1 2]);
+    % ylim([-0.11 3]);yticks([-2 -1 0 1 2]);
+    ylabel('Density (norm.)')
     ax = gca; ax.Box = 'off'; ax.XTickLabelRotation = 90;
     ymax = ylim;ymax = ymax(2);
         text(1, ymax*0.9, unnames{ii})
 
-    if ii == 5
-        text(  nnz(ishow), ymax*0.8,sprintf('Solo (N = %d)', numel(isolo)),...
+    if ii == 10
+        text(  nnz(ishow), ymax*0.8,sprintf('Solo (N = %d)', nnz(isolo)),...
             'HorizontalAlignment','right', 'FontSize', txtsize-1, 'Color','b')
-        text(  nnz(ishow), ymax*0.7,sprintf('Joint (N = %d)', numel(ijoint)),...
+        text(  nnz(ishow), ymax*0.7,sprintf('Joint (N = %d)', nnz(ijoint)),...
             'HorizontalAlignment','right', 'FontSize', txtsize-1, 'Color','r')
          % text(  nnz(ishow), maxc*0.6,sprintf('Obs. (N = %d)', numel(iobs)),...
          %    'HorizontalAlignment','right', 'FontSize', txtsize-1, 'Color','g')
@@ -376,9 +386,9 @@ generateAreaMovie(av, parcelinfo, nameshighlight, valshighlight, ...
 
 
 %%
-jointmap = atlasCellMap(locsall(ijoint), size(av), 5,  sum(groupcounts(icortex, ijoint)));
-solomap  = atlasCellMap(locsall(isolo),  size(av), 5,  sum(groupcounts(icortex, isolo)));
-jointout = atlasCellMap(locsall(iobs),   size(av), 5,  sum(groupcounts(icortex, iobs)));
+jointmap = atlasCellMap(locsall(ijoint), size(av), 3,  sum(groupcounts(icortex, ijoint)));
+solomap  = atlasCellMap(locsall(isolo),  size(av), 3,  sum(groupcounts(icortex, isolo)));
+jointout = atlasCellMap(locsall(iobs),   size(av), 3,  sum(groupcounts(icortex, iobs)));
 %%
 cf = figure('Position',[50 50 1400 800]);
 p = panel();
@@ -418,22 +428,24 @@ for islice = 1:5:size(solomap,1);
 
 end
 %%
+
+isolo  = mousechar.issolo & hascells';
+ijoint = mousechar.isjoint & hascells';
+
 Nareas     = size(groupcounts, 1);
-xcount     = log(sum(groupcounts))';
-xother     = zeros(Nmice, 1);
+xcount     = log(sum(groupcounts(icortex,:)))';
 xtask      = zeros(Nmice, 1);
-xsex       = zeros(Nmice, 1);
-
-xother([ijoint iobs]) = 1;
-xtask([ijoint isolo]) = 1;
-xsex(contains(mouseIds, 'DK02')) = 1;
-
-XX     = [xother xsex xcount];
+xtask(ijoint) = 1;
+XX     = [xtask xcount];
+XX     = XX([find(ijoint); find(isolo)], :);
 
 coeffs = nan(Nareas, size(XX, 2));
+errors = nan(Nareas, 2);
 
 for iarea = 1:Nareas
     yy     = groupcounts(iarea,:)';
-    bcoeff = glmfit(XX, yy, "poisson","LikelihoodPenalty","jeffreys-prior");
-    coeffs(iarea, :) = bcoeff(2:end);
+    [pout, ~, dvoutfull] = fitProbCellModelCv(XX, yy([find(ijoint); find(isolo)]));
+    [pout, ~, dvoutpart] = fitProbCellModelCv(XX(:,2), yy([find(ijoint); find(isolo)]));
+    errors(iarea, :) = [dvoutpart dvoutfull];
+    % coeffs(iarea, :) = bcoeff(2:end);
 end
