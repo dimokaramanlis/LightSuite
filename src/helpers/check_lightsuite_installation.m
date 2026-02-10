@@ -20,12 +20,13 @@ for itoolbox = 1:numel(toolboxNames)
         error("You're missing the %s", toolboxNames{itoolbox});
     end
 end
+
 fprintf('Done!\n');
 %==========================================================================
 % 2. Check repository requirements
 fprintf('%s\n', repmat('==', [1 25]));
-reponames        = {'matlab_elastix',                 'bcpd'};
-reporelatedfiles = {'invertElastixTransformCP.m', 'bcpd.exe'};
+reponames        = {'matlab_elastix',                 'bcpd', 'bioformats', 'Bioformats Image Toolbox'};
+reporelatedfiles = {'invertElastixTransformCP.m', 'bcpd.exe', 'bfopen.m', 'BioformatsImage.m'};
 for irepofile = 1:numel(reporelatedfiles)
     hasrepofile = which(reporelatedfiles{irepofile});
     if ~isempty(hasrepofile)
