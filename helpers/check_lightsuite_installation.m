@@ -40,7 +40,7 @@ end
 fprintf('%s\n', repmat('==', [1 25]));
 fprintf('Looking for the elastix/transformix binaries...\n');
 commnames = {'elastix', 'transformix'};
-for ii = 1:numel(commsuse)
+for ii = 1:numel(commnames)
     [status, result]=system(sprintf("%s --help", commnames{ii}));
     if status == 0
 
