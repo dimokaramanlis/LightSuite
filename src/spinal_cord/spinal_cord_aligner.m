@@ -10,6 +10,7 @@ function spinal_cord_aligner(opts)
 %       'x'          : Delete point nearest to cursor
 %       Space        : Jump to largest gap
 %       's'          : Save
+%       [New] Click on side plots: Jump to specific slice
 
     % -- 1. Setup & Input Check --
     if nargin < 1 || ~isfield(opts, 'regvol')
@@ -40,6 +41,11 @@ function spinal_cord_aligner(opts)
     gui_data.user.ant = nan(gui_data.Nslices, 2); 
     gui_data.user.pos = nan(gui_data.Nslices, 2);
     
+    % Derived Observations (for plotting raw user points)
+    gui_data.obs.x = nan(gui_data.Nslices, 1);
+    gui_data.obs.y = nan(gui_data.Nslices, 1);
+    gui_data.obs.th = nan(gui_data.Nslices, 1);
+    
     % Solver outputs
     gui_data.fit.x     = nan(gui_data.Nslices, 1);
     gui_data.fit.y     = nan(gui_data.Nslices, 1);
@@ -51,8 +57,8 @@ function spinal_cord_aligner(opts)
     gui_data.show_pred  = true; 
     
     % Default Regularization (overwritten if loaded)
-    gui_data.lambda_pos = 10000;
-    gui_data.lambda_ang = 10000;
+    gui_data.lambda_pos = 5000;
+    gui_data.lambda_ang = 5000;
     
     % -- 2. Check for Previous Save --
     save_file = fullfile(gui_data.save_path, 'spinal_alignment_opt.mat');
@@ -67,7 +73,6 @@ function spinal_cord_aligner(opts)
                     gui_data.user.ant = d.user_ant;
                     gui_data.user.pos = d.user_pos;
                     
-                    % UPDATED: Load Lambda values if they exist
                     if isfield(d, 'lambda_pos')
                         gui_data.lambda_pos = d.lambda_pos;
                     end
@@ -86,33 +91,119 @@ function spinal_cord_aligner(opts)
     
     % -- 3. Initialize GUI --
     screen = get(0, 'ScreenSize');
-    fig_dim = min(800, screen(4)*0.85);
+    % Make the figure wider to accommodate side-by-side panels
+    fig_dim_w = min(1200, screen(3)*0.95); 
+    fig_dim_h = min(800, screen(4)*0.85);
     
     gui_fig = figure('Name', 'Spinal Cord Optimizer', ...
         'NumberTitle', 'off', ...
-        'Position', [(screen(3)-fig_dim)/2, (screen(4)-fig_dim)/2, fig_dim, fig_dim], ...
+        'Position', [(screen(3)-fig_dim_w)/2, (screen(4)-fig_dim_h)/2, fig_dim_w, fig_dim_h], ...
         'Color', 'w', ...
         'MenuBar', 'none', ...
         'WindowScrollWheelFcn', @scroll_cb, ...
         'KeyPressFcn', @key_cb);
-    gui_data.ax = axes('Parent', gui_fig, 'Position', [0.05 0.05 0.9 0.9]);
+
+    % --- Layout Configuration (3 Columns) ---
+    % 1. Main Image Axis (Left ~50%)
+    gui_data.pp = panel();
+    gui_data.pp.pack('h', {0.7 0.3});
+    gui_data.pp(2).pack('h', 2);
+
+    gui_data.ax_pos = gui_data.pp(2,1).select();
+    gui_data.ax_ang = gui_data.pp(2,2).select();
+    gui_data.ax     = gui_data.pp(1).select();
+
+    gui_data.pp.margin = [1 18 2 10];
+    gui_data.pp(2).marginleft = 25;
+
+
+    % gui_data.ax = axes('Parent', gui_fig, 'Position', [0.03 0.10 0.50 0.85]);
     axis(gui_data.ax, 'off', 'image');
-    hold(gui_data.ax, 'on');
     colormap(gui_data.ax, gray(255));
-    % Images & Interactions
+    xlim(gui_data.ax, [0.5 gui_data.Cols+0.5]);
+    ylim(gui_data.ax, [0.5 gui_data.Rows+0.5]);
+    
+    % 2. Position Plot Axis (Middle ~20%)
+    % Shared Y axis labels shown here
+    % gui_data.ax_pos = axes('Parent', gui_fig, 'Position', [0.58 0.10 0.18 0.80]);
+    hold(gui_data.ax_pos, 'on');
+    grid(gui_data.ax_pos, 'on');
+    xlabel(gui_data.ax_pos, 'Position (px)');
+    ylabel(gui_data.ax_pos, 'Slice number');
+    set(gui_data.ax_pos, 'YDir', 'reverse'); % Slice 1 at Top
+    maxpos = max(gui_data.Rows, gui_data.Cols);
+    xlim(gui_data.ax_pos, [0 maxpos]);
+    xticks(gui_data.ax_pos,[0 round(maxpos/2) maxpos])
+    ylim(gui_data.ax_pos, [1 gui_data.Nslices]);
+ 
+    
+    % 3. Angle Plot Axis (Right ~20%)
+    % Shared Y axis, so we hide the labels here
+    % gui_data.ax_ang = axes('Parent', gui_fig, 'Position', [0.80 0.10 0.18 0.80]);
+    hold(gui_data.ax_ang, 'on');
+    grid(gui_data.ax_ang, 'on');
+    xlabel(gui_data.ax_ang, 'Angle (rad)');
+    set(gui_data.ax_ang, 'YDir', 'reverse'); % Slice 1 at Top
+    set(gui_data.ax_ang, 'YTickLabel', []);  % Hide Y labels
+    xlim(gui_data.ax_ang, [-pi-0.1 pi+0.1]);
+    ylim(gui_data.ax_ang, [1 gui_data.Nslices]);
+    
+    % % Link Y-axes so they stay in sync if code were to change zoom (optional but good practice)
+    % linkaxes([gui_data.ax_pos, gui_data.ax_ang], 'y');
+
+    % --- Main Image Objects ---
     gui_data.h_im = imagesc(zeros(100), 'Parent', gui_data.ax);
     set(gui_data.h_im, 'ButtonDownFcn', @mouse_cb);
-    % --- Plot Objects ---
-    % 1. User Inputs (Dots)
-    gui_data.h_user_cen = plot(nan, nan, 'b.', 'MarkerSize', 25, 'PickableParts','none'); 
-    gui_data.h_user_ant = plot(nan, nan, 'g.', 'MarkerSize', 25, 'PickableParts','none'); 
-    gui_data.h_user_pos = plot(nan, nan, 'r.', 'MarkerSize', 25, 'PickableParts','none'); 
     
-    % 2. Optimization Predictions
-    gui_data.h_fit_cen  = plot(nan, nan, 'c+', 'MarkerSize', 10, 'LineWidth', 2, 'PickableParts','none');
-    gui_data.h_fit_line = plot(nan, nan, 'y-', 'LineWidth', 1.5, 'PickableParts','none');
-    gui_data.h_fit_ant  = plot(nan, nan, 'gs', 'MarkerSize', 6, 'LineWidth', 1, 'PickableParts','none');
-    gui_data.h_fit_pos  = plot(nan, nan, 'rs', 'MarkerSize', 6, 'LineWidth', 1, 'PickableParts','none');
+    % User Inputs (Dots)
+    gui_data.h_user_cen = line(gui_data.ax, nan, nan, 'Color','b', 'Marker','.', ...
+        'MarkerSize', 25, 'PickableParts','none'); 
+    gui_data.h_user_ant = line(gui_data.ax, nan, nan, 'Color','g', 'Marker', '.',...
+        'MarkerSize', 25, 'PickableParts','none'); 
+    gui_data.h_user_pos = line(gui_data.ax, nan, nan, 'Color','r','Marker','.', ...
+        'MarkerSize', 25, 'PickableParts','none'); 
+    
+    % Optimization Predictions (Image Overlay)
+    gui_data.h_fit_cen  = line(gui_data.ax, nan, nan, 'Color', 'c','Marker','+', ...
+        'MarkerSize', 10, 'LineWidth', 2, 'PickableParts','none');
+    gui_data.h_fit_line = line(gui_data.ax, nan, nan, 'Color','y','LineStyle','-', ...
+        'LineWidth', 1.5, 'PickableParts','none');
+    gui_data.h_fit_ant  = line(gui_data.ax, nan, nan, 'Color', 'g','Marker','s', ...
+        'MarkerSize', 6, 'LineWidth', 1, 'PickableParts','none');
+    gui_data.h_fit_pos  = line(gui_data.ax, nan, nan, 'Color', 'r','Marker','s', ...
+        'MarkerSize', 6, 'LineWidth', 1, 'PickableParts','none');
+
+    % --- Side Panel Objects ---
+    slice_vec = 1:gui_data.Nslices;
+    
+    % Plot 1: Position (X=Pos, Y=Slice)
+    % Fitted Lines
+    gui_data.h_plot_x_line = plot(gui_data.ax_pos, nan(size(slice_vec)), slice_vec, 'b-', 'LineWidth', 1.2, 'DisplayName', 'Fit X');
+    gui_data.h_plot_y_line = plot(gui_data.ax_pos, nan(size(slice_vec)), slice_vec, 'm-', 'LineWidth', 1.2, 'DisplayName', 'Fit Y');
+    % Raw User Observations (Dots)
+    gui_data.h_plot_x_obs  = plot(gui_data.ax_pos, nan, nan, 'bo', 'MarkerSize', 5, 'DisplayName', 'User X', 'PickableParts','none');
+    gui_data.h_plot_y_obs  = plot(gui_data.ax_pos, nan, nan, 'mo', 'MarkerSize', 5, 'DisplayName', 'User Y', 'PickableParts','none');
+    % Cursor Line (Horizontal)
+    gui_data.h_cursor_pos  = plot(gui_data.ax_pos, [-1e5 1e5], [1 1], 'k--', 'LineWidth', 1, 'PickableParts','none');
+    legend(gui_data.ax_pos, [gui_data.h_plot_x_line gui_data.h_plot_y_line], 'Location', 'northeast');
+
+    % Plot 2: Angle (X=Ang, Y=Slice)
+    % Fitted Line
+    gui_data.h_plot_th_line = plot(gui_data.ax_ang, nan(size(slice_vec)), slice_vec, 'Color', [0 0.6 0], 'LineWidth', 1.2, 'DisplayName', 'Fit \theta');
+    % Raw User Observations (Dots)
+    gui_data.h_plot_th_obs  = plot(gui_data.ax_ang, nan, nan, 'o', 'Color', [0 0.6 0], 'MarkerSize', 5, 'DisplayName', 'User \theta', 'PickableParts','none');
+    % Cursor Line (Horizontal)
+    gui_data.h_cursor_ang   = plot(gui_data.ax_ang, [-10 10], [1 1], 'k--', 'LineWidth', 1, 'PickableParts','none');
+    
+    % --- Link Navigation Callbacks ---
+    % Attach click callback to axes and lines
+    set(gui_data.ax_pos, 'ButtonDownFcn', @plot_click_cb);
+    set(gui_data.h_plot_x_line, 'ButtonDownFcn', @plot_click_cb);
+    set(gui_data.h_plot_y_line, 'ButtonDownFcn', @plot_click_cb);
+    
+    set(gui_data.ax_ang, 'ButtonDownFcn', @plot_click_cb);
+    set(gui_data.h_plot_th_line, 'ButtonDownFcn', @plot_click_cb);
+    
     guidata(gui_fig, gui_data);
     update_view(gui_fig);
 end
@@ -146,6 +237,25 @@ function mouse_cb(src, ~)
     gui_data = run_optimizer(gui_data);
     guidata(fig, gui_data);
     update_view(fig);
+end
+
+function plot_click_cb(src, ~)
+    % Handle clicks on the side plots to navigate slices
+    % NOTE: Plots are vertical (Y axis = slice index)
+    fig = ancestor(src, 'figure');
+    gui_data = guidata(fig);
+    
+    if isa(src, 'matlab.graphics.axis.Axes')
+        ax_clicked = src;
+    else
+        ax_clicked = get(src, 'Parent');
+    end
+    
+    pt = get(ax_clicked, 'CurrentPoint');
+    % pt(1,2) corresponds to the Y-axis value, which is now our slice index
+    new_slice_idx = round(pt(1,2));
+    
+    change_slice(fig, new_slice_idx);
 end
 
 function key_cb(fig, evt)
@@ -250,16 +360,17 @@ end
 function update_view(fig)
     gui_data = guidata(fig);
     s = gui_data.curr_slice;
+    slice_vec = 1:gui_data.Nslices;
     
     % 1. Image
     set(gui_data.h_im, 'CData', gui_data.disp_vol(:,:,s));
     
-    % 2. User Dots
+    % 2. User Dots on Image
     set(gui_data.h_user_cen, 'XData', gui_data.user.cen(s,1), 'YData', gui_data.user.cen(s,2));
     set(gui_data.h_user_ant, 'XData', gui_data.user.ant(s,1), 'YData', gui_data.user.ant(s,2));
     set(gui_data.h_user_pos, 'XData', gui_data.user.pos(s,1), 'YData', gui_data.user.pos(s,2));
     
-    % 3. Model Predictions (Controlled by 'P')
+    % 3. Model Predictions on Image
     if gui_data.show_pred && ~isnan(gui_data.fit.x(s))
         cx = gui_data.fit.x(s);
         cy = gui_data.fit.y(s);
@@ -270,20 +381,33 @@ function update_view(fig)
         dx = r * cos(th);
         dy = r * sin(th);
         
-        % Visibility ON
         set(gui_data.h_fit_cen, 'XData', cx, 'YData', cy, 'Visible', 'on');
         set(gui_data.h_fit_line, 'XData', [cx-dx, cx+dx], 'YData', [cy-dy, cy+dy], 'Visible', 'on');
         set(gui_data.h_fit_ant, 'XData', cx+dx, 'YData', cy+dy, 'Visible', 'on');
         set(gui_data.h_fit_pos, 'XData', cx-dx, 'YData', cy-dy, 'Visible', 'on');
     else
-        % Visibility OFF
         set(gui_data.h_fit_cen, 'Visible', 'off');
         set(gui_data.h_fit_line, 'Visible', 'off');
         set(gui_data.h_fit_ant, 'Visible', 'off');
         set(gui_data.h_fit_pos, 'Visible', 'off');
     end
     
-    % 4. Title
+    % 4. Update Side Panels (Plots)
+    % Note: XData = Value, YData = Slice Index (Vertical orientation)
+    
+    % Position Plot
+    set(gui_data.h_plot_x_line, 'XData', gui_data.fit.x, 'YData', slice_vec);
+    set(gui_data.h_plot_y_line, 'XData', gui_data.fit.y, 'YData', slice_vec);
+    set(gui_data.h_plot_x_obs,  'XData', gui_data.obs.x, 'YData', slice_vec);
+    set(gui_data.h_plot_y_obs,  'XData', gui_data.obs.y, 'YData', slice_vec);
+    set(gui_data.h_cursor_pos,  'YData', [s s]); % Horizontal line at slice s
+    
+    % Angle Plot
+    set(gui_data.h_plot_th_line, 'XData', gui_data.fit.theta, 'YData', slice_vec);
+    set(gui_data.h_plot_th_obs,  'XData', gui_data.obs.th,    'YData', slice_vec);
+    set(gui_data.h_cursor_ang,   'YData', [s s]);
+        
+    % 5. Title
     n_cen = sum(~isnan(gui_data.user.cen(:,1)));
     n_ant = sum(~isnan(gui_data.user.ant(:,1)));
     n_pos = sum(~isnan(gui_data.user.pos(:,1)));
@@ -291,8 +415,9 @@ function update_view(fig)
     status_str = '';
     if ~gui_data.show_pred, status_str = ' [PREDICTION HIDDEN]'; end
     
-    tstr = sprintf('Slice: %d | Clicks: C=%d A=%d P=%d | Reg: Pos=%.0f Ang=%.0f%s\n[L-Cl] Ant | [R-Cl] Pos | [Mid-Cl] Cen | [c] Clear | [l] Set Reg | [p] Fit | [s] Save', ...
-        s, n_cen, n_ant, n_pos, gui_data.lambda_pos, gui_data.lambda_ang, status_str);
+    key_str = "[LClick] Ant | [RClick] Pos | [MidClick] Cen | [c] Clear | [l] Set Reg | [p] Show Fit | [s] Save";
+    tstr = sprintf('Slice: %d | Clicks: C=%d A=%d P=%d | Regul.: Pos=%.0f Ang=%.0f%s\n%s', ...
+        s, n_cen, n_ant, n_pos, gui_data.lambda_pos, gui_data.lambda_ang, status_str, key_str);
     title(gui_data.ax, tstr, 'Color', 'k', 'FontSize', 11, 'Interpreter', 'none');
 end
 
@@ -302,6 +427,7 @@ end
 function gui_data = run_optimizer(gui_data)
     N = gui_data.Nslices;
     
+    % Prepare observations
     obs_x = nan(N, 1);
     obs_y = nan(N, 1);
     obs_th = nan(N, 1);
@@ -338,6 +464,11 @@ function gui_data = run_optimizer(gui_data)
             obs_rad(z) = curr_rad;
         end
     end
+    
+    % Store raw observations in gui_data for plotting
+    gui_data.obs.x = obs_x;
+    gui_data.obs.y = obs_y;
+    gui_data.obs.th = obs_th;
     
     % Solver (X, Y)
     idx_x = find(~isnan(obs_x));
@@ -396,14 +527,12 @@ function save_data(gui_data)
     align_out.fit_y = gui_data.fit.y;
     align_out.fit_theta = gui_data.fit.theta;
     
-    % UPDATED: Save Regularization Parameters
     align_out.lambda_pos = gui_data.lambda_pos;
     align_out.lambda_ang = gui_data.lambda_ang;
     
     fname = fullfile(gui_data.save_path, 'spinal_alignment_opt.mat');
     save(fname, 'align_out');
     
-    % Title update
     t = get(gui_data.ax, 'Title');
     old_t = t.String;
     if ischar(old_t)
