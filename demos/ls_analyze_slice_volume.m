@@ -1,9 +1,9 @@
 
 % folder which contains mouse subfolders
-datafolderpath = 'D:\Histology\Experiments\TRAP\';
-mousename      = 'AM130';%'AM147';%'CGF028'; %'AM130'; 'CGF027';
+datafolderpath = 'D:\Histology\';
+mousename      = 'AM130';
 
-dp = fullfile(datafolderpath, sprintf(s'*%s*', mousename));
+dp = fullfile(datafolderpath, sprintf('*%s*', mousename));
 dp = dir(dp);
 dp = fullfile(dp.folder, dp.name);
 sliceinfo = parseSettingsFile(fullfile(dp, 'local_settings.txt'));
@@ -62,22 +62,10 @@ transformparams  = load(fullfile(sliceinfo.procpath, "transform_params.mat"));
 atlasptcoords    = slicePointsToAtlas(cellsout, transformparams);
 fsavename        = fullfile(sliceinfo.procpath, 'cell_locations_atlas.mat');
 save(fsavename, 'atlasptcoords') 
+
+% we can plot the cells in atlas space
 nrand = min(size(atlasptcoords,1), 1e5);
 iplot = randperm(size(atlasptcoords,1),nrand);
 close all;
 plotBrainGrid; hold on;
 scatter3(atlasptcoords(iplot,2),atlasptcoords(iplot,3),atlasptcoords(iplot,1),2,'filled','MarkerFaceAlpha',0.5)
-
-coordsfin = sanitizeCellCoords(atlasptcoords, av);
-createRotatingBrainGif(coordsfin, 'D:\AM130_slices.gif')
-
-
-%% (auto) move cell detections in atlas space
-transformparams    = load(fullfile(sliceinfo.procpath, "transform_params.mat"));
-sliceinfo          = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
-sliceinfo          = sliceinfo.sliceinfo;
-regpath            = fullfile(sliceinfo.procpath, 'volume_registered');
-[backvolareas, areainds]    = backSliceVolumeToAtlas(regpath, transformparams);
-fsavename                   = fullfile(sliceinfo.procpath, 'background_volume_areas.mat');
-save(fsavename, 'backvolareas', 'areainds') 
-
