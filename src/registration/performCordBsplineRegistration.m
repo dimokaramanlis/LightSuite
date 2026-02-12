@@ -47,14 +47,14 @@ movpath  = fullfile(pathtemp, 'moving.txt');
 fixpath  = fullfile(pathtemp, 'fixed.txt');
 
 % -1 because offset is always zero. this way, the first pixel is at 0
-writePointsFile(movpath, (movingpts-1)*volscale)
-writePointsFile(fixpath, (fixedpts-1)*volscale)
+writePointsFile(movpath, (movingpts-1).* volscale)
+writePointsFile(fixpath, (fixedpts-1) .* volscale)
 
 
 fprintf('Performing B-spline registration with elastix...\n'); tic;
 [regimg,tform_bspline] = elastix(movingvol, fixedvol, pathtemp,'elastix_default.yml','paramstruct',params,...
     'movingpoints', movpath,  'fixedpoints', fixpath,...
-    'movingscale', volscale*[1 1 1],  'fixedscale', volscale*[1 1 1]);
+    'movingscale', volscale,  'fixedscale', volscale);
 fprintf('Done! Took %2.2f s.\n', toc)
 
 % copy file and delete temporary folder

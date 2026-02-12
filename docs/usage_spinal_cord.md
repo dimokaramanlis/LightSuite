@@ -1,4 +1,10 @@
-# Manual Alignment Correction (Control Point GUI)
+# Spinal cord volume registration
+
+
+## Manual spinal cord straightening
+
+
+## Manual Alignment Correction (Control Point GUI)
 
 The **Manual Alignment GUI** is a tool within LightSuite designed to refine the spatial registration between your experimental histology data and the reference atlas (CCF). While the automated pipeline handles most samples, brains with significant tissue damage, clearing artifacts, or non-linear deformations often require manual intervention to achieve a high-fidelity fit.
 

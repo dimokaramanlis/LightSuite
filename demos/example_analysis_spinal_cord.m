@@ -1,12 +1,115 @@
-% this is an example analysis scipt for quantifying intensities in spinal
-% cord data
+% example analysis scipt for quantifying intensities in spinal cord data
+%==========================================================================
+% we load the atlas
+[tv, av, parcelinfo, segments] = loadSpinalCordAtlas();
+[avinds, ~, avic] = unique(av);
+Nsegments       = size(segments, 1);
+Ngroups         = numel(avinds);
+edgebins        = [segments.Start(1:end); segments.End(end)];
+[~, ~, lenval]  = ind2sub(size(av), (1:numel(av))');
+[~, ~, leninds] = histcounts(lenval, edgebins);
+%==========================================================================
+% we get the volumes of all areas
+volumeall = accumarray([avic leninds], 1, [numel(avinds), Nsegments], @sum);
+%==========================================================================
+% for all samples, we group signals to the finest level
+ichanuse        = 1:2;
+dpspinesample   = {'D:\spine_registration\sample1', 'D:\spine_registration\sample2'};
+Nmice           = numel(dpspinesample);
+medianoverareas = nan(Ngroups-1, Nsegments, numel(ichanuse), numel(dpspinesample), 'single');
+
+% volumeall        = zeros([size(av)  numel(dpspinesample)], 'single');
+for isample  = 1:Nmice
+    volload  = fullfile(dpspinesample{isample}, "lightsuite", "volume_registered");
+    imgStack = loadLargeSliceVolume(volload, ichanuse);
+
+    for ichan = 1:numel(ichanuse)
+        currvals    = squeeze(imgStack(:,:, ichan,:));
+        currvals    = imresize3(currvals, size(av));
+        valsgrouped = single(accumarray([avic leninds], currvals(:), [Ngroups, Nsegments], @median));
+        relsignal   = (valsgrouped - valsgrouped(1, :))./ valsgrouped(1, :);
+        medianoverareas(:, :, ichan, isample) = relsignal(2:end, :);
+    end
+    fprintf('Sample %d analyzed\n', isample)
+end
+%==========================================================================
+%%
+% we then calculate normalization factors
+volwts = volumeall(2:end,:)./sum(volumeall(2:end,:),2);
+projstrength = nan(numel(ichanuse), numel(dpspinesample));
+for ii = 1:numel(ichanuse)
+    currmat  = squeeze(medianoverareas(:, :, ii, :));
+    norminds = all((currmat > 0) & ~isnan(currmat) & ~isinf(currmat), 3);
+    Nuse     = nnz(norminds);
+    datacurr = reshape(currmat(repmat(norminds, [1 1 Nmice])), [Nuse Nmice]);
+    [projstrength(ii,:), ~] = nnmf(datacurr', 1, "replicates",10);
+
+    structres(ii, 1) = reorganizeSpinalCordAreas(squeeze(medianoverareas(:, :, ii, :)), volumeall(2:end, :), ...
+        parcelinfo, avinds(2:end), 'structure');
+    divres(ii, 1) = reorganizeSpinalCordAreas(squeeze(medianoverareas(:, :, ii, :)), volumeall(2:end, :), ...
+        parcelinfo, avinds(2:end), 'structure');
+end
+
+projstrength  = projstrength./median(projstrength, 2);
+projstrength  = reshape(projstrength, [1 size(projstrength)]);
+%==========================================================================
+channelNames  = {'DAPI', 'eGFP - Myelin'};
+yareas        = structres(1).names(:,2);
+yareas        = strrep(yareas, '_', ' ');
+xareas        = segments.Segment;
+indsx         = 1:2:size(imtoplot, 2);
+for ii = 1:2
+    imtoplot = median(structres(ii).signal./projstrength(:, ii, :),3);
+    imtoplot(isinf(imtoplot)) = 0;
+    subplot(1,2,ii)
+    imagesc(imtoplot)
+    axis equal tight;
+    title(channelNames{ii})
+    yticks(1:size(imtoplot,1));
+    yticklabels(yareas)
+    xticks(indsx)
+    xticklabels(xareas(indsx))
+    ax = gca; ax.Colormap = magma;
+    ax.XTickLabelRotation = 0;
+end
+
+%%
+
+signalplot = structres.signal./projstrength
+
+%%
+
+%==========================================================================
+% we isolate indices of useful areas
+graymatterareas  = find(contains(parcelinfo.name, 'Combined'));
+whitematterareas = find(strcmp(parcelinfo.acronym, 'df') |...
+                        strcmp(parcelinfo.acronym, 'lf') |...
+                        strcmp(parcelinfo.acronym, 'vf'));
+
+
+wmchildren  = parcelinfo.children_IDs(graymatterareas);
+gmchildren  = parcelinfo.children_IDs(whitematterareas);
+
+wmchildren  = cellfun(@(x) split(x, ','), wmchildren, 'UniformOutput',false);
+wmids       = str2double(cat(1, wmchildren{:}));
+wmids(isnan(wmids)) = [];
+
+
+
+
+
+
+
+
+strcmp(parcelinfo.acronym, 'vf')
+
+parcelinfo
 
 
 sizeside            = 20; %um
 volume_mm3          = (sizeside*1e-3)^3;
 dpspineatlas        = 'D:\AllenAtlas\extra_spine\allen_cord_20um_v1.1';
 [tv, av, parcelinfo, segments] = loadSpinalCordAtlas(dpspineatlas, 20);
-edgebins            = [segments.Start(1:end); segments.End(end)];
 [areaidx, ~, icun]  = unique(av);
 Ngroups             = numel(areaidx);
 volumeoverareas     = single(accumarray(icun,        1, [Ngroups 1], @sum)) * volume_mm3;

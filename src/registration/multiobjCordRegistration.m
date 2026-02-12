@@ -74,7 +74,9 @@ savepngFast(cf, regopts.lsfolder, sprintf('registration_point_affine'), 400, 1);
 close(cf);
 %==========================================================================
 % we perform the b-spline registration
-[reg, ~, bspltformpath, pathbspl] = performCordBsplineRegistration(tvaffine, straightvol, 0.02, ...
+
+[reg, ~, bspltformpath, pathbspl] = performCordBsplineRegistration(...
+    tvaffine, straightvol, regopts.sampleres*1e-3, ...
     cpaffine, cptshistology, wtforpoints, regopts.lsfolder);
 
 avreg = transformAnnotationVolume(bspltformpath, avaffine, 0.02);

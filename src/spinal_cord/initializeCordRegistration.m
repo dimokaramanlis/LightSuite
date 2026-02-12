@@ -1,15 +1,18 @@
 function regopts = initializeCordRegistration(regopts)
 %UNTITLED6 Summary of this function goes here
 %   Detailed explanation goes here
-samppts     = regopts.smpts;
-tvpts       = regopts.tvpts;
-Nslices     = range(regopts.ikeeprange) + 1;
-Ntargetatlas = 1e5;
+samppts      = regopts.smpts;
+tvpts        = regopts.tvpts;
+Nslices      = range(regopts.ikeeprange) + 1;
+Ntargetatlas = 1e4;
 pcdownatlas  = reducePoints(tvpts, Ntargetatlas);
 %==========================================================================
-targetcent          = median(tvpts(:, [1 2]));
+targetcent   = 0.5 * size(regopts.tv,[2 1]);
 %==========================================================================
 mancurdp            = fullfile(regopts.lsfolder, "spinal_alignment_opt.mat");
+if ~exist(mancurdp, 'file')
+    error('Alignemnt data missing. You have to align the spinal cord before you can register!')
+end
 mandpdata           = load(mancurdp);
 align_out           = mandpdata.align_out;
 tforms              = computeStraighteningTransforms(align_out, targetcent, 90);
@@ -21,22 +24,6 @@ sizetv      = size(regopts.tv, [1 2]);
 raout       = imref2d(sizetv);
 straightvol = tranformCordImagesSlices(regopts.regvol, tforms, raout);
 fprintf('Done! Took %2.2f s.\n', toc);
-%==========================================================================
-%%
-% p = panel();
-% p.pack('v', 2);
-% cimlims = getImageLimits(straightvol, 0.001);
-% p(1).select();
-% imagesc(squeeze(max(regopts.regvol,[],1)),cimlims)
-% text(Nslices*0.95, 50, '4 mm', 'Color','w', 'HorizontalAlignment','right', 'FontSize',24)
-% line(Nslices*0.95 + [-200 0], 20*[1 1], 'Color','w', 'LineWidth',2)
-% 
-% axis image off;  ax = gca; ax.Colormap = gray;
-% p(2).select();
-% imagesc(squeeze(max(straightvol,[],1)), cimlims)
-% axis image off; ax = gca; ax.Colormap = gray;
-
-%%
 %==========================================================================
 % clean and downsample points
 thresout    = 2;
@@ -56,12 +43,16 @@ fprintf('Initial similarity transform... '); tic;
     NormalizeCommon = true, Beta = 15, Verbose = false, ConvergenceTolerance=1e-8);
 fprintf('Done! Took %2.2f s.\n', toc);
 %==========================================================================
-%%
+% %%
 % figure; hold on;
-% % scatter3(yreg(:,1), yreg(:,2), yreg(:,3), 1,'filled', 'Color','k')
+% % scatter3(pcatlasreg(:,1), pcatlasreg(:,2), pcatlasreg(:,3), 1,'filled', 'Color','k')
 % % scatter3(pcdownsamp(:,1), pcdownsamp(:,2), pcdownsamp(:,3), 1,'filled', 'Color','r')
 % % 
-% % axis equal;
+% 
+% scatter3(yreg(:,1), yreg(:,2), yreg(:,3), 1,'filled', 'Color','k')
+% scatter3(pcdownsamp(:,1), pcdownsamp(:,2), pcdownsamp(:,3), 1,'filled', 'Color','r')
+% axis equal;
+
 % cmapcurr = cbrewer('qual','Set1',255);
 % cmapcurr = [0 0 0; cmapcurr];
 % imagesc(squeeze(regopts.av(65,:,:)))
@@ -70,12 +61,11 @@ fprintf('Done! Took %2.2f s.\n', toc);
 % 
 % % imagesc(squeeze(max(regopts.av,[],1)))
 %%
-transinit = affinetform3d(oririgid.A*bfit.A);
-refsample = imref3d(size(straightvol));
-refatlas  = imref3d(size(regopts.tv));
-
-tvtemp   = medfilt3(regopts.tv);
-atlasuse = imwarp(tvtemp, refatlas, transinit, 'OutputView', refsample);
+transinit  = affinetform3d(oririgid.A*bfit.A);
+refsample  = imref3d(size(straightvol));
+refatlas   = imref3d(size(regopts.tv));
+tvtemp     = medfilt3(regopts.tv);
+atlasuse   = imwarp(tvtemp, refatlas, transinit, 'OutputView', refsample);
 %==========================================================================
 % save similarity volume for inspection
 avsim  = imwarp(regopts.av, refatlas, transinit, 'nearest', 'OutputView', refsample);
@@ -100,6 +90,8 @@ close(cf);
 %==========================================================================
 regopts.affine_atlas_to_samp = transaff;
 regopts.straightvol          = straightvol;
+regopts.refatlas             = refatlas;
+
 % save registration
 save(fullfile(regopts.lsfolder, 'regopts.mat'), '-struct', 'regopts')
 

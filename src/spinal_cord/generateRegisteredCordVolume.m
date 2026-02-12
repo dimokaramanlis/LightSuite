@@ -35,7 +35,7 @@ straightvol = zeros(transformparams.atlassize, 'uint16');
 for ichan = 1:Nchannels
     currvol    = tranformCordImagesSlices(cordvol(:, :, :, ichan), tforms, raout);
     volumereg  = transformix(currvol, bsplineparams,...
-    'movingscale', 0.02*[1 1 1]);
+    'movingscale',  regopts.sampleres*1e-3);
     straightvol(:, :, :, ichan) = ...
         imwarp(volumereg, Rmoving, affineparams, 'OutputView', Rfixed);
     fprintf('Channel %d/%d done. Took %2.2f s. \n', ichan, Nchannels, toc(savetic));
