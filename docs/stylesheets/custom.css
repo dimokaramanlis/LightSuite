@@ -1,0 +1,13 @@
+/* docs/stylesheets/custom.css */
+
+/* 1. Make all paragraphs fully aligned (justified) */
+p {
+    text-align: justify;
+    text-justify: inter-word; /* Improves spacing between words */
+}
+
+/* 2. Change the overall font size */
+/* 'html' and 'body' usually cover the base size for the whole site */
+html, body {
+    font-size: 20px; /* Change this value to whatever you prefer */
+}

@@ -1,6 +1,6 @@
 # Welcome to LightSuite
 
-**LightSuite** is a comprehensive MATLAB-based pipeline designed for the registration and analysis of large-scale microscopy datasets. It provides modular workflows for whole-brain lightsheet volumes, coronal slice series, and spinal cord data, bridging the gap between raw microscopy images and anatomical reference atlases (CCF).
+**LightSuite** is a MATLAB-based pipeline designed for the registration and analysis of large-scale microscopy datasets. It provides modular workflows for whole-brain lightsheet volumes, coronal slice series, and spinal cord data, bridging the gap between raw microscopy images and anatomical reference atlases (CCF).
 
 ## What can I do with LightSuite?
 

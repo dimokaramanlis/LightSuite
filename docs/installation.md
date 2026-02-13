@@ -1,6 +1,6 @@
 # Installation
 
-LightSuite is a MATLAB-based pipeline that relies on external tools and repositories. To install LightSuite and stay up-to-date, close the LightSuite repository and add it to MATLAB's path. If you're not familiar with GitHub, the easiest starting point is using [GitHub Desktop](https://github.com/apps/desktop). The cleanest way to add a repository to MATLAB's path is by adding the following line to `~\Documents\MATLAB\startup.m`:
+LightSuite relies on external tools and repositories. To install LightSuite and stay up-to-date, close the LightSuite repository and add it to MATLAB's path. If you're not familiar with GitHub, the easiest starting point is using [GitHub Desktop](https://github.com/apps/desktop). The cleanest way to add a repository to MATLAB's path is by adding the following line to `~\Documents\MATLAB\startup.m`:
 
 ```addpath(genpath('~\Documents\GitHub\LightSuite'))```
 

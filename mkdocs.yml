@@ -12,7 +12,10 @@ theme:
   features:
     - navigation.sections
     - navigation.expand
-
+    
+extra_css:
+  - stylesheets/custom.css
+  
 nav:
   - Home: index.md
   - Installation: installation.md
