@@ -3,6 +3,41 @@
 
 ## Manual spinal cord straightening
 
+This module handles the specific challenges of spinal cord data, including straightening curved samples and registering them to the spinal cord atlas.
+
+## 1. Manual Spinal Cord Straightening
+
+Before registration, the curved spinal cord volume must be "straightened" to match the linear coordinate system of the atlas. This is achieved using the **Spinal Cord Aligner GUI**.
+
+### Launching the Tool
+Run the straightening function (typically called via `spinal_cord_aligner(opts)`). You must provide a struct containing the registration volume and save folder.
+
+### The Interface
+The GUI consists of three main panels:
+1.  **Left (Image):** The transverse view of the spinal cord slice.
+2.  **Middle (Position Plot):** Tracks the X/Y position of your markers across slices.
+3.  **Right (Angle Plot):** Tracks the rotation angle ($\theta$) of the cord.
+
+### Workflow
+Your goal is to mark anatomical landmarks on various slices. The algorithm fits a smooth spline through your points to predict the shape of the entire cord.
+
+**Controls:**
+
+| Key / Action | Function |
+| :--- | :--- |
+| **Left Click** | Mark **Anterior/Front** (Green point) |
+| **Right Click** | Mark **Posterior/Back** (Red point) |
+| **Middle Click** | Mark **Center Canal** (Blue point) |
+| **Space** | Jump to the largest gap in your annotations (auto-navigation) |
+| **L** | Set Regularization parameters (stiffness of the fit) |
+| **P** | Toggle prediction visibility (Cyan crosses/lines) |
+| **C** | Clear all points on the *current* slice |
+| **X** | Delete the single point nearest to the cursor |
+| **S** | Save the alignment data |
+
+**Tips:**
+* You do not need to mark every slice. Mark a slice, press `Space` to jump to a gap, and mark again. The spline interpolation will fill in the rest.
+* Use the side plots to verify smoothness. If you see a sharp spike in the Position or Angle plots, you likely have a misplaced point.
 
 ## Manual Alignment Correction (Control Point GUI)
 
