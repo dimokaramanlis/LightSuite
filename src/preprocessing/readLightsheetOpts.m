@@ -2,6 +2,8 @@ function opts = readLightsheetOpts(opts)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
+fprintf('Looking for data in %s\n', opts.datafolder)
+%--------------------------------------------------------------------------
 tim      = dir(fullfile(opts.datafolder, '*.tif'));
 opts.Nz  = numel(tim);
 fprintf('Found %d tiff files ', opts.Nz)
