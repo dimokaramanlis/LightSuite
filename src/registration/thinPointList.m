@@ -8,7 +8,9 @@ Npoints        = size(cpts, 1);
 keptIndices    = false(Npoints, 1); 
 Dmat           = squareform(pdist(single(cpts)));
 % We always keep the first point to start
-keptIndices(1) = true;
+if numel(keptIndices) > 0
+    keptIndices(1) = true;
+end
 %--------------------------------------------------------------------------
 % We keep a separate list of kept points to vectorise the distance check
 % (Initialize with the first point)
@@ -24,5 +26,5 @@ for ii = 2:Npoints
     end
 end
 %--------------------------------------------------------------------------
-
+%--------------------------------------------------------------------------
 end

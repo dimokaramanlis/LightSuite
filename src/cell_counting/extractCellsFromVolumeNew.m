@@ -1,7 +1,8 @@
 function cell_locations = extractCellsFromVolumeNew(opts)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
-
+%------------------------------------------------------------------------
+opts.prefix = getOr(opts, 'prefix', '');
 %------------------------------------------------------------------------
 if opts.debug
     folderdebug = fullfile(opts.savepath, 'cell_detections');
@@ -13,10 +14,10 @@ Nx      = opts.Nx;
 Nslices = opts.Nz;
 %------------------------------------------------------------------------
 % extract options
-sigmause   = [3 3 2];
-thresuse   = single([10 8]);
-cellradius = 6;
-anisotropy = min(opts.pxsize)./opts.pxsize;
+sigmause    = [3 3 2];
+thresuse    = single([10 8]);
+cellradius  = 6;
+anisotropy  = min(opts.pxsize)./opts.pxsize;
 voxelvolume = prod(opts.pxsize);
 %------------------------------------------------------------------------
 % let's figure out batches. TODO: make dependent on cell diameter
@@ -167,7 +168,7 @@ end
 if isfield(opts, 'savepath')
     if ~isempty(opts.savepath)
         makeNewDir(opts.savepath)
-        fsavename = fullfile(opts.savepath, 'cell_locations_sample.mat');
+        fsavename = fullfile(opts.savepath, sprintf('%s_cell_locations_sample.mat', opts.prefix));
         save(fsavename, 'cell_locations')
         if opts.savecellimages
             imwindow = sigmause*6;

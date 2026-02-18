@@ -2,6 +2,7 @@ function [voldown, opts] = preprocessColmVolumeNew(opts)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
+opts.prefix = getOr(opts, 'prefix', '');
 %--------------------------------------------------------------------------
 tiffpaths   = dir(fullfile(opts.datafolder, '*.tif'));
 %--------------------------------------------------------------------------
@@ -18,7 +19,6 @@ Nmed     = floor(sum(matuse, 'all')/2);
 %--------------------------------------------------------------------------
 fid = fopen(opts.fproc, 'W');
 msg = []; proctic = tic;
-
 
 for islice = 1:Nz
     %----------------------------------------------------------------------
@@ -62,7 +62,7 @@ regvolfac = (2^16-1)/max(voldown, [],"all");
 voldown   = uint16(regvolfac*voldown);
 
 % save volume for control point and registration
-samplepath = fullfile(opts.savepath, sprintf('sample_register_%dum.tif', opts.registres));
+samplepath = fullfile(opts.savepath, sprintf('%s_sample_register_%dum.tif', opts.prefix, opts.registres));
 options.compress = 'lzw';
 options.message  = false;
 if exist(samplepath, 'file')
@@ -77,7 +77,7 @@ opts.regvolfac  = regvolfac;
 opts.regvolsize = size(voldown);
 opts.Tglobal    = Tglobal;
 % save registration
-save(fullfile(opts.savepath, 'regopts.mat'), 'opts')
+save(fullfile(opts.savepath, sprintf('%s_regopts.mat', opts.prefix)), 'opts')
 
 
 % fpath      = fileparts(opts.fproc);
