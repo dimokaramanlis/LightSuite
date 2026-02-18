@@ -70,7 +70,7 @@ volmax  = single(quantile(straightvol,0.999,'all'));
 volplot = uint8(255*single(straightvol)/volmax);
 
 cf     = plotCordAnnotation(volplot, avaffine);
-savepngFast(cf, regopts.lsfolder, sprintf('registration_point_affine'), 400, 1);
+print(cf, fullfile( regopts.lsfolder, 'registration_point_affine'), '-dpng')
 close(cf);
 %==========================================================================
 % we perform the b-spline registration
@@ -82,7 +82,7 @@ close(cf);
 avreg = transformAnnotationVolume(bspltformpath, avaffine, 0.02);
 %==========================================================================
 cf     = plotCordAnnotation(volplot, avreg);
-savepngFast(cf, regopts.lsfolder, sprintf('registration_bspline'), 400, 1);
+print(cf, fullfile( regopts.lsfolder, 'registration_bspline'), '-dpng')
 close(cf);
 %==========================================================================
 % here we obtain the inverse transform

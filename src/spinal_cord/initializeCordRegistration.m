@@ -84,7 +84,7 @@ newtrans = affinetform3d(parse_elastix_tform(tformpath));
 transaff = affinetform3d(transinit.A*newtrans.A);
 avshow   = imwarp(regopts.av, refatlas, transaff, 'nearest', 'OutputView', refsample);
 cf       = plotCordAnnotation(volplot, avshow);
-savepngFast(cf, regopts.lsfolder, sprintf('registration_initial_affine'), 400, 1);
+print(cf, fullfile( regopts.lsfolder, 'registration_initial_affine'), '-dpng')
 close(cf);
 %%
 %==========================================================================
