@@ -183,7 +183,7 @@ avtest   = imwarp(avreg, raatlas, tformrigidfin,'nearest', 'OutputView',rasample
 pxsizes = [rasample.PixelExtentInWorldY rasample.PixelExtentInWorldX rasample.PixelExtentInWorldZ];
 for idim = 1:3
     cf = plotAnnotationComparison(uint8(255*volsamp), avtest, idim, pxsizes);
-    savepngFast(cf, sliceinfo.procpath, sprintf('dim%d_initial_registration', idim), 300, 2);
+    print(cf, fullfile( sliceinfo.procpath, sprintf('dim%d_initial_registration', idim)), '-dpng')
     close(cf);
 end
 

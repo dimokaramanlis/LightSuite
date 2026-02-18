@@ -170,8 +170,8 @@ rout    = imref3d([Nslices size(avreg, [2 3])], 1, regopts.pxsizes(1), 1);
 avtest  = imwarp(avreg, imref3d(size(avreg)), tformrigid, 'nearest', 'OutputView', rout);
 for idim = 1:3
     cf = plotAnnotationComparison(uint8(255*volsamp), avtest, idim, regopts.pxsizes);
-    savepngFast(cf, sliceinfo.procpath, ...
-        sprintf('%s_dim%d_initial_registration', sliceinfo.mousename, idim), 300, 2);
+    print(cf, fullfile( sliceinfo.procpath, ...
+        sprintf('%s_dim%d_initial_registration', sliceinfo.mousename, idim)), '-dpng')
     close(cf);
 end
 %--------------------------------------------------------------------------
