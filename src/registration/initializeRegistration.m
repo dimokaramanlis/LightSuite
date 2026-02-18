@@ -1,18 +1,28 @@
-function opts = initializeRegistration(opts, varargin)
+function opts = initializeRegistration(inputpath, varargin)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 % this function re-orients the sample to match the atlas and facilitate
 % control point selection
 %==========================================================================
 p = inputParser;
-addRequired(p,  'opts', @isstruct);
+addRequired(p,  'inputpath', @(x) isstring(x) || ischar(x));
 addParameter(p, 'FlipX', false, @islogical);
 addParameter(p, 'Volume', [], @isnumeric);
 addParameter(p, 'bpcdpath', 'C:\GitHub\bcpd\win\bcpd.exe', ...
     @(x) isstring(x) | ischar(x) );
-parse(p, opts, varargin{:});
+parse(p, inputpath, varargin{:});
 params = p.Results;
-opts   = params.opts;
+%==========================================================================
+optsfile   = dir(fullfile(inputpath, '*regopts.mat'));
+if numel(optsfile) > 1
+    ikeep      = find(contains({optsfile.name}', '561'));
+else
+    ikeep      = 1;
+end
+if ~isempty(optsfile)
+    opts = load(fullfile(optsfile(ikeep).folder, optsfile(ikeep).name));
+    opts = opts.opts;
+end
 %==========================================================================
 if ~isempty(params.Volume)
     backvol = params.Volume;
@@ -75,7 +85,7 @@ avtest    = imwarp(avreg, Rtemplate, transinit.invert,'nearest', 'OutputView',Rs
 volmax    = quantile(volumereg,0.999,'all');
 for idim = 1:3
     cf = plotAnnotationComparison(uint8(255*volumereg/volmax), avtest, idim);
-    savepngFast(cf, opts.savepath, sprintf('dim%d_initial_registration', idim), 300, 2);
+    print(cf, fullfile(opts.savepath, sprintf('dim%d_initial_registration', idim)), '-dpng')
     close(cf);
 end
 %==========================================================================

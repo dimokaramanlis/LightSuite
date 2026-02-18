@@ -73,7 +73,7 @@ avsim  = imwarp(regopts.av, refatlas, transinit, 'nearest', 'OutputView', refsam
 volmax  = single(quantile(straightvol,0.999,'all'));
 volplot = uint8(255*single(straightvol)/volmax);
 cf      = plotCordAnnotation(volplot, avsim);
-savepngFast(cf, regopts.lsfolder, sprintf('registration_initial_similarity'), 400, 1);
+print(cf, fullfile( regopts.lsfolder, 'registration_initial_similarity'), '-dpng')
 close(cf);
 %==========================================================================
 % perform affine registration using image information

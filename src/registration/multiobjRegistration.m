@@ -5,11 +5,10 @@ function params_pts_to_atlas = multiobjRegistration(opts, contol_point_wt, usemu
 %==========================================================================
 % read reg volume and control points
 fprintf('Loading data volume and pre-computed clouds...'); tic;
-volpath  = dir(fullfile(opts.savepath,'*20um.tif'));
-optspath = dir(fullfile(opts.savepath,'*regopts.mat'));
+optspath = dir(fullfile(opts.savepath,'regopts.mat'));
 
 % load volume and control points
-dp       = fullfile(volpath.folder, volpath.name);
+dp       = opts.regvolpath;
 dpopts   = fullfile(optspath.folder,   optspath.name);
 
 volume   = readDownStack(dp);
@@ -42,7 +41,10 @@ if ~isempty(cppath)
     ikeep         = np1==np2 & np1>0;
     cptsatlas     = cat(1, cpdata.atlas_control_points{ikeep});
     cptshistology = cat(1, cpdata.histology_control_points{ikeep});
-    
+    cptsatlas     = cptsatlas(:, 1:3);
+    cptshistology = cptshistology(:, 1:3);
+
+
     % make sure x is in the correct place
     cptsatlas     = cptsatlas(:, [2 1 3]);
     cptshistology = cptshistology(:, [2 1 3]);
@@ -94,7 +96,7 @@ fprintf('Done! Took %2.2f s\n', toc);
 voltoshow = uint8(255*single(volume)/single(quantile(volume, 0.999, 'all')));
 for idim = 1:3
     cf = plotAnnotationComparison(voltoshow, single(avaffine), idim);
-    savepngFast(cf, regopts.savepath, sprintf('%s_dim%d_affine_registration', opts.mousename, idim), 300, 2);
+    print(cf, fullfile(regopts.savepath, sprintf('%s_dim%d_affine_registration', opts.mousename, idim)), '-dpng');
     close(cf);
 end
 %==========================================================================
@@ -118,7 +120,7 @@ avreg = transformAnnotationVolume(bspltformpath, avaffine, opts.registres*1e-3);
 % we plot the b-spline step
 for idim = 1:3
     cf = plotAnnotationComparison(voltoshow, single(avreg), idim);
-    savepngFast(cf, regopts.savepath, sprintf('%s_dim%d_bspline_registration', opts.mousename, idim), 300, 2);
+    print(cf, fullfile(regopts.savepath, sprintf('%s_dim%d_bspline_registration', opts.mousename, idim)), '-dpng');
     close(cf);
 end
 %%
@@ -128,6 +130,7 @@ outdir     = fullfile(regopts.savepath, 'elastix_inverse_temp');
 invstats   = invertElastixTransformCP( pathbspl, outdir);
 tformpath  = fullfile(regopts.savepath, 'bspline_samp_to_atlas_20um.txt');
 elastix_paramStruct2txt(tformpath, invstats.TransformParameters{1});
+rmdir(invstats.outputDir, 's'); % remove inversion directory
 %==========================================================================
 % data saving
 
