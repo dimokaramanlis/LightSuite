@@ -77,7 +77,7 @@ for ii = 1:2
 end
 p.de.margintop = 25;
 p.de.marginleft = 25;
-p.margin = [25 15 2 5];
+p.margin = [25 20 2 5];
 
 
 for ichan = 1:2
@@ -106,6 +106,7 @@ for ichan = 1:2
     xticklabels(xareas(indsx))
     ylabel('Relative signal strength')
     legend(divnames)
+    xlabel('Rostrocaudal position')
 end
 
 %%
