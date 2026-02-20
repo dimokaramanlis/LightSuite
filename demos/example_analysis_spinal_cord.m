@@ -102,7 +102,7 @@ for ichan = 1:2
     plot(segcents*20*1e-3, imtoplot')
     pbaspect([2 1 1]); xlim([0 30])
     title(channelNames{ichan})
-    xticks(indsx)
+    xticks(segcents(indsx)*20*1e-3)
     xticklabels(xareas(indsx))
     ylabel('Relative signal strength')
     legend(divnames)
