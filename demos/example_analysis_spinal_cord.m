@@ -64,12 +64,21 @@ yareas        = structres(1).names(:,2);
 yareas        = strrep(yareas, '_', ' ');
 xareas        = segments.Segment;
 indsx         = 1:2:Nsegments;
+%%
+% create a nice figure
+ffig = figure('Units','centimeters');
+fh   = 20; fw   = 35;
+ffig.Position = [1 1 fw fh];
 
 p = panel();
 p.pack('v', 2);
 for ii = 1:2
     p(ii).pack('h', Nchannels)
 end
+p.de.margintop = 25;
+p.de.marginleft = 25;
+p.margin = [25 15 2 5];
+
 
 for ichan = 1:2
     imtoplot = median(structres(ichan).signal./projstrength(:, ichan, :),3);
@@ -87,12 +96,16 @@ for ichan = 1:2
     ax.XTickLabelRotation = 0; ax.YDir = 'reverse';
 
     imtoplot = median(divres(ichan).signal./projstrength(:, ichan, :),3);
+    divnames = divres(ichan).names(:, 1);
+
     p(2,ichan).select();
     plot(segcents*20*1e-3, imtoplot')
     pbaspect([2 1 1]); xlim([0 30])
     title(channelNames{ichan})
     xticks(indsx)
     xticklabels(xareas(indsx))
+    ylabel('Relative signal strength')
+    legend(divnames)
 end
 
 %%
