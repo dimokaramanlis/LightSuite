@@ -83,7 +83,7 @@ for ichan = 1:2
     yticklabels(yareas)
     xticks(indsx)
     xticklabels(xareas(indsx))
-    ax = gca; ax.Colormap = magma;
+    ax = gca; ax.Colormap = hot;
     ax.XTickLabelRotation = 0; ax.YDir = 'reverse';
 
     imtoplot = median(divres(ichan).signal./projstrength(:, ichan, :),3);
