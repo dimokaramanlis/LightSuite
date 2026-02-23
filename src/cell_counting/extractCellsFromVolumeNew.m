@@ -15,7 +15,7 @@ Nslices = opts.Nz;
 %------------------------------------------------------------------------
 % extract options
 sigmause    = [3 3 2];
-thresuse    = single([10 8]);
+thresuse    = single(getOr(opts, 'thres_cell_detect', [0.5 0.4]));
 cellradius  = 6;
 anisotropy  = min(opts.pxsize)./opts.pxsize;
 voxelvolume = prod(opts.pxsize);
@@ -152,10 +152,16 @@ for ibatchz = 1:NbatchesZ
 end
 %--------------------------------------------------------------------------
 fclose(fid);
-
+%--------------------------------------------------------------------------
 cell_locations = cell_locations(1:i0, :);
 
 % we finally remove weird entries
+
+% we also triage cells based on their very absolute intensity to get rid of
+% cells outside the tissue
+
+
+
 irem = any(isnan(cell_locations) | isinf(cell_locations), 2);
 cell_locations(irem, :) = [];
 if opts.savecellimages
