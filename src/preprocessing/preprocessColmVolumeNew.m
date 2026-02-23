@@ -24,10 +24,11 @@ for islice = 1:Nz
     %----------------------------------------------------------------------
     currim = imread(fullfile(tiffpaths(islice).folder, tiffpaths(islice).name));
     % this step is time-limiting 
-    filtim = ordfilt2(currim, Nmed, matuse, 'symmetric');
+    % filtim = ordfilt2(currim, Nmed, matuse, 'symmetric');
+    % backvol(:, :, islice) = imresize(filtim, scaledownxy, Antialiasing=false);
     %----------------------------------------------------------------------
     % write data
-    backvol(:, :, islice) = imresize(filtim, scaledownxy, Antialiasing=false);
+    backvol(:, :, islice) = imresize(currim, scaledownxy);
     % we write a median-filtered version to remove artifacts
     fwrite(fid, medfilt2(currim, [3 3], 'symmetric'), "uint16");
     %----------------------------------------------------------------------

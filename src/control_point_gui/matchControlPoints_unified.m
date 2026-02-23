@@ -22,7 +22,7 @@ if isfield(opts, 'straightvol')
     gui_data.save_filename = 'corresponding_points.mat';
     disp('Starting Control Point Matching in SPINE Mode...');
     
-elseif isfield(opts, 'downfac_reg')
+elseif isfield(opts, 'regvolfac')
     mode = 'brain';
     gui_data.mode = 'brain';
     gui_data.save_path = opts.savepath;
@@ -71,6 +71,8 @@ switch mode
     case 'brain'
         % --- Brain Pipeline ---
         
+        downfac_reg = opts.atlasres/opts.registres;
+        permute_sample_to_atlas = getOr(opts, 'permute_sample_to_atlas', [1 3 2]);
         % Load Atlas (Standard Allen CCF Logic)
         allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
         if isempty(allen_atlas_path)
@@ -79,14 +81,14 @@ switch mode
         disp('Loading Allen CCF atlas...');
         
         tv_raw = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
-        gui_data.tv = imresize3(tv_raw, opts.downfac_reg);
+        gui_data.tv = imresize3(tv_raw, downfac_reg);
 
         % factv  = 255/single(max(tv_raw,[],"all"));
         factv = 255/single(max(gui_data.tv,[],"all"));
         gui_data.tv = uint8(single( gui_data.tv)*factv);
         
         av_raw = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
-        gui_data.av = imresize3(av_raw, opts.downfac_reg, "Method","nearest");
+        gui_data.av = imresize3(av_raw, downfac_reg, "Method","nearest");
         
         gui_data.Rmoving = imref3d(size(gui_data.av));
         
@@ -96,7 +98,7 @@ switch mode
              error('No regvolpath in the options...');
         end
         volload = readDownStack(volume_dir);
-        volload = permute(volload, opts.permute_sample_to_atlas);
+        volload = permute(volload, permute_sample_to_atlas);
         
         % Warp Sample (Note: Brain mode warps Sample using original_trans initially)
         % Note: We store the warped volume in gui_data.volume to match Spine logic for display

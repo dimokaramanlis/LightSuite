@@ -13,14 +13,9 @@ addParameter(p, 'bpcdpath', 'C:\GitHub\bcpd\win\bcpd.exe', ...
 parse(p, inputpath, varargin{:});
 params = p.Results;
 %==========================================================================
-optsfile   = dir(fullfile(inputpath, '*regopts.mat'));
-if numel(optsfile) > 1
-    ikeep      = find(contains({optsfile.name}', '561'));
-else
-    ikeep      = 1;
-end
+optsfile   = dir(fullfile(inputpath, 'regopts.mat'));
 if ~isempty(optsfile)
-    opts = load(fullfile(optsfile(ikeep).folder, optsfile(ikeep).name));
+    opts = load(fullfile(optsfile.folder, optsfile.name));
     opts = opts.opts;
 end
 %==========================================================================

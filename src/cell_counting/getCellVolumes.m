@@ -1,4 +1,4 @@
-function [cellimages] = getCellImages2D(volumeuse, cinfo, sigmause)
+function  Xmat = getCellVolumes(volumeuse, ccents, sigmause)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -7,7 +7,6 @@ dtx = single(-sigmause(2):sigmause(2));
 dtz = single(-sigmause(3):sigmause(3));
 
 [Ny, Nx, Nz] = size(volumeuse);
-ccents       = round(cinfo.WeightedCentroid);
 Ncells       = size(ccents, 1);
 [xx, yy, zz] = meshgrid(dtx, dty, dtz);
 
@@ -22,15 +21,13 @@ yind(~ykeep) =1;
 xind(~xkeep) =1;
 zind(~zkeep) =1;
 
+isamp     = randperm(numel(volumeuse), min(numel(volumeuse), 2e4));
+commonval = mode(volumeuse(isamp));
+
 indsout = sub2ind([Ny, Nx, Nz], yind(:), xind(:), zind(:));
 Xmat    = reshape(volumeuse(indsout), size(zind));
-Xmat(~ykeep | ~xkeep | ~zkeep) = 0;
+Xmat(~ykeep | ~xkeep | ~zkeep) = commonval;
 Xmat = reshape(Xmat, Ncells, numel(dty), numel(dtx), numel(dtz));
-Xmat1 = reshape(max(Xmat, [], 2), Ncells, []);
-Xmat2 = reshape(max(Xmat, [], 3), Ncells, []);
-Xmat3 = reshape(max(Xmat, [], 4), Ncells, []);
-cellimages = gather([Xmat1 Xmat2 Xmat3]);
-
 
 % tic;
 % X = zeros(size(cinfo,1), numel(dty), numel(dtx),'single');
