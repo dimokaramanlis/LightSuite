@@ -3,6 +3,7 @@ function cell_locations = extractCellsFromVolumeNew(opts)
 %   Detailed explanation goes here
 %------------------------------------------------------------------------
 opts.prefix = getOr(opts, 'prefix', '');
+writetocsv  = getOr(opts, 'writetocsv', false);
 %------------------------------------------------------------------------
 if opts.debug
     folderdebug = fullfile(opts.savepath, sprintf('%scell_detections', opts.prefix));
@@ -14,10 +15,10 @@ Nx      = opts.Nx;
 Nslices = opts.Nz;
 %------------------------------------------------------------------------
 % extract options
-sigmause    = [3 3 2];
 thresuse    = single(getOr(opts, 'thres_cell_detect', [0.5 0.4]));
-cellradius  = 6;
+cellradius  = round(opts.celldiam/2.5);
 anisotropy  = min(opts.pxsize)./opts.pxsize;
+sigmause    = max(anisotropy.*cellradius/2, 2);
 voxelvolume = prod(opts.pxsize);
 %------------------------------------------------------------------------
 % let's figure out batches. TODO: make dependent on cell diameter
@@ -179,6 +180,10 @@ if isfield(opts, 'savepath')
         if opts.savecellimages
             imwindow = sigmause*6;
             save(fsavename, 'cell_locations', 'cell_images', 'imwindow')
+        end
+        if writetocsv
+            csvfilename = fullfile(opts.savepath, sprintf('%scell_locations_sample.csv', opts.prefix));
+            writematrix(cell_locations, csvfilename);
         end
     end
 end
