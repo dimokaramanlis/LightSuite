@@ -13,7 +13,6 @@ opts.savepath   = fullfile(opts.datafolder, 'lightsuite');
 %--------------------------------------------------------------------------
 % some processing options
 opts.tifftype           = 'channelperfile'; % can be planeperfile or channelperfile 
-opts.maxdff             = 12; % parameter for preprocessing
 opts.pxsize             = [8.23 8.23 5]; % voxel size, xy and z, in um
 opts.celldiam           = 14; % approximate cell size in um
 opts.atlasres           = 10; % better keep this fixed for highest resolution, in um
@@ -23,7 +22,7 @@ opts.savecellimages     = false; % toggle saving of individual cell images
 opts.thres_cell_detect  = [0.5 0.4]; % thresholds for detecting cells relative to background
 opts.channelforcells    = 1; % channel to use for cell detection, leave empty ([]) for none
 opts.channelforregister = 1; % channel to use for registration
-opts.writetocsv         = true; % write cells to csv file
+opts.writetocsv         = false; % write cells to csv file
 %--------------------------------------------------------------------------
 opts                   = readLightsheetOpts(opts);
 %=========================================================================
