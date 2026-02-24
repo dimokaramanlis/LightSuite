@@ -13,7 +13,7 @@ scaledownz   = opts.pxsize(3)/opts.registres;
 medwithfull  = 2*ceil(opts.registres/opts.pxsize(1)/2) + 1;
 %--------------------------------------------------------------------------
 % initialize collections
-backvol  = nan(ceil(scaledownxy*Ny), ceil(scaledownxy*Nx), Nz, 'single');
+backvol  = zeros(ceil(scaledownxy*Ny), ceil(scaledownxy*Nx), Nz, 'uint16');
 matuse   = ones(medwithfull);
 Nmed     = floor(sum(matuse, 'all')/2);
 %--------------------------------------------------------------------------
@@ -43,8 +43,8 @@ fclose(fid);
 fprintf('Saving background volume... '); savetic = tic;
 
 % rescale final volume to match atlas size
-voldown             = imresize3(backvol, 'Scale', [1 1 scaledownz]);
-voldown(voldown <0) = 0;
+voldown  = imresize3(backvol, 'Scale', [1 1 scaledownz]);
+voldown  = single(voldown);
 
 
 % find global threshold
@@ -63,7 +63,7 @@ regvolfac = (2^16-1)/max(voldown, [],"all");
 voldown   = uint16(regvolfac*voldown);
 
 % save volume for control point and registration
-samplepath = fullfile(opts.savepath, sprintf('%s_sample_register_%dum.tif', opts.prefix, opts.registres));
+samplepath = fullfile(opts.savepath, sprintf('%ssample_register_%dum.tif', opts.prefix, opts.registres));
 options.compress = 'lzw';
 options.message  = false;
 if exist(samplepath, 'file')
@@ -78,7 +78,7 @@ opts.regvolfac  = regvolfac;
 opts.regvolsize = size(voldown);
 opts.Tglobal    = Tglobal;
 % save registration
-save(fullfile(opts.savepath, sprintf('%s_regopts.mat', opts.prefix)), 'opts')
+save(fullfile(opts.savepath, sprintf('%sregopts.mat', opts.prefix)), 'opts')
 
 
 % fpath      = fileparts(opts.fproc);

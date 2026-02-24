@@ -5,7 +5,7 @@ function cell_locations = extractCellsFromVolumeNew(opts)
 opts.prefix = getOr(opts, 'prefix', '');
 %------------------------------------------------------------------------
 if opts.debug
-    folderdebug = fullfile(opts.savepath, 'cell_detections');
+    folderdebug = fullfile(opts.savepath, sprintf('%scell_detections', opts.prefix));
     makeNewDir(folderdebug)
 end
 %------------------------------------------------------------------------
@@ -21,9 +21,9 @@ anisotropy  = min(opts.pxsize)./opts.pxsize;
 voxelvolume = prod(opts.pxsize);
 %------------------------------------------------------------------------
 % let's figure out batches. TODO: make dependent on cell diameter
-batchsizez  = 32;
+batchsizez  = getOr(opts, 'batchsizez', 32);
+batchsizexy = getOr(opts, 'batchsizexy', 1800);
 buffsizez   = ceil(cellradius);
-batchsizexy = 1800;
 buffsizexy  = ceil(cellradius * 4);
 
 NbatchesZ   = ceil(Nslices/batchsizez);
@@ -174,7 +174,7 @@ end
 if isfield(opts, 'savepath')
     if ~isempty(opts.savepath)
         makeNewDir(opts.savepath)
-        fsavename = fullfile(opts.savepath, sprintf('%s_cell_locations_sample.mat', opts.prefix));
+        fsavename = fullfile(opts.savepath, sprintf('%scell_locations_sample.mat', opts.prefix));
         save(fsavename, 'cell_locations')
         if opts.savecellimages
             imwindow = sigmause*6;
@@ -186,80 +186,3 @@ end
 
 %--------------------------------------------------------------------------
 end
-
-
-% 
-% 
-% 
-% 
-%                 X = [elips,cinfo.MeanIntensity,cinfo.Solidity, cinfo.EquivDiameter];
-% 
-% 
-% prem   = 0;
-% cellimages = zeros(0, prod(2*4*sigmause(1:2)+1));
-% if ~isempty(cinfo)
-% 
-%     elips   = cinfo.PrincipalAxisLength(:,1)./cinfo.PrincipalAxisLength(:,2);
-%     ilong   = elips>2.5;
-%     ismall  = cinfo.EquivDiameter<cellradius/2;
-%     ilow    = cinfo.MeanIntensity < quantile(cinfo.MeanIntensity,0.99)/2;
-% 
-%     X = [elips,cinfo.MeanIntensity,cinfo.Solidity, cinfo.EquivDiameter];
-%     [aa,bb] = pca(zscore(X));
-%     Nclust = 6;
-%     [idx, C] = kmeans(bb(:,1:3), Nclust, 'Replicates', 10,'MaxIter',200);
-%     clf;
-%     for ii = 1:size(C,1)
-%         hold on;
-%         scatter3(bb(idx==ii,1),bb(idx==ii,2),bb(idx==ii,3))
-%     end
-%     diamsall = accumarray(idx, X(:,4),[],@median);
-%     elipsall = accumarray(idx, X(:,1),[],@median);
-%     solall   = accumarray(idx,  X(:,3),[],@median);
-%     intall   = accumarray(idx,  X(:,2),[],@median);
-%     ikeep   = diamsall > max(diamsall)*0.5 & elipsall < 2.5 & solall<0.99...
-%         & intall > max(intall)*0.2;
-%     iweird  = ~ismember(idx, find(ikeep));
-% 
-% 
-% 
-%     % iweird = ilong | ismall | ilow;
-%     % prem   = nnz(iweird)/size(cinfo, 1);
-%     % 
-%     % if nnz(~iweird)>0
-%     %     allvoxels =  cat(1,cinfo(~iweird,:).VoxelList{:});
-%     %     indtest = sub2ind([Ny, Nx],allvoxels(:,2), allvoxels(:,1));
-%     %     imgout(indtest) = true;
-%     % 
-%     %     imtosave = max(dff, [], 3);
-%     %     imtosave = gather(uint8(255 * imtosave/thresSNR(1)));
-%     %     imtosave(imgout) = 255;
-%     %     imtosave = cat(3, uint8(imgout*255), imtosave, uint8(imgout*255));
-%     % end
-% 
-% 
-%     allvoxels =  cat(1,cinfo(~iweird,:).VoxelList{:});
-%     indtest = sub2ind(size(volumeuse),allvoxels(:,2), allvoxels(:,1), allvoxels(:,3));
-% 
-%     imgidx = false(size(imgidx));
-%     imgidx(indtest) = true;
-%     maxc = quantile(dff2, 0.999, 'all');
-%     imshowpair(uint8(max(dff2,[],3)*255/maxc),max(imgidx,[],3));
-%     idplot = 15:25; imshowpair(uint8(max(dff2(:,:,idplot),[],3)*255/maxc),max(imgidx(:,:,idplot),[],3));
-% 
-%     if saveim
-%         cellimages = getCellImages2D(volumeuse, cinfo, sigmause*6);
-%         cellimages(iweird, :) = [];
-%     end
-%     cinfo(iweird, :) = [];    
-% 
-% end
-% %--------------------------------------------------------------------------
-% % package cell properties
-% cpoints    = [cinfo.WeightedCentroid cinfo.EquivDiameter cinfo.MeanIntensity];
-% 
-% 
-% 
-% 
-% 
-% 

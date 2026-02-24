@@ -22,7 +22,7 @@ if isfield(opts, 'straightvol')
     gui_data.save_filename = 'corresponding_points.mat';
     disp('Starting Control Point Matching in SPINE Mode...');
     
-elseif isfield(opts, 'regvolfac')
+elseif isfield(opts, 'savepath')
     mode = 'brain';
     gui_data.mode = 'brain';
     gui_data.save_path = opts.savepath;

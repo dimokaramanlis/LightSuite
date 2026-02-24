@@ -1,6 +1,7 @@
 % set main data path - where the tiffs are
-dpspinesample      = 'D:\spine_registration\sample2';
-bcpdpath           = which('bcpd.exe');
+dpspinesample      = 'D:\spine_registration\sample1';
+bcpdpath           = which('bcpd.exe'); % path for point-cloud registration
+
 %% load sample and atlas - set resolution and channel for registration
 sampleres          = [20, 20, 20]; % in micrometers across sides
 [cordvol, opts]    = readSpinalCordSample(dpspinesample, sampleres);
@@ -8,15 +9,19 @@ sampleres          = [20, 20, 20]; % in micrometers across sides
 opts.regchan       = 2; % choose registration channel
 opts.bcpdpath      = bcpdpath;
 regopts            = prepareCordSampleForRegistration(cordvol, opts);
+
 %% (manual) trace spinal cord to untwist and unbend
 regopts = loadRegOpts(dpspinesample);
 spinal_cord_aligner(regopts);
+
 %% (auto) initialize registration
 regopts = loadRegOpts(dpspinesample);
 initializeCordRegistration(regopts);
+
 %% (manual) add control points
 regopts = loadRegOpts(dpspinesample);
 matchControlPointsSpine(regopts);
+
 %% (auto) perform nonlinear registration (b-spline)
 regopts = loadRegOpts(dpspinesample);
 control_point_weight = 0.2;

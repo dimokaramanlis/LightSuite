@@ -21,6 +21,7 @@ You need **MATLAB R2022b** or newer. Ensure the following toolboxes are installe
 Clone the following two repositories and add them to MATLAB's path: 
 
 * [matlab_elastix](https://github.com/dimokaramanlis/matlab_elastix), updated fork based on Rob Campbell's repository
+* [yamlmatlab](https://github.com/raacampbell/yamlmatlab), Rob Campbell's repository
 * [bcpd](https://github.com/ohirose/bcpd), by Osamu Hirose
 
 ### 3. Install Elastix
