@@ -30,5 +30,5 @@ opts                   = readLightsheetOpts(opts);
 opts = preprocessLightSheetVolume(opts);
 
 %% (auto) initialize registration
-opts = initializeRegistration(opts);
+opts = initializeRegistration(opts.savepath);
 
