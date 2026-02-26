@@ -22,6 +22,10 @@ for ichannel = 1:opts.Nchans
     backvol  = zeros(ceil(scaledownxy*Ny), ceil(scaledownxy*Nx), Nz, 'uint16');
     if hascells
         fproc    = fullfile(opts.fproc, sprintf('chan_%d_binary_%s.dat', ichannel, opts.mousename));
+        fclose('all'); 
+        if exist(opts.fproc, 'file')
+            delete(fproc);
+        end
         fid      = fopen(fproc, 'W');
     end
     msg = []; proctic = tic;
@@ -75,7 +79,7 @@ for ichannel = 1:opts.Nchans
     %----------------------------------------------------------------------
     if hascells
         %----------------------------------------------------------------------
-        fclose(fproc);
+        fclose(fid);
         %----------------------------------------------------------------------
         fprintf('Extracting cell candidates from channel %d \n', ichannel)
         opts.prefix     = sprintf('chan_%d_', ichannel);
