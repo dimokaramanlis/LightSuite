@@ -8,6 +8,7 @@ tifftype = getOr(opts, 'tifftype', 'planeperfile');
 tiffiles = dir(fullfile(opts.datafolder, '*.tiff'));
 tifiles  = dir(fullfile(opts.datafolder, '*.tif'));
 tfiles   = cat(1, tifiles, tiffiles);
+opts.multitiffs = false;
 %--------------------------------------------------------------------------
 switch tifftype
     %======================================================================
@@ -37,15 +38,24 @@ switch tifftype
         %======================================================================
     case 'channelperfile' % classic for BigStitcher
         fprintf('Using channelperfile loading, every channel should be in a different tiff\n')
-        opts.Nchans  = numel(tfiles);
-        fprintf('Found %d channels \n', opts.Nchans)
-        allnyxz = nan(opts.Nchans, 3);
-        for ichan = 1 : opts.Nchans
-            datainfo          = BioformatsImage(fullfile(tfiles(ichan).folder, tfiles(ichan).name));
-            allnyxz(ichan, :) = [datainfo.height datainfo.width datainfo.sizeZ];
+        Nfiles = numel(tfiles);
+        if Nfiles == 1
+             datainfo = BioformatsImage(fullfile(tfiles.folder, tfiles.name));
+             opts.Nchans = datainfo.sizeC;
+             fprintf('Found a single tiff with %d channels \n', opts.Nchans);
+             allnyxz = [datainfo.height datainfo.width datainfo.sizeZ];
+        else
+            opts.Nchans  = numel(tfiles);
+            fprintf('Assuming each channel is a separate tiff. Found %d channels \n', opts.Nchans)
+            allnyxz = nan(opts.Nchans, 3);
+            for ichan = 1 : opts.Nchans
+                datainfo          = BioformatsImage(fullfile(tfiles(ichan).folder, tfiles(ichan).name));
+                allnyxz(ichan, :) = [datainfo.height datainfo.width datainfo.sizeZ];
+            end
+            opts.multitiffs = true;
+            assert(all(allnyxz == allnyxz(1,:), "all"), ...
+                "some volumes do not have matching size, LightSuite cannot proceed")
         end
-        assert(all(allnyxz == allnyxz(1,:), "all"), ...
-            "some volumes do not have matching size, LightSuite cannot proceed")
         %--------------------------------------------------------------------------
         opts.Nx  = allnyxz(1, 2); 
         opts.Ny  = allnyxz(1, 1); 
