@@ -23,6 +23,8 @@ opts.thres_cell_detect  = [0.5 0.4]; % thresholds for detecting cells relative t
 opts.channelforcells    = 1; % channel to use for cell detection, leave empty ([]) for none
 opts.channelforregister = 1; % channel to use for registration
 opts.writetocsv         = false; % write cells to csv file
+opts.augmentpoints      = false; % whether to augment user-defined points with automatic ones
+opts.weight_usr_pts     = 0.2;   % set to zero for image-only information
 %--------------------------------------------------------------------------
 opts                   = readLightsheetOpts(opts);
 %=========================================================================
@@ -32,3 +34,18 @@ opts = preprocessLightSheetVolume(opts);
 %% (auto) initialize registration
 opts = initializeRegistration(opts.savepath);
 
+%% (manual) Refine control points
+optsfile = dir(fullfile(opts.savepath, 'regopts.mat'));
+if ~isempty(optsfile)
+    opts = load(fullfile(optsfile.folder, optsfile.name));
+    opts = opts.opts;
+end
+matchControlPoints_unified(opts);
+
+%% (auto) perform registration
+optsfile = dir(fullfile(opts.savepath, 'regopts.mat'));
+if ~isempty(optsfile)
+    opts = load(fullfile(optsfile.folder, optsfile.name));
+    opts = opts.opts;
+end
+transform_params   = multiobjRegistration(opts, opts.weight_usr_pts, true);

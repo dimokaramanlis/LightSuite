@@ -8,10 +8,11 @@ p = inputParser;
 addRequired(p,  'inputpath', @(x) isstring(x) || ischar(x));
 addParameter(p, 'FlipX', false, @islogical);
 addParameter(p, 'Volume', [], @isnumeric);
-addParameter(p, 'bpcdpath', 'C:\GitHub\bcpd\win\bcpd.exe', ...
-    @(x) isstring(x) | ischar(x) );
 parse(p, inputpath, varargin{:});
 params = p.Results;
+%==========================================================================
+dpbcpd          = which('bcpd.exe');
+params.bpcdpath = dpbcpd;
 %==========================================================================
 optsfile   = dir(fullfile(inputpath, 'regopts.mat'));
 if ~isempty(optsfile)

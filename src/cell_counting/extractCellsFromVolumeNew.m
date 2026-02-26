@@ -187,7 +187,5 @@ if isfield(opts, 'savepath')
         end
     end
 end
-% delete(opts.fproc)
-
 %--------------------------------------------------------------------------
 end
