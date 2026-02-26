@@ -83,7 +83,8 @@ for ichannel = 1:opts.Nchans
         %----------------------------------------------------------------------
         fprintf('Extracting cell candidates from channel %d \n', ichannel)
         opts.prefix     = sprintf('chan_%d_', ichannel);
-        peakvalsextract = extractCellsFromVolumeNew(fproc, opts);
+        opts.fproc      = fproc;
+        peakvalsextract = extractCellsFromVolumeNew(opts);
         %----------------------------------------------------------------------
         delete(opts.fproc);
         %----------------------------------------------------------------------
