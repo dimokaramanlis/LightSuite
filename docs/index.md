@@ -18,13 +18,14 @@ LightSuite automates the complex tasks of mapping experimental data to standard 
 ## Supported Data Formats
 
 ### 1. Large-scale Lightsheet Volumes
-The pipeline currently supports data formatted as a series of **2D TIFF planes** representing a single channel, sliced axially. Support for other brain orientations is planned.
+The pipeline currently supports data formatted as a series of **2D TIFF planes** representing a single channel, sliced axially, multi-channel volume TIFFs and single-channel channel volume TIFFs split acroos files. Support for other brain orientations is planned.
 
 ### 2. Spinal Cord Data
 We support low-resolution whole cord volumes. Channels can be stored within the same TIFF volume or separated.
 
 ### 3. Slice Volumes
 We support:
+
 * A series of **2D TIFF planes** (one file per slice).
 * Direct output from AxioScan scanners (**`.czi`** files).
 
