@@ -135,18 +135,18 @@ for ibatchz = 1:NbatchesZ
                     cell_images(i0 + (1:size(ccents, 1)), :) = cim;
                 end
                 i0 = i0 + size(ccents, 1);
-            end
-            %----------------------------------------------------------------------
-            if opts.debug & size(ccents,1) > 20
-                pathslice = fullfile(folderdebug, ...
-                    sprintf('%03d_batch_%d_detections.png', itrack, size(ccents,1)));
-                ampmax   = max(ampmax,[], 3);
-                imtosave = gather(uint8(255 * ampmax/thresuse(1)));
-                imtosave(imgout) = 255;
-                imtosave = cat(3, uint8(imgout*255), imtosave, uint8(imgout*255));
-                imtosave = imresize(imtosave, 0.5);
-                imwrite(imtosave, pathslice,"png","BitDepth",8)
-            end           
+
+                if opts.debug & size(ccents,1) > 20
+                    pathslice = fullfile(folderdebug, ...
+                        sprintf('%03d_batch_%d_detections.png', itrack, size(ccents,1)));
+                    ampmax   = max(ampmax,[], 3);
+                    imtosave = gather(uint8(255 * ampmax/thresuse(1)));
+                    imtosave(imgout) = 255;
+                    imtosave = cat(3, uint8(imgout*255), imtosave, uint8(imgout*255));
+                    imtosave = imresize(imtosave, 0.5);
+                    imwrite(imtosave, pathslice,"png","BitDepth",8)
+                end     
+            end    
             %----------------------------------------------------------------------
             itrack = itrack + 1;
             fprintf(repmat('\b', 1, numel(msg)));
