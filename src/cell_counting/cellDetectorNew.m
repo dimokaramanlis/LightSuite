@@ -79,6 +79,19 @@ end
 if nargout > 2
     varargout{1} = ampsignal;
 end
+if nargout > 3
+    imgout       = false(Ny, Nx);
+    if size(cinfo, 1) > 0
+        allvoxels =  cat(1,cinfo.VoxelList{:});
+        indtest   = sub2ind(size(dff2),allvoxels(:,2), allvoxels(:,1), allvoxels(:,3));
+        imgidx    = false(size(imgidx));
+        imgidx(indtest) = true;
+        imgout = max(imgidx,[],3);
+    end
+    varargout{2} = imgout;
+end
+
+
 %=========================================================================
 % %intermediate plotting
 % if size(cinfo, 1) > 0
