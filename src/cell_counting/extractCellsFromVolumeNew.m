@@ -6,6 +6,7 @@ opts.prefix = getOr(opts, 'prefix', '');
 writetocsv  = getOr(opts, 'writetocsv', false);
 %------------------------------------------------------------------------
 if opts.debug
+    fprintf('Using debug mode, you will get pictures with cell detections\n');
     folderdebug = fullfile(opts.savepath, sprintf('%scell_detections', opts.prefix));
     makeNewDir(folderdebug)
 end
@@ -136,7 +137,7 @@ for ibatchz = 1:NbatchesZ
                 i0 = i0 + size(ccents, 1);
             end
             %----------------------------------------------------------------------
-            if opts.debug & size(ccents,1) > 200
+            if opts.debug & size(ccents,1) > 2
                 pathslice = fullfile(folderdebug, ...
                     sprintf('%03d_batch_%d_detections.png', itrack, size(ccents,1)));
                 imwrite(imgout, pathslice,"png","BitDepth",8)

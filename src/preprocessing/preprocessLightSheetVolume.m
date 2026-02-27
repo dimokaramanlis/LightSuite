@@ -75,6 +75,7 @@ for ichannel = 1:opts.Nchans
         delete(samplepath);
     end
     saveastiff(voldown, samplepath, saveopts);
+    regvolpaths{ichannel} = samplepath;
     fprintf('Done!\n')
     %----------------------------------------------------------------------
     if hascells
