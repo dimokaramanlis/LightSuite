@@ -98,8 +98,8 @@ switch mode
              error('No regvolpath in the options...');
         end
         volload = readDownStack(volume_dir);
-        volload = permute(volload, permute_sample_to_atlas);
-        
+        volload = permuteBrainVolume(volload, permute_sample_to_atlas);
+                
         % Warp Sample (Note: Brain mode warps Sample using original_trans initially)
         % Note: We store the warped volume in gui_data.volume to match Spine logic for display
         Rvolume_orig = imref3d(size(volload));

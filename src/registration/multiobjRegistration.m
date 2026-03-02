@@ -16,7 +16,7 @@ regopts  = load(dpopts);
 regopts  = regopts.opts;
 
 % we permute the volume to match atlas
-volume  = permute(volume, regopts.permute_sample_to_atlas);
+volume  = permuteBrainVolume(volume, regopts.permute_sample_to_atlas);
 fprintf('Done! Took %2.2f s\n', toc);
 %==========================================================================
 % we load automated control points

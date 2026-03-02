@@ -6,7 +6,6 @@ function opts = initializeRegistration(inputpath, varargin)
 %==========================================================================
 p = inputParser;
 addRequired(p,  'inputpath', @(x) isstring(x) || ischar(x));
-addParameter(p, 'FlipX', false, @islogical);
 addParameter(p, 'Volume', [], @isnumeric);
 parse(p, inputpath, varargin{:});
 params = p.Results;
@@ -27,7 +26,25 @@ else
 end
 downfac = opts.atlasres/opts.registres;
 %==========================================================================
-flipvec = [params.FlipX, false, false];
+allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
+tv               = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
+tvreg            = imresize3(tv, downfac);
+%==========================================================================
+bofile = fullfile(opts.savepath, 'brain_orientation.txt');
+fprintf('Looking for brain orientation data in %s\n', bofile)
+if exist(bofile, 'file')
+    permvec = load(bofile);
+    fprintf('Found it, brain orientation is %s\n', mat2str(permvec))
+else
+    fprintf('You have to specify the orientation, check GUI\n')
+    permvec = getBrainOrientation(backvol,tvreg);
+    % Save to file
+    writematrix(permvec, bofile);
+    fprintf('Brain orientation saved as %s to %s\n', mat2str(permvec), bofile);
+    
+end
+%==========================================================================
+flipvec = [false, false, false];
 Tflip   = affinetform3d(createFlipTransform(size(backvol), flipvec));
 %==========================================================================
 %%
@@ -41,18 +58,14 @@ bottomval = 0;
 newvol    = (single(backvol)-single(bottomval))/single(topval-bottomval);
 %==========================================================================
 % we then prepare the volume and extract corresponding points 
-% volumereg  = imresize3(newvol, 0.5);
 fprintf('Creating cloud for sample volume... '); tic;
-volumereg  = permute(newvol, [1 3 2]);
+volumereg  = permuteBrainVolume(newvol, permvec);
 ls_cloud   = extractSamplePoints(volumereg, 5);
 fprintf('Done! Took %2.1f s. Found %d points.\n', toc, ls_cloud.Count);
 %==========================================================================
 % load atlas and extract corresponding points
 fprintf('Loading atlas data and generating the atlas cloud... '); tic;
-allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
-tv      = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
 av      = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
-tvreg   = imresize3(tv, downfac);
 avreg   = imresize3(av, downfac, 'Method','nearest');
 
 % tv_cloud = extractVolumePoints(tvreg, 15);
@@ -60,10 +73,6 @@ tvforpoints             = single(tvreg);
 tvforpoints(avreg == 0) = 0;
 tv_cloud                = extractVolumePointsGradient(tvforpoints, 20, 5);
 fprintf('Done! Took %2.1f s. Found %d points.\n', toc, tv_cloud.Count);
-% atlas needs to match volume dimensions
-% tv    = permute(tv, [1 3 2]);
-
-% tvaffine = imwarp(tv, Rmoving, tform, 'OutputView',Rfixed);
 %==========================================================================
 % the first step is to make sure our sample is nicely aligned
 fprintf('Obtaining initial similarity transform... '); tic;
@@ -86,7 +95,7 @@ for idim = 1:3
 end
 %==========================================================================
 % let's save stuff
-opts.permute_sample_to_atlas = [1 3 2];
+opts.permute_sample_to_atlas = permvec;
 opts.original_trans          = transinit;
 opts.downfac_reg             = downfac;
 opts.autocpsample            = cpsample;
@@ -95,3 +104,5 @@ opts.autocpatlas             = cpatlas;
 save(fullfile(opts.savepath, 'regopts.mat'), 'opts')
 %==========================================================================
 end
+
+

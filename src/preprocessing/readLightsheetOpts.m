@@ -63,11 +63,9 @@ switch tifftype
         fprintf('Volume size is %d x %d x %d px\n', opts.Ny, opts.Nx,  opts.Nz)
         %======================================================================
 end
-
+%--------------------------------------------------------------------------
 opts.tfiles = fullfile({tfiles(:).folder},{tfiles(:).name})';
 makeNewDir(opts.savepath)
-
-
 %--------------------------------------------------------------------------
 
 end
