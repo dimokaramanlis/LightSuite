@@ -50,17 +50,16 @@ for ichannel = 1:opts.Nchans
                 currim = imread(opts.tfiles{islice});
         end
 
+        % we make sure the background is good
+        isamp             = randperm(numel(currim), min(numel(currim), 2e4));
+        vsamp             = currim(isamp);
+        bval              = mode(vsamp(vsamp>0));
+        currim(currim==0) = bval;
+
         % write data
         backvol(:, :, islice) = imresize(currim, scaledownxy);
         
         if hascells
-            
-            % we make sure the background is good
-            isamp = randperm(numel(currim), min(numel(currim), 2e4));
-            vsamp = currim(isamp);
-            bval  = mode(vsamp(vsamp>0));
-            currim(currim==0) = bval;
-
             % we write a median-filtered version to remove artifacts
             fwrite(fid, medfilt2(currim, [3 3], 'symmetric'), "uint16");
         end
