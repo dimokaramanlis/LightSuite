@@ -2,10 +2,6 @@ LightSuite is a software pipeline for the end-to-end analysis of whole-brain ima
 
 [Documentation](https://lightsuite.readthedocs.io/en/latest/)
 
-## Lightsheet microscopy data
-
-The script `ls_analyze_slice_volume.m` will guide you through data loading, preprocessing, cell detection and brain registration. The currently supported format is a series of 2D tiff files of a single color. We are working on expanding this to 3D tiff files and allowing the user to select any channel for registration.
-
 ## MATLAB requirements
 
 - MATLAB >= R2022b
@@ -34,6 +30,11 @@ LightSuite calls Elastix from the command line, so its executables must be globa
 LightSuite uses the [2020 version](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) of the Allen Brain Atlas for brain registration. To be able to use the software you have to download all [volume files](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#image_volumes/Allen-CCF-2020/20230630/) along with all relevant [metadata](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#metadata/Allen-CCF-2020/20230630/) and make them available to the MATLAB path.
 
 For spinal cord registration, LightSuite uses the [Fiederling et al 2021](https://www.sciencedirect.com/science/article/pii/S2667237521001260) spinal cord atlas. Download the compressed file from [here](https://data.mendeley.com/datasets/4rrggzv5d5/1), extract its contents and make them available to the MATLAB path.
+
+
+## Lightsheet microscopy data
+
+The script `ls_analyze_lightsheet_volume.m` will guide you through data loading, preprocessing, cell detection and brain registration. We support tiff volumes of multiple colors or a series of 2D tiff files of a single color.
 
 ## Registration
 
