@@ -114,13 +114,6 @@ for ibatchz = 1:NbatchesZ
 
                 elratio   = cinfo.PrincipalAxisLength(:,1)./cinfo.PrincipalAxisLength(:,2);
                 cellfeats = [intmean eqdiam elratio];
-                % elsort  = sort(elaxes, 2, 'descend');
-                % elinds  = [elsort(:, 2)./elsort(:,1), elsort(:,3)./elsort(:,2)];
-                % 
-                % 
-                % fanum   = sqrt(sum((elaxes - mean(elaxes, 2)).^2, 2));
-                % faden   = sqrt(sum(elaxes.^2, 2));
-                % elfa    = fanum./faden;
                 %----------------------------------------------------------
                 if i0+size(ccents, 1)>size(cell_locations,1)
                     cell_locations(1e6 + size(cell_locations,1), 1) = 0;
@@ -135,7 +128,7 @@ for ibatchz = 1:NbatchesZ
                     cell_images(i0 + (1:size(ccents, 1)), :) = cim;
                 end
                 i0 = i0 + size(ccents, 1);
-
+                %----------------------------------------------------------
                 if opts.debug & size(ccents,1) > 20
                     pathslice = fullfile(folderdebug, ...
                         sprintf('%03d_batch_%d_detections.png', itrack, size(ccents,1)));
@@ -145,7 +138,8 @@ for ibatchz = 1:NbatchesZ
                     imtosave = cat(3, uint8(imgout*255), imtosave, uint8(imgout*255));
                     imtosave = imresize(imtosave, 0.5);
                     imwrite(imtosave, pathslice,"png","BitDepth",8)
-                end     
+                end
+                %----------------------------------------------------------
             end    
             %----------------------------------------------------------------------
             itrack = itrack + 1;

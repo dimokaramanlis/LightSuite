@@ -23,7 +23,7 @@ for ichannel = 1:opts.Nchans
     if hascells
         fproc    = fullfile(opts.fproc, sprintf('chan_%d_binary_%s.dat', ichannel, opts.mousename));
         fclose('all'); 
-        if exist(opts.fproc, 'file')
+        if exist(fproc, 'file')
             delete(fproc);
         end
         fid      = fopen(fproc, 'W');
