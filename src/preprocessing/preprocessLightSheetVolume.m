@@ -54,14 +54,23 @@ for ichannel = 1:opts.Nchans
         backvol(:, :, islice) = imresize(currim, scaledownxy);
         
         if hascells
+            
+            % we make sure the background is good
+            isamp = randperm(numel(currim), min(numel(currim), 2e4));
+            vsamp = currim(isamp);
+            bval  = mode(vsamp(vsamp>0));
+            currim(currim==0) = bval;
+
             % we write a median-filtered version to remove artifacts
             fwrite(fid, medfilt2(currim, [3 3], 'symmetric'), "uint16");
         end
         %----------------------------------------------------------------------
-        fprintf(repmat('\b', 1, numel(msg)));
-        msg = sprintf('Channel %d/%d. Slice %d/%d. Time per slice %2.2f s. Time elapsed %2.2f s...\n',...
-            ichannel, opts.Nchans, islice, Nz, toc(proctic)/islice, toc(proctic));
-        fprintf(msg);
+        if mod(islice, 20) == 1 || islice == Nz
+            fprintf(repmat('\b', 1, numel(msg)));
+            msg = sprintf('Channel %d/%d. Slice %d/%d. Time per slice %2.2f s. Time elapsed %2.2f s...\n',...
+                ichannel, opts.Nchans, islice, Nz, toc(proctic)/islice, toc(proctic));
+            fprintf(msg);
+        end
         %----------------------------------------------------------------------
     end
     %----------------------------------------------------------------------
