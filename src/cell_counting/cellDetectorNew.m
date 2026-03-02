@@ -19,6 +19,8 @@ isamp       = randperm(numel(background), min(numel(background), 3e4));
 currsamp    = background(isamp);
 baseline_bg = quantile(currsamp(currsamp > 0), 0.1);
 background(background<baseline_bg) = baseline_bg;
+backmax = quantile(currsamp(currsamp > 0), 0.9);
+background(background>backmax) = backmax;
 background  = imgaussfilt3(background, anisotropyratio*2);
 % imagesc(max(background,[],3))
 %%
