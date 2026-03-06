@@ -20,6 +20,12 @@ Nslices = opts.Nz;
 %------------------------------------------------------------------------
 % extract options
 thresuse    = single(getOr(opts, 'thres_cell_detect', [0.5 0.4]));
+if thresuse(2) > thresuse(1)
+    warning(['The second detection threshold should be smaller or equal than the first.'...
+        ' Setting both to %2.2f.'], thresuse(1))
+    thresuse(2) = thresuse(1);
+end
+
 cellradius  = round(opts.celldiam/2.5);
 anisotropy  = min(opts.pxsize)./opts.pxsize;
 sigmause    = max(anisotropy.*cellradius/2, 2);
