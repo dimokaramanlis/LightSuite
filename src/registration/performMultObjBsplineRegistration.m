@@ -42,7 +42,6 @@ else
     params.SampleRegionSize            = 2*ones(1,3); %
 end
 %--------------------------------------------------------------------------
-
 pathtemp = fullfile(savepath, 'elastix_temp');
 makeNewDir(pathtemp);
 

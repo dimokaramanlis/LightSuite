@@ -14,6 +14,7 @@ dpopts   = fullfile(optspath.folder,   optspath.name);
 volume   = readDownStack(dp);
 regopts  = load(dpopts);
 regopts  = regopts.opts;
+regvolsize = size(volume);
 
 % we permute the volume to match atlas
 volume  = permuteBrainVolume(volume, regopts.permute_sample_to_atlas);
@@ -136,7 +137,7 @@ rmdir(invstats.outputDir, 's'); % remove inversion directory
 
 params_pts_to_atlas = struct();
 params_pts_to_atlas.atlasres         = regopts.atlasres;
-params_pts_to_atlas.regvolsize       = regopts.regvolsize;
+params_pts_to_atlas.regvolsize       = regvolsize;
 params_pts_to_atlas.atlassize        = size(tv);
 params_pts_to_atlas.ori_pxsize       = regopts.pxsize;
 params_pts_to_atlas.ori_size         = [regopts.Ny regopts.Nx regopts.Nz];
