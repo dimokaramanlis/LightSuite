@@ -4,9 +4,7 @@
 [![MATLAB](https://img.shields.io/badge/MATLAB-R2022b%2B-blue.svg)](https://www.mathworks.com/products/matlab.html)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**LightSuite** is a MATLAB-based software pipeline for the end-to-end analysis of whole-brain and spinal cord imaging data. Designed to seamlessly process 100GB+ datasets, it bridges the gap between raw experimental image stacks and quantitative, region-specific cell counts and intensities. 
-
-
+**LightSuite** is a MATLAB-based software pipeline for the end-to-end analysis of whole-brain and spinal cord imaging data. Designed to seamlessly process 100GB+ datasets, it bridges the gap between raw experimental image stacks and quantitative data, yielding final cell positions and volumetric intensities mapped directly into standard atlas space.
 
 LightSuite currently supports three main types of data:
 1. **Lightsheet volumes of the mouse brain**
@@ -19,7 +17,9 @@ LightSuite currently supports three main types of data:
 
 * **Three Distinct Modalities**: Dedicated workflows for 3D mouse brain volumes, 3D spinal cord volumes, and 2D coronal slice series.
 * **Robust Anatomical Registration**: Align experimental image volumes to the standardized [Allen Common Coordinate Framework (CCF) v3](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) (2020) and the [Fiederling et al. (2021) spinal cord atlas](https://data.mendeley.com/datasets/4rrggzv5d5/1).
+* **Interactive Registration Refinement**: Unlike many standard pipelines, LightSuite includes a dedicated GUI to manually adjust and fine-tune registrations using corresponding points. This is highly recommended for processing damaged, deformed, or asymmetrical tissue samples.
 * **Automated 3D Cell Counting**: Detects cells by applying a size-based 3D band-pass filter, converting intensities to a signal-to-background ratio, and extracting local maxima to pinpoint cell locations.
+* **Standardized Atlas-Space Outputs**: Exports exact 3D cell positions in atlas space (currently for brain datasets) as well as continuous, atlas-aligned intensity volumes for *every* acquired channel.
 * **Multi-Format Support**: Process multi-color TIFF volumes or single-color 2D TIFF series natively.
 
 ---
@@ -32,8 +32,7 @@ Because LightSuite relies on several toolboxes and external executables, **pleas
 1. **MATLAB >= R2022b** (Requires Computer Vision, Image Processing, Optimization, Parallel Computing, and Statistics/Machine Learning Toolboxes).
 2. **[Elastix 5.1.0](https://github.com/SuperElastix/elastix/releases/tag/5.1.0)** (Must be downloaded and added to your system `PATH`).
 3. **MATLAB Dependencies**: [matlab_elastix](https://github.com/dimokaramanlis/matlab_elastix) and [yamlmatlab](https://github.com/raacampbell/yamlmatlab).
-4. **Atlases**: The Allen CCF (2020) and/or the Fiederling Spinal Cord Atlas must be downloaded and added to your MATLAB path.
-
+4. **Atlases**: The Allen CCF (2020) and/or the Fiederling et al (2021) Spinal Cord Atlas must be downloaded and added to your MATLAB path.
 
 ---
 
@@ -46,14 +45,14 @@ For 3D lightsheet brain data, start with `demos\ls_analyze_lightsheet_volume.m`.
 ![Example bspline registration](./images/example_bspline.PNG)
 
 ### 2. Lightsheet: Spinal Cord
-Spinal cord volumes utilize a similar volumetric workflow but register against the Fiederling et al. (2021) atlas to accommodate the specific geometry of the cord. Start with `demos\ls_analyze_spinal_cord.m`.
+Spinal cord volumes utilize a similar volumetric workflow but register against the Fiederling et al (2021) atlas to accommodate the specific geometry of the cord. Start with `demos\ls_analyze_spinal_cord.m`.
 ![Example spinal cord registration](./images/example_spinal_cord.PNG)
 
 ### 3. Widefield: Coronal Slices
 For slices acquired through conventional widefield microscopy, use `demos\ls_analyze_slice_volume.m`. This pipeline includes registration, though manual adjustments are supported and recommended on a per-slice basis.
 ![Example slice registration](./images/example_slice_registration.png)
 
-*For advanced configuration, parameter tuning (like average cell radius or signal thresholds), and detailed tutorials, please refer to the [LightSuite Documentation](https://lightsuite.readthedocs.io/en/latest/).*
+*For advanced configuration, parameter tuning (like average cell radius or signal thresholds), GUI instructions, and detailed tutorials, please refer to the [LightSuite Documentation](https://lightsuite.readthedocs.io/en/latest/).*
 
 ---
 
