@@ -8,10 +8,10 @@
 
 
 
-LightSuite is specifically built to support three main types of data:
-1. **Light-sheet volumes of the mouse brain**
-2. **Light-sheet volumes of the mouse spinal cord**
-3. **Wide-field coronal slices across the mouse brain**
+LightSuite currently supports three main types of data:
+1. **Lightsheet volumes of the mouse brain**
+2. **Lightsheet volumes of the mouse spinal cord**
+3. **Widefield coronal slices across the mouse brain**
 
 ---
 
@@ -26,7 +26,7 @@ LightSuite is specifically built to support three main types of data:
 
 ## ⚙️ Installation
 
-Because LightSuite relies on several toolboxes and external executables, **please see our [Full Installation Guide](https://lightsuite.readthedocs.io/en/latest/)** for detailed step-by-step instructions. 
+Because LightSuite relies on several toolboxes and external executables, **please see our [installation guide](https://lightsuite.readthedocs.io/en/latest/installation/)** for detailed step-by-step instructions. 
 
 **Quick Requirements Summary:**
 1. **MATLAB >= R2022b** (Requires Computer Vision, Image Processing, Optimization, Parallel Computing, and Statistics/Machine Learning Toolboxes).
@@ -41,15 +41,16 @@ Because LightSuite relies on several toolboxes and external executables, **pleas
 
 Depending on your microscopy data, LightSuite provides distinct entry points:
 
-### 1. Light-sheet: Mouse Brain
-For 3D light-sheet brain data, start with `ls_analyze_lightsheet_volume.m`. This script guides you through data loading, preprocessing, cell detection, and full brain registration.
+### 1. Lightsheet: Mouse Brain
+For 3D lightsheet brain data, start with `demos\ls_analyze_lightsheet_volume.m`. This script guides you through data loading, preprocessing, cell detection, and full brain registration.
 ![Example bspline registration](./images/example_bspline.PNG)
 
-### 2. Light-sheet: Spinal Cord
-Spinal cord volumes utilize a similar volumetric workflow but register against the Fiederling et al. (2021) atlas to accommodate the specific geometry of the cord. *(See docs for specific script execution).*
+### 2. Lightsheet: Spinal Cord
+Spinal cord volumes utilize a similar volumetric workflow but register against the Fiederling et al. (2021) atlas to accommodate the specific geometry of the cord. Start with `demos\ls_analyze_spinal_cord.m`.
+![Example spinal cord registration](./images/example_spinal_cord.PNG)
 
-### 3. Wide-field: Coronal Slices
-For slices acquired through conventional wide-field microscopy, use `ls_analyze_slice_volume.m`. This pipeline includes registration, though manual adjustments are supported and recommended on a per-slice basis.
+### 3. Widefield: Coronal Slices
+For slices acquired through conventional widefield microscopy, use `demos\ls_analyze_slice_volume.m`. This pipeline includes registration, though manual adjustments are supported and recommended on a per-slice basis.
 ![Example slice registration](./images/example_slice_registration.png)
 
 *For advanced configuration, parameter tuning (like average cell radius or signal thresholds), and detailed tutorials, please refer to the [LightSuite Documentation](https://lightsuite.readthedocs.io/en/latest/).*
