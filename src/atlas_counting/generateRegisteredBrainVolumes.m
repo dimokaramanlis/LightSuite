@@ -7,6 +7,7 @@ trstruct   = load(fullfile(savepath, 'transform_params.mat'));
 opts       = load(fullfile(savepath, 'regopts.mat'));
 opts       = opts.opts;
 writetocsv = getOr(opts, 'writetocsv', false);
+saveregvol = getOr(opts, 'saveregisteredvol', false);
 %--------------------------------------------------------------------------
 registerpath = fullfile(savepath, 'volume_registered');
 makeNewDir(registerpath);
@@ -39,9 +40,11 @@ for ichan = 1:opts.Nchans
     fprintf('Channel %d/%d done. Time %2.2f s. \n', ichan, opts.Nchans, toc(savetic));
 end
 %==========================================================================
-fprintf('Saving registered volumes... '); savetic = tic;
-saveLargeSliceVolume(permute(straightvol, [1 2 4 3]), channames, registerpath);
-fprintf('Done! Took %2.2f s. \n', toc(savetic));
+if saveregvol
+    fprintf('Saving registered volumes... '); savetic = tic;
+    saveLargeSliceVolume(permute(straightvol, [1 2 4 3]), channames, registerpath);
+    fprintf('Done! Took %2.2f s. \n', toc(savetic));
+end
 %==========================================================================
 fprintf('Calculating background fluoresence in atlas coords... '); proctic = tic;
 
