@@ -31,14 +31,14 @@ sizesample = [sizetv numel(tforms)];
 Rmoving    = imref3d(sizesample);
 Rfixed     = imref3d(transformparams.atlassize);
 
-straightvol = zeros(transformparams.atlassize, 'uint16');
+straightvol = zeros([transformparams.atlassize Nchannels], 'uint16');
 for ichan = 1:Nchannels
     currvol    = tranformCordImagesSlices(cordvol(:, :, :, ichan), tforms, raout);
     volumereg  = transformix(currvol, bsplineparams,...
     'movingscale',  regopts.registrationres*1e-3);
     straightvol(:, :, :, ichan) = ...
         imwarp(volumereg, Rmoving, affineparams, 'OutputView', Rfixed);
-    fprintf('Channel %d/%d done. Took %2.2f s. \n', ichan, Nchannels, toc(savetic));
+    fprintf('Channel %d/%d done. Time %2.2f s. \n', ichan, Nchannels, toc(savetic));
 end
 %==========================================================================
 % we finally flip along the long axis if needed

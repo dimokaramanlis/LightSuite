@@ -90,6 +90,7 @@ outdir     = fullfile(regopts.lsfolder, 'elastix_inverse_temp');
 invstats   = invertElastixTransformCP( pathbspl, outdir);
 tformpath  = fullfile(regopts.lsfolder, 'bspline_samp_to_atlas_20um.txt');
 elastix_paramStruct2txt(tformpath, invstats.TransformParameters{1});
+rmdir(invstats.outputDir, 's'); % remove inversion directory
 %==========================================================================
 % data saving
 
