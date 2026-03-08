@@ -1,4 +1,4 @@
-function generateRegisteredBrainVolumes(savepath)
+function allmedians = generateRegisteredBrainVolumes(savepath)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
@@ -58,6 +58,7 @@ Ngroups          = numel(areaidx);
 Nforaccum        = max(av, [], 'all') + 1;
 Npxlr            = size(av,3)/2;
 
+allmedians = nan(Ngroups, 2, opts.Nchans, 'single');
 for ichan = 1:opts.Nchans
     medianoverareas  = nan(Ngroups, 2, 'single');
     for iside = 1:2
@@ -82,6 +83,8 @@ for ichan = 1:opts.Nchans
         fsavename      = fullfile(registerpath, sprintf('chan_%d_intensities.csv', ichan));
         writetable(currtable, fsavename)
     end
+
+    allmedians(:, :, ichan) = medianoverareas;
     %--------------------------------------------------------------------------
     fprintf('Channel %d/%d done. Time %2.2f s. \n', ichan, opts.Nchans, toc(proctic));
     %--------------------------------------------------------------------------
