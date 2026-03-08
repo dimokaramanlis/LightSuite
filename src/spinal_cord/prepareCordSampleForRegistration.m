@@ -3,7 +3,7 @@ function regopts = prepareCordSampleForRegistration(cordvol, opts)
 %   Detailed explanation goes here
 %==========================================================================
 fprintf('Loading cord atlas and extracting point clouds... '); tic;
-[tv, av, tvpts, atlasres, segmentinfo] = loadSpinalCordAtlasAndPoints( opts.sampleres);
+[tv, av, tvpts, atlasres, segmentinfo] = loadSpinalCordAtlasAndPoints(opts.registrationres);
 fprintf('Done! Took %2.2f s.\n', toc)
 %--------------------------------------------------------------------------
 iregchan  = opts.regchan;
@@ -94,14 +94,3 @@ save(dpsave, '-struct', 'regopts')
 %--------------------------------------------------------------------------
 end
 
-
-
-% binvol = false(size(regvol));
-% Nslices   = opts.orisize(1);
-% Nbatch    = 4;
-% batchsize = ceil(Nslices/Nbatch);
-% for ibatch = 1:Nbatch
-%     istart = (ibatch-1)*batchsize + 1;
-%     iend   = min(ibatch*batchsize, Nslices);
-%     binvol(istart:iend, :, :) = imbinarize(regvol(istart:iend, :, :));
-% end

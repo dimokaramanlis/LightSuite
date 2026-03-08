@@ -33,8 +33,23 @@ samppts2    = tranformCordPointsSlices(samppts(ikeepori, :), tforms);
 pcdownsamp  = reducePoints(samppts2, Ntargetatlas);
 %==========================================================================
 % move atlas to sample space
-oririgid   = rigidtform3d(eye(3), [0 0 Nslices/2 - size(regopts.tv,3)/2]);
+
+% 1. Define your parameters
+z_scale = Nslices*0.98/size(regopts.tv,3); % Replace 1.5 with how much you want to stretch the z-axis
+z_trans = Nslices/2 - z_scale*size(regopts.tv,3)/2; % Your original translation
+
+% 2. Build the 4x4 affine transformation matrix
+% MATLAB uses a post-multiply convention, so translation goes in the 4th row.
+T = eye(4);
+T(3,3) = z_scale; % Scaling along the 3rd axis (z)
+T(3,4) = z_trans; % Translation along the 3rd axis (z)
+
+% 3. Create the affine transformation object
+oririgid  = affinetform3d(T);
 pcatlasreg = oririgid.transformPointsForward(pcdownatlas);
+
+% oririgid   = rigidtform3d(eye(3), [0 0 Nslices/2 - size(regopts.tv,3)/2]);
+% pcatlasreg = oririgid.transformPointsForward(pcdownatlas);
 %==========================================================================
 % let's fit the initial simiarity transform
 fprintf('Initial similarity transform... '); tic;
@@ -47,21 +62,23 @@ fprintf('Done! Took %2.2f s.\n', toc);
 % figure; hold on;
 % % scatter3(pcatlasreg(:,1), pcatlasreg(:,2), pcatlasreg(:,3), 1,'filled', 'Color','k')
 % % scatter3(pcdownsamp(:,1), pcdownsamp(:,2), pcdownsamp(:,3), 1,'filled', 'Color','r')
-% % 
+% % axis equal;
+% 
 % 
 % scatter3(yreg(:,1), yreg(:,2), yreg(:,3), 1,'filled', 'Color','k')
 % scatter3(pcdownsamp(:,1), pcdownsamp(:,2), pcdownsamp(:,3), 1,'filled', 'Color','r')
 % axis equal;
-
-% cmapcurr = cbrewer('qual','Set1',255);
-% cmapcurr = [0 0 0; cmapcurr];
-% imagesc(squeeze(regopts.av(65,:,:)))
-% axis image off;
-% ax = gca; ax.Colormap = cmapcurr;
 % 
-% % imagesc(squeeze(max(regopts.av,[],1)))
+% % cmapcurr = cbrewer('qual','Set1',255);
+% % cmapcurr = [0 0 0; cmapcurr];
+% % imagesc(squeeze(regopts.av(65,:,:)))
+% % axis image off;
+% % ax = gca; ax.Colormap = cmapcurr;
+% % 
+% % % imagesc(squeeze(max(regopts.av,[],1)))
 %%
-transinit  = affinetform3d(oririgid.A*bfit.A);
+% transinit  = affinetform3d(oririgid.A*bfit.A);
+transinit  = affinetform3d(oririgid.A);
 refsample  = imref3d(size(straightvol));
 refatlas   = imref3d(size(regopts.tv));
 tvtemp     = medfilt3(regopts.tv);

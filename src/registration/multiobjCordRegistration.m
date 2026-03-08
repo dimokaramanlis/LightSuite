@@ -26,7 +26,7 @@ cpaffine      = zeros(0, 3);
 wtforpoints   = 0;
 transaff      = regopts.affine_atlas_to_samp;
 
-if ~isempty(cppath)
+if ~isempty(cppath) & contol_point_wt > 0
     dpcp     = fullfile(cppath.folder,   cppath.name);
     cpdata   = load(dpcp);
     
@@ -40,21 +40,25 @@ if ~isempty(cppath)
     % make sure x is in the correct place
     cptsatlas     = cptsatlas(:, [2 1 3]);
     cptshistology = cptshistology(:, [2 1 3]);
+    cpaffine      = cptsatlas;
 
-    fprintf('Found %d user-defined control points. The affine transform will be refined.\n', size(cptshistology, 1)); 
+    fprintf('Found %d user-defined control points. \n', size(cptshistology, 1)); 
     %-----------------------------------------------------------------------
     % we first refine the affine transform if the user has added points
     
-    atlasuse = imwarp(tvtemp, refatlas, regopts.affine_atlas_to_samp, 'OutputView', refsample);
-    
-    [~,~, tformpath, ~]  = ...
-        performMultObjAffineRegistration(atlasuse, straightvol, 1,...
-        cptsatlas, cptshistology, contol_point_wt, regopts.lsfolder);
-    newtrans = affinetform3d(parse_elastix_tform(tformpath));
-    % transaff = fitAffineTrans3D(cptsatlas, cptshistology);
-    
-    transaff = affinetform3d(regopts.affine_atlas_to_samp.A*newtrans.A);
-    cpaffine = newtrans.transformPointsForward(cptsatlas);
+    % atlasuse = imwarp(tvtemp, refatlas, regopts.affine_atlas_to_samp, 'OutputView', refsample);
+    % [~,~, tformpath, ~]  = ...
+    %     performMultObjAffineRegistration(atlasuse, straightvol, 1,...
+    %     cptsatlas, cptshistology, contol_point_wt, regopts.lsfolder);
+    % 
+    % newtrans = affinetform3d(parse_elastix_tform(tformpath));
+    % transaff = affinetform3d(regopts.affine_atlas_to_samp.A*newtrans.A);
+    % cpaffine = newtrans.transformPointsForward(cptsatlas);
+
+
+    % newtrans = fitAffineTrans3D(cptsatlas, cptshistology);
+    % transaff = affinetform3d(regopts.affine_atlas_to_samp.A*newtrans.A);
+    % cpaffine = newtrans.transformPointsForward(cptsatlas);
     %-----------------------------------------------------------------------
     wtforpoints = contol_point_wt;
     %-----------------------------------------------------------------------
@@ -68,15 +72,11 @@ avaffine = imwarp(regopts.av, refatlas, transaff, 'nearest', 'OutputView', refsa
 % we plot the affine step
 volmax  = single(quantile(straightvol,0.999,'all'));
 volplot = uint8(255*single(straightvol)/volmax);
-
-cf     = plotCordAnnotation(volplot, avaffine);
-print(cf, fullfile( regopts.lsfolder, 'registration_point_affine'), '-dpng')
-close(cf);
 %==========================================================================
 % we perform the b-spline registration
 
 [reg, ~, bspltformpath, pathbspl] = performCordBsplineRegistration(...
-    tvaffine, straightvol, regopts.sampleres*1e-3, ...
+    tvaffine, straightvol, regopts.registrationres*1e-3, ...
     cpaffine, cptshistology, wtforpoints, regopts.lsfolder);
 
 avreg = transformAnnotationVolume(bspltformpath, avaffine, 0.02);
@@ -97,14 +97,15 @@ params_pts_to_atlas = struct();
 params_pts_to_atlas.tform_bspline_samp20um_to_atlas_20um_px = tformpath;
 params_pts_to_atlas.tform_affine_samp20um_to_atlas_20um_px  = transaff.invert;
 params_pts_to_atlas.contol_pt_weight                        = contol_point_wt;
-params_pts_to_atlas.samp_ikeeplong = regopts.ikeeprange;
-params_pts_to_atlas.samp_ikeepx    = regopts.xrange;
-params_pts_to_atlas.samp_ikeepy    = regopts.yrange;
-params_pts_to_atlas.how_to_perm    = regopts.sampleperm;
-params_pts_to_atlas.slicetforms    = regopts.slicetforms;
-params_pts_to_atlas.sampleres      = regopts.sampleres;
-params_pts_to_atlas.tofliprc       = regopts.tofliprc;
-params_pts_to_atlas.atlassize      = size(regopts.tv);
+params_pts_to_atlas.samp_ikeeplong  = regopts.ikeeprange;
+params_pts_to_atlas.samp_ikeepx     = regopts.xrange;
+params_pts_to_atlas.samp_ikeepy     = regopts.yrange;
+params_pts_to_atlas.how_to_perm     = regopts.sampleperm;
+params_pts_to_atlas.slicetforms     = regopts.slicetforms;
+params_pts_to_atlas.sampleres       = regopts.sampleres;
+params_pts_to_atlas.registrationres = regopts.registrationres;
+params_pts_to_atlas.tofliprc        = regopts.tofliprc;
+params_pts_to_atlas.atlassize       = size(regopts.tv);
 
 save(fullfile(regopts.lsfolder, 'transform_params.mat'), '-struct', 'params_pts_to_atlas')
 %==========================================================================
