@@ -168,11 +168,19 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
 
 gui_data.curr_slice = 1;
 
-% Layout (Using panel if available, or subplot fallback could be implemented, 
-% but assuming panel based on Spine code preference)
+% Layout
 gui_data.pp = panel();
-gui_data.pp.pack('h', 2);
-gui_data.pp.margin = [1 1 1 25]; 
+if strcmp(mode, 'spine')
+    gui_data.pp.pack('v', {0.8, 0.2});
+    gui_data.pp(1).pack('h', 2);
+    gui_data.pp(2).pack('v', 2);
+    gui_data.pp.margin = [1 1 1 25]; 
+    gui_data.pp(2).de.margintop = 1;
+    gui_data.pp(2).margintop = 5;
+else
+    gui_data.pp.pack('h', 2);
+    gui_data.pp.margin = [1 1 1 25]; 
+end
 
 % Controls string for Title
 controls_str = ['\bfControls: \rm\leftarrow/\rightarrow: switch slice | ' ...
@@ -184,7 +192,11 @@ gui_data.pp.title(gui_data.base_title);
 gui_data.pp.fontname = 'Arial';
 
 % Histology Axis
-gui_data.histology_ax = gui_data.pp(1).select();
+if strcmp(mode, 'spine')
+    gui_data.histology_ax = gui_data.pp(1,1).select();
+else
+    gui_data.histology_ax = gui_data.pp(1).select();
+end
 gui_data.histology_ax.YDir = 'reverse';
 gui_data.histology_ax.Colormap = gray;
 hold(gui_data.histology_ax, 'on'); axis(gui_data.histology_ax, 'image', 'off');
@@ -207,7 +219,11 @@ gui_data.histology_aligned_atlas_boundaries = ...
     'r.','MarkerSize',3, 'PickableParts','none');
 
 % Atlas Axis
-gui_data.atlas_ax = gui_data.pp(2).select();
+if strcmp(mode, 'spine')
+    gui_data.atlas_ax = gui_data.pp(1,2).select();
+else
+    gui_data.atlas_ax = gui_data.pp(2).select();
+end
 gui_data.atlas_ax.YDir = 'reverse';
 gui_data.atlas_ax.Colormap = gray;
 hold(gui_data.atlas_ax, 'on'); axis(gui_data.atlas_ax, 'image', 'off');
@@ -219,6 +235,42 @@ gui_data.atlas_slice = gui_data.chooselist(gui_data.curr_slice, 1);
 gui_data.atlas_im_h = imagesc(curr_atlas, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
 clim(gui_data.atlas_ax, [0,250]);
+
+% Setup MIP Panels for Spine Mode
+if strcmp(mode, 'spine')
+    gui_data.mip_samp_ax = gui_data.pp(2,1).select();
+    gui_data.mip_atl_ax  = gui_data.pp(2,2).select();
+    
+    % Find projection dimension (assume the longest dimension is the long axis)
+    [~, gui_data.long_dim] = max(size(gui_data.volume));
+    proj_dim = setdiff(1:3, gui_data.long_dim);
+    proj_dim = proj_dim(1); % Pick the first short axis to project across
+    
+    mip_samp = squeeze(max(gui_data.volume, [], proj_dim));
+    mip_atl  = squeeze(max(gui_data.tv, [], proj_dim));
+    
+    % Guarantee long axis is plotted horizontally (X-axis)
+    if size(mip_samp, 2) ~= size(gui_data.volume, gui_data.long_dim)
+        mip_samp = mip_samp';
+        mip_atl = mip_atl';
+    end
+    
+    % Sample MIP Image
+    imagesc(gui_data.mip_samp_ax, mip_samp);
+    axis(gui_data.mip_samp_ax, 'image', 'off');
+    colormap(gui_data.mip_samp_ax, gray);
+    hold(gui_data.mip_samp_ax, 'on');
+    gui_data.line_samp = plot(gui_data.mip_samp_ax, [1 1], [1 size(mip_samp,1)], 'r', 'LineWidth', 2);
+    text(gui_data.mip_samp_ax, 0.01, 0.1, 'Sample Max Projection', 'Units', 'normalized', 'Color', 'r', 'FontWeight', 'bold');
+    
+    % Atlas MIP Image
+    imagesc(gui_data.mip_atl_ax, mip_atl);
+    axis(gui_data.mip_atl_ax, 'image', 'off');
+    colormap(gui_data.mip_atl_ax, gray);
+    hold(gui_data.mip_atl_ax, 'on');
+    gui_data.line_atl = plot(gui_data.mip_atl_ax, [1 1], [1 size(mip_atl,1)], 'b', 'LineWidth', 2);
+    text(gui_data.mip_atl_ax, 0.01, 0.1, 'Atlas Max Projection', 'Units', 'normalized', 'Color', 'b', 'FontWeight', 'bold');
+end
 
 % Initialize Plot/Text placeholders
 gui_data.h_pts_hist = plot(gui_data.histology_ax,nan,nan,'.g','MarkerSize',20);
@@ -486,6 +538,13 @@ function update_slice(gui_fig)
 
     title(gui_data.histology_ax, sprintf('Sample Slice %d', induse), 'FontSize', 12);
     set(gui_data.histology_aligned_atlas_boundaries, 'XData',nan, 'YData',nan);
+    
+    % Update Sample Line (MIP projection)
+    if strcmp(gui_data.mode, 'spine') && isfield(gui_data, 'line_samp')
+        if idim == gui_data.long_dim
+            set(gui_data.line_samp, 'XData', [induse induse]);
+        end
+    end
 
     guidata(gui_fig, gui_data);
     update_markers(gui_data, 'histology');
@@ -507,6 +566,13 @@ function update_atlas_slice(gui_fig)
 
     set(gui_data.atlas_im_h,'CData', curr_atlas);
     gui_data.atlas_ax.Title.String = sprintf("Atlas slice %d/%d", sluse, atlasize(idim));
+    
+    % Update Atlas Line (MIP projection)
+    if strcmp(gui_data.mode, 'spine') && isfield(gui_data, 'line_atl')
+        if idim == gui_data.long_dim
+            set(gui_data.line_atl, 'XData', [sluse sluse]);
+        end
+    end
 
     update_markers(gui_data, 'atlas');
 end
