@@ -13,18 +13,21 @@ opts.savepath   = fullfile(opts.datafolder, 'lightsuite');
 %--------------------------------------------------------------------------
 % some processing options
 opts.tifftype           = 'channelperfile'; % can be planeperfile or channelperfile 
-opts.pxsize             = [8.23 8.23 5]; % voxel size, xy and z, in um
-opts.celldiam           = 14; % approximate cell size in um
+opts.pxsize             = [20 20 20]; % voxel size, xy and z, in um
 opts.atlasres           = 10; % better keep this fixed for highest resolution, in um
 opts.registres          = 20; % resolution to do the nonrigid registration, keep fixed, in um
-opts.debug              = false; % toggle plotting (takes longer) for cell detections
+% cell detection parameters
+opts.debug              = true; % toggle plotting (takes longer) for cell detections
 opts.savecellimages     = false; % toggle saving of individual cell images
-opts.thres_cell_detect  = [0.5 0.4]; % thresholds for detecting cells relative to background
-opts.channelforcells    = 1; % channel to use for cell detection, leave empty ([]) for none
-opts.channelforregister = 1; % channel to use for registration
+opts.celldiam           = 25; % approximate cell size in um
+opts.thres_cell_detect  = [0.5 0.4]; % thresholds for detecting cells relative to background, first should be bigger than second
+opts.channelforcells    = 3; % channel to use for cell detection, leave empty ([]) for none
 opts.writetocsv         = false; % write cells to csv file
+%  registration
+opts.channelforregister = 2; % channel to use for registration
 opts.augmentpoints      = false; % whether to augment user-defined points with automatic ones
 opts.weight_usr_pts     = 0.2;   % set to zero for image-only information
+opts.saveregisteredvol  = false; % whether you want to save the registered volume (takes up space)
 %--------------------------------------------------------------------------
 opts                   = readLightsheetOpts(opts);
 %=========================================================================
@@ -49,3 +52,7 @@ if ~isempty(optsfile)
     opts = opts.opts;
 end
 transform_params   = multiobjRegistration(opts, opts.weight_usr_pts, true);
+
+%% (auto) apply registration to volume
+
+generateRegisteredBrainVolumes(opts.savepath);
