@@ -28,7 +28,8 @@ for ichan = 1:opts.Nchans
     fprintf('Registering %s\n', currfname)
     %--------------------------------------------------------------------------
     backvolume = readDownStack(currfname);
-    volume     = permute(backvolume, trstruct.how_to_perm);
+    volume     = permuteBrainVolume(backvolume, trstruct.how_to_perm);
+
     volumereg  = transformix(volume,trstruct.tform_bspline_samp20um_to_atlas_20um_px,...
         'movingscale', opts.registres*1e-3*[1 1 1]);
     volumereg                   = uint16(abs(volumereg));
@@ -80,7 +81,7 @@ for ichan = 1:opts.Nchans
     allmedians(:, :, ichan) = medianoverareas;
 
     % save as mat file for later processing
-    fmatname  = fullfile(registerpath, sprintf('chan_%d_intensities.mat', ichan));
+    fmatname  = fullfile(registerpath, sprintf('chan%02d_intensities.mat', ichan));
     save(fmatname, 'medianoverareas', 'areaidx')
 
     % save as csv if asked
@@ -88,7 +89,7 @@ for ichan = 1:opts.Nchans
         currtable = array2table([areaidx medianoverareas], ...
             'VariableNames',{'parcellation_index', 'RightSideIntensity', 'LeftSideIntensity'});
         currtable = addvars(currtable, namessub(ib), 'NewVariableNames','name','Before','parcellation_index');
-        fsavename      = fullfile(registerpath, sprintf('chan_%d_intensities.csv', ichan));
+        fsavename      = fullfile(registerpath, sprintf('chan%02d_intensities.csv', ichan));
         writetable(currtable, fsavename)
     end
     %--------------------------------------------------------------------------
