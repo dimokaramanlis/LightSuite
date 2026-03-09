@@ -46,7 +46,7 @@ if saveregvol
     fprintf('Done! Took %2.2f s. \n', toc(savetic));
 end
 %==========================================================================
-fprintf('Calculating background fluoresence in atlas coords... '); proctic = tic;
+fprintf('Calculating background fluoresence in atlas coords...\n'); proctic = tic;
 
 allen_atlas_path = fileparts(which('annotation_10.nii.gz'));
 av               = niftiread(fullfile(allen_atlas_path, 'annotation_10.nii.gz'));
@@ -60,6 +60,7 @@ Npxlr            = size(av,3)/2;
 
 allmedians = nan(Ngroups, 2, opts.Nchans, 'single');
 for ichan = 1:opts.Nchans
+
     medianoverareas  = nan(Ngroups, 2, 'single');
     for iside = 1:2
         istart = (iside - 1) * Npxlr + 1;
@@ -70,12 +71,19 @@ for ichan = 1:opts.Nchans
         ikeep     = sideav>0;
         medareas  = single(accumarray(sideav(ikeep)+1, sidevals(ikeep), [Nforaccum 1], @median));
         medareas  = medareas(areaidx+1);
-        backlevel  = single(median(sidevals(~ikeep)));
-        medareas(areaidx == 0) = backlevel;
+        % get index 0 level for background
+        backlevel                 = single(median(sidevals(~ikeep)));
+        medareas(areaidx == 0)    = backlevel;
         medianoverareas(:, iside) = medareas;
     end
 
-   
+    allmedians(:, :, ichan) = medianoverareas;
+
+    % save as mat file for later processing
+    fmatname  = fullfile(registerpath, sprintf('chan_%d_intensities.mat', ichan));
+    save(fmatname, 'medianoverareas', 'areaidx')
+
+    % save as csv if asked
     if writetocsv
         currtable = array2table([areaidx medianoverareas], ...
             'VariableNames',{'parcellation_index', 'RightSideIntensity', 'LeftSideIntensity'});
@@ -83,13 +91,9 @@ for ichan = 1:opts.Nchans
         fsavename      = fullfile(registerpath, sprintf('chan_%d_intensities.csv', ichan));
         writetable(currtable, fsavename)
     end
-
-    allmedians(:, :, ichan) = medianoverareas;
     %--------------------------------------------------------------------------
     fprintf('Channel %d/%d done. Time %2.2f s. \n', ichan, opts.Nchans, toc(proctic));
     %--------------------------------------------------------------------------
 end
-
-
 %==========================================================================
 end
