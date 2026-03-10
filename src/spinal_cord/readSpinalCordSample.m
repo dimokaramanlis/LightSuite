@@ -28,12 +28,6 @@ fprintf('Parsed spinal cord sample in %2.1f s. Size %d x %d x %d with %d channel
     toc, Nslices, Ny, Nx, Nchan)
 %--------------------------------------------------------------------------
 targetres = [20 20 20];
-resfac = sampleres./targetres;
-finvoluse = zeros([ceil(resfac.*size(finvol,1:3)) Nchan],'uint16');
-for ii = 1:Nchan
-    finvoluse(:, :, :, ii) = imresize3(finvol(:, :, :, ii), 'Scale', resfac);
-end
-finvol = finvoluse;
 %--------------------------------------------------------------------------
 opts.datafolder     = tfiles(1).folder;
 opts.lsfolder       = fullfile(opts.datafolder, 'lightsuite');

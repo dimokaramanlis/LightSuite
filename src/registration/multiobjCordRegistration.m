@@ -56,9 +56,9 @@ if ~isempty(cppath) & contol_point_wt > 0
     % cpaffine = newtrans.transformPointsForward(cptsatlas);
 
 
-    % newtrans = fitAffineTrans3D(cptsatlas, cptshistology);
-    % transaff = affinetform3d(regopts.affine_atlas_to_samp.A*newtrans.A);
-    % cpaffine = newtrans.transformPointsForward(cptsatlas);
+    atlasori = regopts.affine_atlas_to_samp.transformPointsInverse(cptsatlas);
+    transaff = fitAffineTrans3D(atlasori, cptshistology);
+    cpaffine = transaff.transformPointsForward(atlasori);
     %-----------------------------------------------------------------------
     wtforpoints = contol_point_wt;
     %-----------------------------------------------------------------------

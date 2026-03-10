@@ -52,32 +52,14 @@ pcatlasreg = oririgid.transformPointsForward(pcdownatlas);
 % pcatlasreg = oririgid.transformPointsForward(pcdownatlas);
 %==========================================================================
 % let's fit the initial simiarity transform
-fprintf('Initial similarity transform... '); tic;
-[yreg,bfit] = pcregisterBCPD(pcatlasreg, pcdownsamp, 'TransformType','Similarity',...
-    'BCPDPath', regopts.bcpdpath, 'OutlierRatio', 0.01, ...
-    NormalizeCommon = true, Beta = 15, Verbose = false, ConvergenceTolerance=1e-8);
-fprintf('Done! Took %2.2f s.\n', toc);
-%==========================================================================
-% %%
-% figure; hold on;
-% % scatter3(pcatlasreg(:,1), pcatlasreg(:,2), pcatlasreg(:,3), 1,'filled', 'Color','k')
-% % scatter3(pcdownsamp(:,1), pcdownsamp(:,2), pcdownsamp(:,3), 1,'filled', 'Color','r')
-% % axis equal;
-% 
-% 
-% scatter3(yreg(:,1), yreg(:,2), yreg(:,3), 1,'filled', 'Color','k')
-% scatter3(pcdownsamp(:,1), pcdownsamp(:,2), pcdownsamp(:,3), 1,'filled', 'Color','r')
-% axis equal;
-% 
-% % cmapcurr = cbrewer('qual','Set1',255);
-% % cmapcurr = [0 0 0; cmapcurr];
-% % imagesc(squeeze(regopts.av(65,:,:)))
-% % axis image off;
-% % ax = gca; ax.Colormap = cmapcurr;
-% % 
-% % % imagesc(squeeze(max(regopts.av,[],1)))
-%%
+% fprintf('Initial similarity transform... '); tic;
+% [yreg,bfit] = pcregisterBCPD(pcatlasreg, pcdownsamp, 'TransformType','Similarity',...
+%     'BCPDPath', regopts.bcpdpath, 'OutlierRatio', 0.01, ...
+%     NormalizeCommon = true, Beta = 15, Verbose = false, ConvergenceTolerance=1e-8);
+% fprintf('Done! Took %2.2f s.\n', toc);
 % transinit  = affinetform3d(oririgid.A*bfit.A);
+%==========================================================================
+%%
 transinit  = affinetform3d(oririgid.A);
 refsample  = imref3d(size(straightvol));
 refatlas   = imref3d(size(regopts.tv));

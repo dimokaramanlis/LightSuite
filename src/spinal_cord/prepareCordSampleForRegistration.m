@@ -1,6 +1,16 @@
 function regopts = prepareCordSampleForRegistration(cordvol, opts)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
+%=========================================================================
+fprintf('Adjusting sample to target resolution for registration... '); tic;
+resfac = opts.sampleres./opts.registrationres;
+finvoluse = zeros([ceil(resfac.*size(cordvol,1:3)) opts.Nchan],'uint16');
+for ii = 1:opts.Nchan
+    finvoluse(:, :, :, ii) = imresize3(cordvol(:, :, :, ii), 'Scale', resfac);
+end
+cordvol = finvoluse;
+opts.regvolsize = size(finvoluse);
+fprintf('Done! Took %2.2f s.\n', toc)
 %==========================================================================
 fprintf('Loading cord atlas and extracting point clouds... '); tic;
 [tv, av, tvpts, atlasres, segmentinfo] = loadSpinalCordAtlasAndPoints(opts.registrationres);
@@ -14,7 +24,7 @@ assert(iregchan<=opts.Nchan , 'Your registration channel is out of range');
 %--------------------------------------------------------------------------
 % we assume the long dimension is first
 regvol           = cordvol(:, :, :, iregchan);
-[~, im]          = max(opts.orisize);
+[~, im]          = max(opts.regvolsize);
 axperm           = setdiff(1:3, im);
 opts.sampleperm  = [axperm im];
 regvol           = permute(regvol, opts.sampleperm);

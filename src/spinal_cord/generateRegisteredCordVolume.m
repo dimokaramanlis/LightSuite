@@ -5,6 +5,20 @@ function straightvol = generateRegisteredCordVolume(regopts, transformparams)
 cordvol   = readSpinalCordSample(regopts.datafolder, regopts.sampleres);
 Nchannels = size(cordvol, 4);
 %==========================================================================
+% scalefac = regopts.registrationres./regopts.sampleres;
+% scalefac  = scalefac(howtoperm(1:3));
+% yrange    = yrange*scalefac(1);
+% xrange    = xrange*scalefac(2);
+% zrange    = zrange*scalefac(3);
+% 
+
+resfac = regopts.sampleres./regopts.registrationres;
+finvoluse = zeros([ceil(resfac.*size(cordvol,1:3)) Nchannels],'uint16');
+for ii = 1:Nchannels
+    finvoluse(:, :, :, ii) = imresize3(cordvol(:, :, :, ii), 'Scale', resfac);
+end
+cordvol = finvoluse;
+%==========================================================================
 channames = cell(Nchannels, 1);
 if isfield(regopts, 'channames')
     channames = regopts.channames;
@@ -15,8 +29,8 @@ howtoperm = [transformparams.how_to_perm 4];
 yrange    = transformparams.samp_ikeepy;
 xrange    = transformparams.samp_ikeepx;
 zrange    = transformparams.samp_ikeeplong;
-
 cordvol   = permute(cordvol, howtoperm);
+
 cordvol   = cordvol(yrange(1):yrange(2), xrange(1):xrange(2), zrange(1):zrange(2), :);
 %==========================================================================
 fprintf('Applying transforms... \n'); savetic = tic;
