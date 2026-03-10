@@ -49,9 +49,11 @@ end
 %==========================================================================
 fprintf('Calculating background fluoresence in atlas coords...\n'); proctic = tic;
 
-allen_atlas_path = fileparts(which('annotation_10.nii.gz'));
-av               = niftiread(fullfile(allen_atlas_path, 'annotation_10.nii.gz'));
-parcelinfo       = readtable(fullfile(allen_atlas_path, 'parcellation_to_parcellation_term_membership.csv'));
+allen_atlas_path        = fileparts(which('annotation_10.nii.gz'));
+av                      = niftiread(fullfile(allen_atlas_path, 'annotation_10.nii.gz'));
+allen_atlas_parcel_path = fileparts(which('parcellation_to_parcellation_term_membership.csv'));
+
+parcelinfo       = readtable(fullfile(allen_atlas_parcel_path, 'parcellation_to_parcellation_term_membership.csv'));
 substridx        = contains(parcelinfo.parcellation_term_set_name, 'substructure');
 [areaidx, ib]    = unique(parcelinfo.parcellation_index(substridx));
 namessub         = parcelinfo.parcellation_term_name(substridx);
