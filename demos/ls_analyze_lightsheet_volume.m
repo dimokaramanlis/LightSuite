@@ -5,7 +5,7 @@ opts = struct();
 % for naming
 opts.mousename  = 'DK001'; 
 % change for the folder that contains stitched tiff files
-opts.datafolder      = 'D:\DATA\DK001'; 
+opts.datafolder = 'D:\DATA\DK001'; 
 opts.fproc      = fullfile('C:\DATA_sorted'); % where the processed volume is saved as a binary (fast SSD, at
 % least 500 GB), will be deleted
 % path to save results
@@ -25,9 +25,6 @@ opts.channelforcells    = 3; % channel to use for cell detection, leave empty ([
 opts.writetocsv         = false; % write cells to csv file
 %  registration
 opts.channelforregister = 2; % channel to use for registration
-opts.augmentpoints      = false; % whether to augment user-defined points with automatic ones
-opts.weight_usr_pts     = 0.2;   % set to zero for image-only information
-opts.saveregisteredvol  = false; % whether you want to save the registered volume (takes up space)
 %--------------------------------------------------------------------------
 opts                   = readLightsheetOpts(opts);
 %=========================================================================
@@ -51,8 +48,11 @@ if ~isempty(optsfile)
     opts = load(fullfile(optsfile.folder, optsfile.name));
     opts = opts.opts;
 end
-transform_params   = multiobjRegistration(opts, opts.weight_usr_pts, true);
+% options for registration
+opts.augmentpoints      = false; % whether to augment user-defined points with automatic ones
+opts.weight_usr_pts     = 0.2;   % weight of user-defined points for atlas fitting, set to zero for image-only information
+transform_params        = multiobjRegistration(opts, opts.weight_usr_pts, true);
 
 %% (auto) apply registration to volume
-
+opts.saveregisteredvol  = false; % whether you want to save the registered volume (takes up space)
 generateRegisteredBrainVolumes(opts.savepath);
