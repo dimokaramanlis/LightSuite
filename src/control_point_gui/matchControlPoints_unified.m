@@ -593,10 +593,13 @@ function align_ccf_to_histology(gui_fig)
 
     Nmin = 16;
     % Extract points (cols 1-3, ignore timestamp)
-    cptsatlas = cat(1, gui_data.atlas_control_points{:});
+    np1           = cellfun(@(x) size(x,1),gui_data.atlas_control_points);
+    np2           = cellfun(@(x) size(x,1),gui_data.histology_control_points);
+    ikeep         = np1==np2 & np1>0;
+    cptsatlas     = cat(1, gui_data.atlas_control_points{ikeep});
+    cptshistology = cat(1, gui_data.histology_control_points{ikeep});
+
     if ~isempty(cptsatlas), cptsatlas = cptsatlas(:, 1:3); end
-    
-    cptshistology = cat(1, gui_data.histology_control_points{:});
     if ~isempty(cptshistology), cptshistology = cptshistology(:, 1:3); end
     
     % Rearrange dimensions [2 1 3] for transform
