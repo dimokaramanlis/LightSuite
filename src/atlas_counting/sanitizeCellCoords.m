@@ -1,4 +1,4 @@
-function finalpts = sanitizeCellCoords(cellcoords, annvol, varargin)
+function [finalpts, badpts] = sanitizeCellCoords(cellcoords, annvol, varargin)
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
@@ -25,6 +25,7 @@ irem     = annvol(indcells) == 0;
 finalpts(irem, :) = [];
 igood(irem)       = [];
 %--------------------------------------------------------------------------
+badpts   = finalpts(~igood, :);
 finalpts = finalpts(igood, :);
 fprintf('Retained %2.2f%% of detected cells in the brain\n', mean(igood)*100)
 %--------------------------------------------------------------------------

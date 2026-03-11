@@ -40,7 +40,7 @@ for ii = 1:Nshow
     % av_warp_boundaries = gradient(atlasim)~=0 & (atlasim > 1);
     % [row,col] = ind2sub(size(atlasim), find(av_warp_boundaries));
 
-     av_warp_boundaries = round(conv2(atlasim,ones(3)./9,'same')) ~= atlasim;
+    av_warp_boundaries = round(conv2(atlasim,ones(3)./9,'same')) ~= atlasim;
     [row,col] = ind2sub(size(atlasim), find(av_warp_boundaries));
   
     image(histim); ax = gca; ax.Visible = 'off';axis equal; axis tight;

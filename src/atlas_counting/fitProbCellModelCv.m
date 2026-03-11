@@ -21,12 +21,12 @@ for ifold = 1:Ndata
     ytrain = yy(cout.training(ifold), :);
     Xtest  = XX(cout.test(ifold), :);
     % ytest  = yy(cout.test(ifold), :);
-    Xtrain = [ones(size(Xtrain, 1), 1) Xtrain];
-    Xtest  = [ones(size(Xtest, 1), 1) Xtest];
+    Xtrainuse = [ones(size(Xtrain, 1), 1) Xtrain];
+    Xtestuse  = [ones(size(Xtest, 1), 1)  Xtest];
 
 
-    pfit = nbreg(Xtrain, ytrain, 'regularization',1e-4);
-    allpreds(cout.test(ifold)) = nbvals(pfit, Xtest);
+    pfit = nbreg(Xtrainuse, ytrain, 'regularization',1e-4);
+    allpreds(cout.test(ifold)) = nbvals(pfit, Xtestuse);
     thetaall(ifold) = pfit.alpha;
     % train
     % pfit = glmfit(Xtrain, ytrain, 'poisson','Options',opts);

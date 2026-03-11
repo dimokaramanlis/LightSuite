@@ -32,7 +32,7 @@ targetres = [20 20 20];
 opts.datafolder     = tfiles(1).folder;
 opts.lsfolder       = fullfile(opts.datafolder, 'lightsuite');
 makeNewDir(opts.lsfolder)
-opts.orisize         = [Nslices, size(finvol,2), size(finvol, 3)];
+opts.orisize         = [Nslices, Ny, Nx];
 opts.Nchan           = Nchan;
 opts.sampleres       = sampleres;
 opts.registrationres = targetres;

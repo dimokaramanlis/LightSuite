@@ -15,6 +15,7 @@ refatlas  = imref3d(size(regopts.tv));
 straightvol = regopts.straightvol;
 refsample   = imref3d(size(straightvol));
 tvtemp      = medfilt3(regopts.tv);
+usepointaff = false;
 
 % we permute the volume to match atlas
 fprintf('Done! Took %2.2f s\n', toc);
@@ -55,10 +56,12 @@ if ~isempty(cppath) & contol_point_wt > 0
     % transaff = affinetform3d(regopts.affine_atlas_to_samp.A*newtrans.A);
     % cpaffine = newtrans.transformPointsForward(cptsatlas);
 
-
-    atlasori = regopts.affine_atlas_to_samp.transformPointsInverse(cptsatlas);
-    transaff = fitAffineTrans3D(atlasori, cptshistology);
-    cpaffine = transaff.transformPointsForward(atlasori);
+    if size(cptshistology, 1) > 16
+        atlasori = regopts.affine_atlas_to_samp.transformPointsInverse(cptsatlas);
+        transaff = fitAffineTrans3D(atlasori, cptshistology);
+        cpaffine = transaff.transformPointsForward(atlasori);
+        usepointaff = true;
+    end
     %-----------------------------------------------------------------------
     wtforpoints = contol_point_wt;
     %-----------------------------------------------------------------------
@@ -72,6 +75,13 @@ avaffine = imwarp(regopts.av, refatlas, transaff, 'nearest', 'OutputView', refsa
 % we plot the affine step
 volmax  = single(quantile(straightvol,0.999,'all'));
 volplot = uint8(255*single(straightvol)/volmax);
+
+if usepointaff
+    cf     = plotCordAnnotation(volplot, avaffine);
+    print(cf, fullfile( regopts.lsfolder, 'registration_point_affine'), '-dpng')
+    close(cf);
+
+end
 %==========================================================================
 % we perform the b-spline registration
 

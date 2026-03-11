@@ -76,7 +76,7 @@ print(cf, fullfile( regopts.lsfolder, 'registration_initial_similarity'), '-dpng
 close(cf);
 %==========================================================================
 % perform affine registration using image information
-%%
+%
 [~, ~, tformpath, ~] = performElastixAffineRegistration(atlasuse,straightvol, 1, regopts.lsfolder);
 newtrans = affinetform3d(parse_elastix_tform(tformpath));
 
