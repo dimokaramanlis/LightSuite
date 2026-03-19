@@ -101,23 +101,16 @@ for idim = 1:3
     close(cf);
 end
 %==========================================================================
-%%
 % we perform the b-spline registration
+optsreg.usemultistep          = usemultistep;
+optsreg.cpwt                  = contol_point_wt;
+optsreg.bspline_spatial_scale = getOr(opts, 'bspline_spatial_scale', 0.64);
 
-% tvaffine = single(tvaffine);
-% tvaffine = tvaffine/quantile(tvaffine,0.999,'all');
-% tvaffine = uint8(255 * tvaffine);
-% 
-% volume = single(volume);
-% volume = volume/quantile(volume,0.999,'all');
-% volume = uint16((2^16-1) * volume);%volume = uint8(255 * volume); %
-%%
 [reg, ~, bspltformpath, pathbspl] = performMultObjBsplineRegistration(tvaffine, volume, opts.registres*1e-3, ...
-    cpaffine, cptshistology, contol_point_wt, usemultistep, regopts.savepath);
+    cpaffine, cptshistology, regopts.savepath, optsreg);
 
 avreg = transformAnnotationVolume(bspltformpath, avaffine, opts.registres*1e-3);
 %==========================================================================
-
 % we plot the b-spline step
 for idim = 1:3
     cf = plotAnnotationComparison(voltoshow, single(avreg), idim);
@@ -134,7 +127,6 @@ elastix_paramStruct2txt(tformpath, invstats.TransformParameters{1});
 rmdir(invstats.outputDir, 's'); % remove inversion directory
 %==========================================================================
 % data saving
-
 params_pts_to_atlas = struct();
 params_pts_to_atlas.atlasres         = regopts.atlasres;
 params_pts_to_atlas.regvolsize       = regvolsize;
@@ -151,22 +143,3 @@ params_pts_to_atlas.use_multistep    = usemultistep;
 save(fullfile(opts.savepath, 'transform_params.mat'), '-struct', 'params_pts_to_atlas')
 %==========================================================================
 end
-
-
-% viewerUnregistered = viewer3d(BackgroundColor="black",BackgroundGradient="off");
-% volshow(volume,Parent=viewerUnregistered,RenderingStyle="Isosurface", ...
-%     Colormap=[1 0 1],Alphamap=1);
-% volshow(tvaffine,Parent=viewerUnregistered,RenderingStyle="Isosurface", ...
-%     Colormap=[0 1 0],Alphamap=1);
-% %
-%%
-
-%==========================================================================
-% transfile = dir(fullfile(pathout, 'TransformParameters*.txt'));
-% regpoints = transformix(cpaffine*0.02,fullfile(transfile.folder, transfile.name));
-% msecurr   = mean(sqrt(sum((regpoints.OutputPoint - cptshistology*0.02).^2,2)));
-% mseaffine = mean(sqrt(sum((cpaffine*0.02 - cptshistology*0.02).^2,2)));
-% 
-% fprintf('Control point distance is %d um\n', round(msecurr*1e3))
-% voltoshow = uint8(255*single(volume)/180);
-% plotSliceComparison(voltoshow, reg, 1)

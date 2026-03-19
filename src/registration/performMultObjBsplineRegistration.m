@@ -1,7 +1,14 @@
 function [regimg,tform_bspline, tformpath, pathtemp] = performMultObjBsplineRegistration(movingvol,fixedvol,...
-    volscale, movingpts, fixedpts, cpwt, usemultistep, savepath)
+    volscale, movingpts, fixedpts, savepath, optsreg)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
+%==========================================================================
+usemultistep = getOr(optsreg, 'usemultistep', true);
+bspscale     = getOr(optsreg, 'bspline_spatial_scale', 0.64);
+cpwt         = getOr(optsreg, 'cpwt', 0.2);
+if isempty(movingpts) | isempty(fixedpts)
+	cpwt = 0;
+end
 %==========================================================================
 addElastixRepoPaths;
 params = struct();
@@ -33,7 +40,7 @@ params.NumberOfSpatialSamples          = 5000;%[1000 1000 2000 2000];% [2000 250
 params.Metric1Weight                   = cpwt; %cpwt;%[1  0.5 0.25 0.125] * cpwt; %
 params.Metric0Weight                   = 1.0;
 params.ImagePyramidSchedule            = [8*ones(1,3) 4*ones(1,3) 2*ones(1,3) 1*ones(1,3)];
-params.FinalGridSpacingInPhysicalUnits = 0.64*ones(1,3);
+params.FinalGridSpacingInPhysicalUnits = bspscale*ones(1,3);
 if usemultistep
     % for quite damaged brains
     params.SampleRegionSize            = [4.5*ones(1,3) 4*ones(1,3) 3*ones(1,3) 2*ones(1,3)];

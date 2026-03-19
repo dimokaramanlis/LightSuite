@@ -49,10 +49,11 @@ if ~isempty(optsfile)
     opts = opts.opts;
 end
 % options for registration
-opts.augmentpoints      = false; % whether to augment user-defined points with automatic ones
-opts.weight_usr_pts     = 0.2;   % weight of user-defined points for atlas fitting, set to zero for image-only information
-transform_params        = multiobjRegistration(opts, opts.weight_usr_pts, true);
+opts.augmentpoints         = false; % whether to augment user-defined points with automatic ones
+opts.weight_usr_pts        = 0.2;   % weight of user-defined points for atlas fitting, set to zero for image-only information
+opts.bspline_spatial_scale = 0.64;  % in mm, how much you allow the bspline to bend (smaller is higher, but more prone to noise)
+transform_params           = multiobjRegistration(opts, opts.weight_usr_pts, true);
 
 %% (auto) apply registration to volume
-opts.saveregisteredvol  = false; % whether you want to save the registered volume (takes up space)
+opts.saveregisteredvol     = false; % whether you want to save the registered volume (takes up space)
 generateRegisteredBrainVolumes(opts.savepath);
