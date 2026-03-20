@@ -2,19 +2,7 @@ function [medianoverareas, areaidx] = backVolumeToAtlas(inputvol, trstruct)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
-% at first, points should be resampled to the registration resolution
-
-% we permute the volume to match atlas
-volume  = permute(inputvol, trstruct.how_to_perm);
-%--------------------------------------------------------------------------
-volumereg = transformix(volume,trstruct.tform_bspline_samp20um_to_atlas_20um_px,...
-    'movingscale', 0.02*[1 1 1]);
-%--------------------------------------------------------------------------
-volumereg          = uint16(abs(volumereg));
-Rmoving            = imref3d(size(volumereg));
-Rfixed             = imref3d(trstruct.atlassize);
-registeredvolume   = imwarp(volumereg, Rmoving, trstruct.tform_affine_samp20um_to_atlas_10um_px,...
-    'OutputView',Rfixed);
+registeredvolume = atlasSpaceFromVolumeParams(inputvol, trstruct);
 %--------------------------------------------------------------------------
 % we reduce the signal to atlas areas
 fprintf('Calculating background fluoresence in atlas coords... '); tic;
@@ -24,9 +12,6 @@ av               = niftiread(fullfile(allen_atlas_path, 'annotation_10.nii.gz'))
 parcelinfo       = readtable(fullfile(allen_atlas_path, 'parcellation_to_parcellation_term_membership.csv'));
 areaidx          = unique(parcelinfo.parcellation_index);
 Ngroups          = numel(areaidx);
-
-% tv = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
-
 Nforaccum        = max(av, [], 'all') + 1;
 
 Npxlr            = size(av,3)/2;
