@@ -1,16 +1,69 @@
-function allmedians = generateRegisteredBrainVolumes(savepath)
-%UNTITLED3 Summary of this function goes here
-%   Detailed explanation goes here
+function allmedians = generateRegisteredBrainVolumes(savepath, varargin)
+%GENERATEREGISTEREDBRAINVOLUMES Registers brain volumes and calculates intensities.
+%
+%   ALLMEDIANS = GENERATEREGISTEREDBRAINVOLUMES(SAVEPATH) loads transformation 
+%   parameters and options from SAVEPATH, applies the registration to the 
+%   volumes, and calculates the background fluorescence in atlas coordinates.
+%
+%   ALLMEDIANS = GENERATEREGISTEREDBRAINVOLUMES(..., 'writetocsv', VAL) 
+%   specifies whether to write the parcellation intensities to a CSV file.
+%
+%   ALLMEDIANS = GENERATEREGISTEREDBRAINVOLUMES(..., 'saveregisteredvolume', VAL) 
+%   specifies whether to save the registered volumes to disk.
+%
+%   Inputs:
+%       savepath             - (char/string) Directory containing the volume 
+%                              files, 'transform_params.mat', and 'regopts.mat'.
+%
+%   Optional Name-Value Parameters:
+%       writetocsv           - (logical) If true, writes intensity data to CSV. 
+%                              [Defaults to opts.writetocsv or false]
+%       saveregisteredvolume - (logical) If true, saves the registered volume 
+%                              stack. [Defaults to opts.saveregisteredvol or false]
+%
+%   Outputs:
+%       allmedians           - (single) Ngroups x 2 x Nchans array containing 
+%                              median intensities over brain areas.
 %--------------------------------------------------------------------------
-% we find useful files
+% 1. Load configuration and transforms
+%--------------------------------------------------------------------------
 trstruct   = load(fullfile(savepath, 'transform_params.mat'));
-opts       = load(fullfile(savepath, 'regopts.mat'));
-opts       = opts.opts;
-writetocsv = getOr(opts, 'writetocsv', false);
-saveregvol = getOr(opts, 'saveregisteredvol', false);
+loadedOpts = load(fullfile(savepath, 'regopts.mat'));
+opts       = loadedOpts.opts;
+%--------------------------------------------------------------------------
+% 2. Parse Inputs and establish defaults
+%--------------------------------------------------------------------------
+% Determine defaults from the loaded opts structure, falling back to false
+if isfield(opts, 'writetocsv')
+    defaultWriteCsv = opts.writetocsv;
+else
+    defaultWriteCsv = false;
+end
+
+if isfield(opts, 'saveregisteredvol')
+    defaultSaveVol  = opts.saveregisteredvol;
+else
+    defaultSaveVol  = false;
+end
+
+% Set up the input parser
+p = inputParser;
+addRequired(p, 'savepath', @(x) ischar(x) || isstring(x));
+addParameter(p, 'writetocsv', defaultWriteCsv, @(x) islogical(x) || isscalar(x));
+addParameter(p, 'saveregisteredvolume', defaultSaveVol, @(x) islogical(x) || isscalar(x));
+
+% Parse the arguments passed to the function
+parse(p, savepath, varargin{:});
+
+% Assign the final parsed variables for the rest of the script
+writetocsv = p.Results.writetocsv;
+saveregvol = p.Results.saveregisteredvolume;
+%--------------------------------------------------------------------------
+% 3. Initialize paths and channel names
 %--------------------------------------------------------------------------
 registerpath = fullfile(savepath, 'volume_registered');
 makeNewDir(registerpath);
+
 channames = cell(opts.Nchans, 1);
 if isfield(opts, 'channames')
     channames = opts.channames;

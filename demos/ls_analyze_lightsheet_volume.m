@@ -55,5 +55,6 @@ opts.bspline_spatial_scale = 0.64;  % in mm, how much you allow the bspline to b
 transform_params           = multiobjRegistration(opts, opts.weight_usr_pts, true);
 
 %% (auto) apply registration to volume
-opts.saveregisteredvol     = false; % whether you want to save the registered volume (takes up space)
-generateRegisteredBrainVolumes(opts.savepath);
+% change function arguments if you want to skip saving
+generateRegisteredBrainVolumes(opts.savepath, ...
+    'writetocsv', true, 'saveregisteredvolume', true);
