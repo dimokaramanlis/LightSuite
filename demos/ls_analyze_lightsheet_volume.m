@@ -57,4 +57,10 @@ transform_params           = multiobjRegistration(opts, opts.weight_usr_pts, tru
 %% (auto) apply registration to volume
 % change function arguments if you want to skip saving
 generateRegisteredBrainVolumes(opts.savepath, ...
-    'writetocsv', true, 'saveregisteredvolume', true);
+    'writetocsv', true, 'saveregisteredvolume', false);
+
+%% (auto) apply registration to cell detections
+% you can also run this function with a cell matrix of detections
+% calculated outside LightSuite, as long as the transform parameters are
+% provided as an argument
+transformPointsToAtlas(opts.savepath, 'writetocsv', true);
