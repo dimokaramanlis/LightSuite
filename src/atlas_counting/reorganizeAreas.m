@@ -68,7 +68,8 @@ resout.signal   = sigout(ikeep, :);
 resout.names    = nameout(ikeep, :);
 resout.indices  = indsout(ikeep, :);
 % smatnew    = smat(ikeep, :);
-
+colsall = [parcelout.red parcelout.green parcelout.blue]/255;
+resout.cols     = colsall(ikeep, :);
 %--------------------------------------------------------------------------
 % areaids   = sorg(toindex);
 % [unids, ~, ic] = unique(areaids);
