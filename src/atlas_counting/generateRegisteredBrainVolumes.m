@@ -23,7 +23,8 @@ function allmedians = generateRegisteredBrainVolumes(savepath, varargin)
 %
 %   Outputs:
 %       allmedians           - (single) Ngroups x 2 x Nchans array containing 
-%                              median intensities over brain areas.
+%                              median intensities over brain areas and
+%                              hemispheres.
 %--------------------------------------------------------------------------
 % 1. Load configuration and transforms
 %--------------------------------------------------------------------------
@@ -107,9 +108,16 @@ av                      = niftiread(fullfile(allen_atlas_path, 'annotation_10.ni
 allen_atlas_parcel_path = fileparts(which('parcellation_to_parcellation_term_membership.csv'));
 
 parcelinfo       = readtable(fullfile(allen_atlas_parcel_path, 'parcellation_to_parcellation_term_membership.csv'));
-substridx        = contains(parcelinfo.parcellation_term_set_name, 'substructure');
+substridx        = strcmp(parcelinfo.parcellation_term_set_name, 'substructure');
 [areaidx, ib]    = unique(parcelinfo.parcellation_index(substridx));
 namessub         = parcelinfo.parcellation_term_name(substridx);
+stridx           = strcmp(parcelinfo.parcellation_term_set_name, 'structure');
+[~, ibstr]       = unique(parcelinfo.parcellation_index(stridx));
+namesstruct      = parcelinfo.parcellation_term_name(stridx);
+dividx           = strcmp(parcelinfo.parcellation_term_set_name, 'division');
+[~, ibdiv]       = unique(parcelinfo.parcellation_index(dividx));
+namesdiv         = parcelinfo.parcellation_term_name(dividx);
+
 Ngroups          = numel(areaidx);
 Nforaccum        = max(av, [], 'all') + 1;
 Npxlr            = size(av,3)/2;
@@ -118,6 +126,7 @@ allmedians = nan(Ngroups, 2, opts.Nchans, 'single');
 for ichan = 1:opts.Nchans
 
     medianoverareas  = nan(Ngroups, 2, 'single');
+    volumeoverareas  = nan(Ngroups, 2, 'single');
     for iside = 1:2
         istart = (iside - 1) * Npxlr + 1;
         iend   = istart + Npxlr - 1;
@@ -127,6 +136,11 @@ for ichan = 1:opts.Nchans
         ikeep     = sideav>0;
         medareas  = single(accumarray(sideav(ikeep)+1, sidevals(ikeep), [Nforaccum 1], @median));
         medareas  = medareas(areaidx+1);
+
+        volareas  = accumarray(sideav+1, 1, [Nforaccum 1], @sum);
+        volareas  = volareas(areaidx+1);
+        volumeoverareas(:, iside) = volareas * (opts.atlasres*1e-3)^3;
+
         % get index 0 level for background
         backlevel                 = single(median(sidevals(~ikeep)));
         medareas(areaidx == 0)    = backlevel;
@@ -137,13 +151,17 @@ for ichan = 1:opts.Nchans
 
     % save as mat file for later processing
     fmatname  = fullfile(registerpath, sprintf('chan%02d_intensities.mat', ichan));
-    save(fmatname, 'medianoverareas', 'areaidx')
+    save(fmatname, 'medianoverareas', 'areaidx', 'volumeoverareas')
 
     % save as csv if asked
     if writetocsv
-        currtable = array2table([areaidx medianoverareas], ...
-            'VariableNames',{'parcellation_index', 'RightSideIntensity', 'LeftSideIntensity'});
-        currtable = addvars(currtable, namessub(ib), 'NewVariableNames','name','Before','parcellation_index');
+        currtable = array2table([areaidx medianoverareas volumeoverareas], ...
+            'VariableNames',...
+            {'parcellation_index', ...
+            'RightSideIntensity', 'LeftSideIntensity',...
+             'RightSideVolume[mm3]', 'LeftSideVolume[mm3]'});
+        currtable = addvars(currtable, namessub(ib), namesstruct(ibstr),  namesdiv(ibdiv),...
+            'NewVariableNames',{'name', 'structure', 'division'},'Before','parcellation_index');
         fsavename      = fullfile(registerpath, sprintf('chan%02d_intensities.csv', ichan));
         writetable(currtable, fsavename)
     end
