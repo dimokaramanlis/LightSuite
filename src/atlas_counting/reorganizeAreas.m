@@ -33,7 +33,8 @@ for ii = 1:numel(aggnames)
     wtscurr      = volssel/sum(volssel);
     bkgsignal    = squeeze(mean(signals(row, :, :), 2, 'omitmissing'));
     bkgsignal    = reshape(bkgsignal, numel(row), Nmice);
-    signaluse    = sum(wtscurr.*bkgsignal, 1, 'omitmissing');
+    % signaluse    = sum(wtscurr.*bkgsignal, 1, 'omitmissing');
+    signaluse    = mean(bkgsignal, 1, 'omitmissing', 'Weights', wtscurr);
     sigout(ii,:) = signaluse;
 
 

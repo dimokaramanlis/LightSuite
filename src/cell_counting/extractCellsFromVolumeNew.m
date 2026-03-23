@@ -28,7 +28,7 @@ end
 
 cellradius  = round(opts.celldiam/2.5);
 anisotropy  = min(opts.pxsize)./opts.pxsize;
-sigmause    = max(anisotropy.*cellradius/2, 2);
+sigmause    = max(ceil(anisotropy.*cellradius/2), 2);
 voxelvolume = prod(opts.pxsize);
 %------------------------------------------------------------------------
 % let's figure out batches. TODO: make dependent on cell diameter
