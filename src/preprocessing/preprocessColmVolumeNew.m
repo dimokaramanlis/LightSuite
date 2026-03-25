@@ -27,10 +27,12 @@ for islice = 1:Nz
     % filtim = ordfilt2(currim, Nmed, matuse, 'symmetric');
     % backvol(:, :, islice) = imresize(filtim, scaledownxy, Antialiasing=false);
     %----------------------------------------------------------------------
+    % we write a median-filtered version to remove artifacts
+    currim = medfilt2(currim, [3 3], 'symmetric');
+    %----------------------------------------------------------------------
     % write data
     backvol(:, :, islice) = imresize(currim, scaledownxy);
-    % we write a median-filtered version to remove artifacts
-    fwrite(fid, medfilt2(currim, [3 3], 'symmetric'), "uint16");
+    fwrite(fid, currim, "uint16");
     %----------------------------------------------------------------------
     fprintf(repmat('\b', 1, numel(msg)));
     msg = sprintf('Slice %d/%d. Time per slice %2.2f s. Time elapsed %2.2f s...\n',...
