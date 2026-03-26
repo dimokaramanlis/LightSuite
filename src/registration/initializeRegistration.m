@@ -7,6 +7,9 @@ function opts = initializeRegistration(inputpath, varargin)
 p = inputParser;
 addRequired(p,  'inputpath', @(x) isstring(x) || ischar(x));
 addParameter(p, 'Volume', [], @isnumeric);
+addParameter(p, 'outlierratio', 0.01, @isnumeric);
+addParameter(p, 'cloudthres', 5, @isnumeric);
+
 parse(p, inputpath, varargin{:});
 params = p.Results;
 %==========================================================================
@@ -60,7 +63,7 @@ newvol    = (single(backvol)-single(bottomval))/single(topval-bottomval);
 % we then prepare the volume and extract corresponding points 
 fprintf('Creating cloud for sample volume... '); tic;
 volumereg  = permuteBrainVolume(newvol, permvec);
-ls_cloud   = extractSamplePoints(volumereg, 5);
+ls_cloud   = extractSamplePoints(volumereg, params.cloudthres);
 fprintf('Done! Took %2.1f s. Found %d points.\n', toc, ls_cloud.Count);
 %==========================================================================
 % load atlas and extract corresponding points

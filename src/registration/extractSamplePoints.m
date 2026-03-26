@@ -11,8 +11,6 @@ ptsall      = cell(prod(Nbatches), 1);
 idx         = 1;
 overallmode = mode(voluse, 'all');
 
-
-
 for ibatchy = 1:Nbatches(1)
     istarty = (ibatchy - 1) * batchsize + 1;
     iendy   = min(batchsize * ibatchy, sizevol(1));
@@ -46,9 +44,10 @@ for ibatchy = 1:Nbatches(1)
     end
 end
 ptscat  = cat(1, ptsall{:});
-iremx   = ptscat(:, 1) < 2 | ptscat(:, 1) > sizevol(2) - 2;
-iremy   = ptscat(:, 2) < 2 | ptscat(:, 2) > sizevol(1) - 2;
-iremz   = ptscat(:, 3) < 2 | ptscat(:, 3) > sizevol(3) - 2;
+Nptsrem = max(floor(min(sizevol)/100), 1);
+iremx   = ptscat(:, 1) < Nptsrem | ptscat(:, 1) > sizevol(2) - Nptsrem;
+iremy   = ptscat(:, 2) < Nptsrem | ptscat(:, 2) > sizevol(1) - Nptsrem;
+iremz   = ptscat(:, 3) < Nptsrem | ptscat(:, 3) > sizevol(3) - Nptsrem;
 irem    = iremz|iremx|iremy;
 ptscat  = pointCloud(ptscat(~irem, :));
 ptcloud = pcdownsample(ptscat,'random',0.1,'PreserveStructure',true);
