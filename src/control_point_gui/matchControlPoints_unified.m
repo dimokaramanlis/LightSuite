@@ -65,7 +65,7 @@ switch mode
         chooselist  = [slicescheck 3*ones(size(slicescheck)) ones(size(slicescheck)) ones(size(slicescheck))];
         rng(1);
         gui_data.chooselist = chooselist(randperm(numel(slicescheck)), :);
-        
+        gui_data.original_trans = opts.affine_atlas_to_samp;
         disp('Spine Data loaded and filtered.')
         
     case 'brain'
@@ -112,10 +112,11 @@ switch mode
         gui_data.Rvolume = imref3d(size(gui_data.volume));
         rng(1);
         % Generate Slice List (Brain specific function)
-        gui_data.chooselist = generate_cp_list_alt(gui_data.volume);
-        
+        gui_data.chooselist     = generate_cp_list_alt(gui_data.volume);
+        gui_data.original_trans = opts.original_trans;
         disp('Brain Data loaded and processed.');
 end
+
 
 %==========================================================================
 % 3. Load / Initialize Control Points
@@ -146,6 +147,8 @@ else
     gui_data.histology_control_points = repmat({zeros(0,4)},size(gui_data.chooselist, 1),1);
     gui_data.atlas_control_points     = repmat({zeros(0,4)},size(gui_data.chooselist, 1),1);
 end
+
+
 
 %==========================================================================
 % 4. GUI Setup (Unified: Based on Spine Version)
@@ -358,14 +361,7 @@ function keypress(gui_fig,eventdata)
             align_ccf_to_histology(gui_fig); 
 
         case 's' % Save
-            atlas2histology_tform = gui_data.histology_ccf_manual_alignment;
-            histology_control_points = gui_data.histology_control_points;
-            atlas_control_points     = gui_data.atlas_control_points;
-            
-            save_fn = fullfile(gui_data.save_path, gui_data.save_filename);
-            
-            save(save_fn,'atlas2histology_tform', 'atlas_control_points', 'histology_control_points');
-            
+            save_fn = savedata(gui_data);
             % Feedback flash
             old_title = gui_data.base_title;
             gui_data.pp.title({'\bfSAVED!'});
@@ -643,15 +639,21 @@ function close_gui(gui_fig,~)
     user_confirm = questdlg('Save changes?','Confirm exit', 'Yes', 'No', 'Cancel', 'Yes');
     switch user_confirm
         case 'Yes'
-            atlas2histology_tform = gui_data.histology_ccf_manual_alignment;
-            histology_control_points = gui_data.histology_control_points;
-            atlas_control_points = gui_data.atlas_control_points;
-            
-            save_fn = fullfile(gui_data.save_path, gui_data.save_filename);
-            save(save_fn,'atlas2histology_tform', 'atlas_control_points', 'histology_control_points');
+            savedata(gui_data);
             disp(['Saved ' save_fn]);
             delete(gui_fig);
         case 'No'
             delete(gui_fig);
     end   
+end
+
+function save_fn = savedata(gui_data)
+atlas2histology_tform    = gui_data.histology_ccf_manual_alignment;
+histology_control_points = gui_data.histology_control_points;
+atlas_control_points     = gui_data.atlas_control_points;
+ori_trans                = gui_data.original_trans;
+save_fn                  = fullfile(gui_data.save_path, gui_data.save_filename);
+save(save_fn, ...
+    'atlas2histology_tform', 'atlas_control_points', 'histology_control_points',...
+    'ori_trans');
 end
