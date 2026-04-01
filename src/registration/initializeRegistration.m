@@ -44,7 +44,6 @@ else
     % Save to file
     writematrix(permvec, bofile);
     fprintf('Brain orientation saved as %s to %s\n', mat2str(permvec), bofile);
-    
 end
 %==========================================================================
 flipvec = [false, false, false];

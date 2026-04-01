@@ -100,9 +100,25 @@ switch mode
         volload = readDownStack(volume_dir);
         volload = permuteBrainVolume(volload, permute_sample_to_atlas);
                 
+        % --- NEW: Store original volume to allow re-warping on reset ---
+        gui_data.volload_orig = volload;
+        gui_data.Rvolume_orig = imref3d(size(volload));
         % Warp Sample (Note: Brain mode warps Sample using original_trans initially)
         % Note: We store the warped volume in gui_data.volume to match Spine logic for display
         Rvolume_orig = imref3d(size(volload));
+
+
+        % --- NEW: Check if a refitted transform was saved previously ---
+        load_fn = fullfile(gui_data.save_path, gui_data.save_filename);
+        if exist(load_fn, 'file')
+            saved_data = load(load_fn, 'ori_trans');
+            if isfield(saved_data, 'ori_trans')
+                opts.original_trans = saved_data.ori_trans;
+                disp('Loaded previously saved similarity transform.');
+            end
+        end
+        % ---------------------------------------------------------------
+        
         gui_data.volume = imwarp(volload, Rvolume_orig, opts.original_trans, 'OutputView',gui_data.Rmoving);
         
         irand = randperm(numel(gui_data.volume), min(numel(gui_data.volume), 1e4));
@@ -186,9 +202,13 @@ else
 end
 
 % Controls string for Title
+% controls_str = ['\bfControls: \rm\leftarrow/\rightarrow: switch slice | ' ...
+%                 'Click: add point | Backspace: delete last point | ' ...
+%                 'C: clear all points | Space: toggle overlay | Enter: jump to slice | S: save'];
+
 controls_str = ['\bfControls: \rm\leftarrow/\rightarrow: switch slice | ' ...
-                'Click: add point | Backspace: delete last point | ' ...
-                'C: clear all points | Space: toggle overlay | Enter: jump to slice | S: save'];
+                'Click: add | Backspace: delete | C: clear | ' ...
+                'Space: overlay | Enter: jump | S: save | Shift+R: refit sim'];
 mode_str = upper(gui_data.mode);
 gui_data.base_title = {['\bfControl point GUI (' mode_str '): \rmmatch points between sample and atlas'], controls_str};
 gui_data.pp.title(gui_data.base_title);
@@ -312,7 +332,20 @@ end
 function keypress(gui_fig,eventdata)
     gui_data = guidata(gui_fig);
     needs_update = false;
-
+    %------------------------------------------------------------
+    % --- NEW: Shift + R for Refit Similarity (Brain mode only) ---
+    if strcmp(eventdata.Key, 'r') && ismember('shift', eventdata.Modifier)
+        if strcmp(gui_data.mode, 'brain')
+            choice = questdlg('Are you sure you want to refit the similarity transform and reset all points?', ...
+                'Refit Similarity Transform', 'Yes', 'No', 'No');
+            if strcmp(choice, 'Yes')
+                gui_data = refit_similarity_and_reset(gui_fig, gui_data);
+                needs_update = true;
+                align_ccf_to_histology(gui_fig); % Update the visual boundaries
+            end
+        end
+    end
+    %------------------------------------------------------------
     switch eventdata.Key
         case 'return' % Go to slice
             input_slice = inputdlg(sprintf('Go to slice (max %d):',  size(gui_data.chooselist,1)));
@@ -656,4 +689,55 @@ save_fn                  = fullfile(gui_data.save_path, gui_data.save_filename);
 save(save_fn, ...
     'atlas2histology_tform', 'atlas_control_points', 'histology_control_points',...
     'ori_trans');
+end
+
+function gui_data = refit_similarity_and_reset(gui_fig, gui_data)
+    % 1. Extract matched control points
+    np1 = cellfun(@(x) size(x,1), gui_data.atlas_control_points);
+    np2 = cellfun(@(x) size(x,1), gui_data.histology_control_points);
+    ikeep = np1 == np2 & np1 > 0;
+    
+    cptsatlas = cat(1, gui_data.atlas_control_points{ikeep});
+    cptshistology = cat(1, gui_data.histology_control_points{ikeep});
+    
+    if size(cptsatlas, 1) < 4
+        errordlg('Not enough points to refit. Need at least 4 matched points.', 'Error');
+        return;
+    end
+    
+    % Strip timestamps and rearrange [Y,X,Z] to [X,Y,Z] for tform
+    pts_atlas_xyz = cptsatlas(:, [2 1 3]);
+    pts_hist_warp_xyz = cptshistology(:, [2 1 3]);
+    
+    % 2. Project warped sample points back to original sample space
+    old_tform = gui_data.original_trans;
+    if isnumeric(old_tform)
+        old_tform = affinetform3d(old_tform);
+    end
+    pts_hist_orig_xyz = old_tform.transformPointsInverse(pts_hist_warp_xyz);
+    
+    % 3. Refit Similarity Transform (Original Sample -> Atlas)
+    [new_tform, mse] = fitSimilarityTrans3D(pts_hist_orig_xyz, pts_atlas_xyz);
+    gui_data.original_trans = new_tform;
+    
+    % 4. Clear all existing control points and manual alignment
+    gui_data.histology_control_points = repmat({zeros(0,4)}, size(gui_data.chooselist, 1), 1);
+    gui_data.atlas_control_points     = repmat({zeros(0,4)}, size(gui_data.chooselist, 1), 1);
+    
+    if isfield(gui_data, 'histology_ccf_auto_alignment')
+        gui_data = rmfield(gui_data, 'histology_ccf_auto_alignment');
+    end
+    gui_data.histology_ccf_manual_alignment = eye(4);
+    
+    % 5. Re-warp the sample volume using the new original_trans
+    disp('Re-warping sample volume with new similarity transform...');
+    gui_data.volume = imwarp(gui_data.volload_orig, gui_data.Rvolume_orig, ...
+                             gui_data.original_trans, 'OutputView', gui_data.Rmoving);
+                         
+    % Re-calculate brightness factors for visualization
+    irand = randperm(numel(gui_data.volume), min(numel(gui_data.volume), 1e4));
+    factv = 255 / single(quantile(gui_data.volume(irand), 0.999, "all"));
+    gui_data.volume = uint8(single(gui_data.volume) * factv);
+    
+    msgbox(sprintf('Similarity transform updated!\nMSE: %.2f', mse), 'Success');
 end

@@ -6,6 +6,8 @@ function [regimg,tform_bspline, tformpath, pathtemp] = performMultObjBsplineRegi
 usemultistep = getOr(optsreg, 'usemultistep', true);
 bspscale     = getOr(optsreg, 'bspline_spatial_scale', 0.64);
 cpwt         = getOr(optsreg, 'cpwt', 0.2);
+nhistbins    = getOr(optsreg, 'n_histogram_bins', 48);
+
 if isempty(movingpts) | isempty(fixedpts)
 	cpwt = 0;
 end
@@ -31,7 +33,7 @@ params.MovingImagePyramid              = 'MovingRecursiveImagePyramid';
 params.UseRandomSampleRegion           = true;
 params.NewSamplesEveryIteration        = true;
 params.NumberOfResolutions             = 4;
-params.NumberOfHistogramBins           = 48;
+params.NumberOfHistogramBins           = nhistbins;
 params.SP_A                            = 20;
 %--------------------------------------------------------------------------
 % these may affect more

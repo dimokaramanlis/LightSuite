@@ -45,11 +45,16 @@ if ~isempty(cppath)
     cptsatlas     = cptsatlas(:, 1:3);
     cptshistology = cptshistology(:, 1:3);
 
+    if isfield(cpdata, 'ori_trans')
+        original_trans = cpdata.ori_trans;
+    else
+        original_trans = regopts.original_trans;
+    end
 
     % make sure x is in the correct place
     cptsatlas     = cptsatlas(:, [2 1 3]);
     cptshistology = cptshistology(:, [2 1 3]);
-    cptshistology = regopts.original_trans.transformPointsInverse(cptshistology);
+    cptshistology = original_trans.transformPointsInverse(cptshistology);
     cptsatlas     = cptsatlas/regopts.downfac_reg;
 
     Dall              = pdist2(cptsatlas, autocptsatlas);
