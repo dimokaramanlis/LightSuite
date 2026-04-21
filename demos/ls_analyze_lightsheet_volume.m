@@ -13,24 +13,27 @@ opts.savepath   = fullfile(opts.datafolder, 'lightsuite');
 %--------------------------------------------------------------------------
 % some processing options
 opts.tifftype           = 'channelperfile'; % can be planeperfile or channelperfile 
-opts.pxsize             = [20 20 20]; % voxel size, xy and z, in um
+opts.pxsize             = [6.55 6.55 5]; % voxel size, xy and z, in um
 opts.atlasres           = 10; % better keep this fixed for highest resolution, in um
 opts.registres          = 20; % resolution to do the nonrigid registration, keep fixed, in um
 % cell detection parameters
 opts.debug              = true; % toggle plotting (takes longer) for cell detections
 opts.savecellimages     = false; % toggle saving of individual cell images
-opts.celldiam           = 25; % approximate cell size in um
+opts.celldiam           = 14; % approximate cell size in um
 opts.thres_cell_detect  = [0.5 0.4]; % thresholds for detecting cells relative to background, first should be bigger than second
 opts.channelforcells    = 3; % channel to use for cell detection, leave empty ([]) for none
 opts.writetocsv         = false; % write cells to csv file
 %  registration
-opts.channelforregister = 2; % channel to use for registration
+opts.channelforregister = 1; % channel to use for registration
 %--------------------------------------------------------------------------
 opts                   = readLightsheetOpts(opts);
 %=========================================================================
 %% (auto) main processing pipeline, preprocess and detect cells
 opts = preprocessLightSheetVolume(opts);
-
+%%
+% you can also use visualizeCellDetections to plot all the detections in sample
+% space like this:
+visualizeCellDetections(opts.savepath, Space = 'sample');
 %% (auto) initialize registration
 opts = initializeRegistration(opts.savepath);
 
@@ -57,10 +60,15 @@ transform_params           = multiobjRegistration(opts, opts.weight_usr_pts, tru
 %% (auto) apply registration to volume
 % change function arguments if you want to skip saving
 generateRegisteredBrainVolumes(opts.savepath, ...
-    'writetocsv', true, 'saveregisteredvolume', false);
+    'writetocsv', true, 'saveregisteredvolume', true);
 
 %% (auto) apply registration to cell detections
 % you can also run this function with a cell matrix of detections
 % calculated outside LightSuite, as long as the transform parameters are
 % provided as an argument
 transformPointsToAtlas(opts.savepath, 'writetocsv', true);
+
+%%
+% you can use visualizeCellDetections to plot all the detections in atlas
+% space like this:
+visualizeCellDetections(opts.savepath, Space = 'atlas');
