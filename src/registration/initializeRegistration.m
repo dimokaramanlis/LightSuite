@@ -46,9 +46,6 @@ else
     fprintf('Brain orientation saved as %s to %s\n', mat2str(permvec), bofile);
 end
 %==========================================================================
-flipvec = [false, false, false];
-Tflip   = affinetform3d(createFlipTransform(size(backvol), flipvec));
-%==========================================================================
 %%
 % we fist preprocess the registration volume
 centpx    = round(size(backvol)/2);
@@ -78,7 +75,7 @@ fprintf('Done! Took %2.1f s. Found %d points.\n', toc, tv_cloud.Count);
 %==========================================================================
 % the first step is to make sure our sample is nicely aligned
 fprintf('Obtaining initial similarity transform... '); tic;
-transinit = originalSimilarityTform(ls_cloud, tv_cloud, params, Tflip);
+transinit = originalSimilarityTform(ls_cloud, tv_cloud, params);
 fprintf('Done! Took %2.1f s. \n', toc);
 
 fprintf('Identifying candidate corresponding points... '); tic;
