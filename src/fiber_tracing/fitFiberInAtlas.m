@@ -30,7 +30,7 @@ function [center, normal] = fitFiberInAtlas(pts, radius_vox)
     %--------------------------------------------------------------
     % 1. Find fibre axis via PCA on the centred cloud
     %--------------------------------------------------------------
-    centroid = mean(pts, 1);
+    centroid = median(pts, 1);
     pts_c    = pts - centroid;       % Nx3 centred
 
     % Scatter matrix; eigenvectors in ascending eigenvalue order
@@ -88,9 +88,17 @@ function [center, normal] = fitFiberInAtlas(pts, radius_vox)
     % Ensure normal points toward increasing atlas depth (larger AP index)
     % by checking which extreme point has the larger AP coordinate
     proj = pts * normal';
-    [~, idx_deep] = max(proj);
-    if pts(idx_deep, 1) < centroid(1)
+    projmaxpts = pts(proj > quantile(proj, 0.95),:);
+    if median(projmaxpts(:,2)) < centroid(2)
         % The "deep" end has smaller AP → flip
         normal = -normal;
     end
+    % --- NEW CODE TO ADD: SHIFT CENTER TO BOTTOM-MOST POINT ---
+    % Find the maximum projection along the downward-pointing normal
+    depth_projections = (pts - center) * normal';
+    bottom_offset = quantile(depth_projections,0.99);
+    
+    % Shift the center coordinate to the bottom face of the lens
+    center = center + bottom_offset * normal;
+    %----------------------------------------------------------------------
 end
