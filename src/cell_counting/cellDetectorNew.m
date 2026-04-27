@@ -70,8 +70,8 @@ if size(cinfo, 1) > 0
         ifilter = true(size(ccents,1), 1);
     end
     ikeep    = ikeepz & ikeepx & ikeepy & ifilter;
-    cinfo    = cinfo(ikeep, :);
     cinfoori = cinfo(ifilter, :);
+    cinfo    = cinfo(ikeep, :);
     %----------------------------------------------------------------------
     if saveimages
         cim = getCellImages2D(dff2, cinfo, sigmause*6);
