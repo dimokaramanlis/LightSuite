@@ -140,7 +140,8 @@ for ibatchz = 1:NbatchesZ
                 %----------------------------------------------------------
                 if opts.debug & size(ccents,1) > 1
                     pathslice = fullfile(folderdebug, ...
-                        sprintf('%03d_batch_%d_detections.png', itrack, size(ccents,1)));
+                        sprintf('%03d_batch_%x03d_%y03d_%z03d_%d_detections.png', ...
+                        itrack, ibatchx,ibatchy,ibatchz, size(ccents,1)));
                     ampmax   = max(ampmax,[], 3);
                     imtosave = gather(uint8(255 * ampmax/thresuse(1)));
                     imtosave(imgout) = 255;
