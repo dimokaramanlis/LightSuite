@@ -140,7 +140,7 @@ for ibatchz = 1:NbatchesZ
                 %----------------------------------------------------------
                 if opts.debug & size(ccents,1) > 1
                     pathslice = fullfile(folderdebug, ...
-                        sprintf('%03d_batch_%x03d_%y03d_%z03d_%d_detections.png', ...
+                        sprintf('%03d_batch_x%03d_y%03d_z%03d_%d_detections.png', ...
                         itrack, ibatchx,ibatchy,ibatchz, size(ccents,1)));
                     ampmax   = max(ampmax,[], 3);
                     imtosave = gather(uint8(255 * ampmax/thresuse(1)));
@@ -161,6 +161,10 @@ for ibatchz = 1:NbatchesZ
         end
     end
 end
+%%
+sprintf('%03d_batch_x%03d_y%03d_z%03d_%d_detections.png', ...
+                        itrack, ibatchx,ibatchy,ibatchz, size(ccents,1))
+%%
 %--------------------------------------------------------------------------
 fclose(fid);
 %--------------------------------------------------------------------------
