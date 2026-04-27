@@ -1,15 +1,20 @@
-function ptcloud = extractSamplePoints(voluse, thresuse)
+function [ptcloud, volreturn] = extractSamplePoints(voluse, thresuse)
 %EXTRACTMATCHINGGAUSSIAN Summary of this function goes here
 %   Detailed explanation goes here
 rng(1);
-gradall    = imgradient3(voluse);
-sizevol    = size(voluse);
+gradall     = imgradient3(voluse);
+sizevol     = size(voluse);
 Nmax        = max(sizevol);
 batchsize   = ceil(Nmax/3);
 Nbatches    = ceil(sizevol/batchsize);
 ptsall      = cell(prod(Nbatches), 1);
 idx         = 1;
 overallmode = mode(voluse, 'all');
+
+% for illustration
+if nargout > 1
+    volreturn = cell(prod(Nbatches),1);
+end
 
 for ibatchy = 1:Nbatches(1)
     istarty = (ibatchy - 1) * batchsize + 1;
@@ -35,11 +40,19 @@ for ibatchy = 1:Nbatches(1)
             [rr,cc,dd]  = ind2sub(size(volcurr), ipts);
             X           = [xsamp(cc)',ysamp(rr)',zsamp(dd)'];
             ptsall{idx} = X;
-            idx         = idx  + 1;
+            
             % ptcloud    = pointCloud(X);
             % ptcloud    = pcdownsample(ptcloud,'random',0.1,'PreserveStructure',true);
             % pcshow(ptcloud);
             % pause;
+
+            if nargout > 1 
+                ipos      = floor(size(volcurr,2)*0.5);
+                volreturn{idx} = cat(3, squeeze(volcurr(:,ipos,:)), ...
+                    squeeze(gradcurr(:,ipos,:))./squeeze(volcurr(:,ipos,:)));
+            end
+
+           idx         = idx  + 1;
         end
     end
 end
@@ -53,6 +66,7 @@ ptscat  = pointCloud(ptscat(~irem, :));
 ptcloud = pcdownsample(ptscat,'random',0.1,'PreserveStructure',true);
 % ptcloud = pcdownsample(ptscat,'nonuniformgrid',50,'PreserveStructure',true);
 ptcloud = pcdenoise(ptcloud);
+
 
 
 % indsthres  = randperm(numel(voluse), min(1e4, numel(voluse)));

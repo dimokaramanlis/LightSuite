@@ -3,7 +3,13 @@ function ptcloud = extractVolumePointsGradient(voluse, sigmause, thresuse)
 %   Detailed explanation goes here
 rng(1);
 
-testout    = imgradient3(voluse)./imgaussfilt3(voluse, sigmause,"Padding","symmetric");
+if sigmause>0
+    divfac = imgaussfilt3(voluse, sigmause,"Padding","symmetric");
+else
+    divfac = voluse;
+end
+
+testout    = imgradient3(voluse)./divfac;
 indsthres  = randperm(numel(voluse), min(1e4, numel(voluse)));
 thresinit  = quantile(voluse(indsthres), 0.05, 'all') * 2;
 testout(voluse <thresinit) = 0;
