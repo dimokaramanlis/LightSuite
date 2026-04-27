@@ -13,10 +13,10 @@ cubsize = ceil(4*sigmause.*anisotropyratio) + 1;
 seuse   = strel('cuboid', cubsize);
 %==========================================================================
 % perform 3d bandpass filtering
-[dff2, ~]  = spatial_bandpass_3d(volumeuse, avgcellradius, 5, 2, usegpu, anisotropyratio);
-
-% get a good estimate of the backgroud
 %%
+[dff2, ~]  = spatial_bandpass_3d(volumeuse, avgcellradius, 5, 2, usegpu, anisotropyratio);
+% get a good estimate of the backgroud
+
 background  = volumeuse-dff2;
 isamp       = randperm(numel(background), min(numel(background), 3e4));
 currsamp    = background(isamp);
@@ -26,7 +26,6 @@ backmax = quantile(currsamp(currsamp > 0), 0.9);
 background(background>backmax) = backmax;
 background  = imgaussfilt3(background, anisotropyratio*2);
 % imagesc(max(background,[],3))
-%%
 %==========================================================================
 % the signal is relative to the background
 ampsignal = dff2 ./ background;
