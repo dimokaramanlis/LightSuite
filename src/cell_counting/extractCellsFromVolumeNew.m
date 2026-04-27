@@ -162,9 +162,6 @@ for ibatchz = 1:NbatchesZ
     end
 end
 %%
-sprintf('%03d_batch_x%03d_y%03d_z%03d_%d_detections.png', ...
-                        itrack, ibatchx,ibatchy,ibatchz, size(ccents,1))
-%%
 %--------------------------------------------------------------------------
 fclose(fid);
 %--------------------------------------------------------------------------
