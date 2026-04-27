@@ -31,7 +31,7 @@ anisotropy  = min(opts.pxsize)./opts.pxsize;
 sigmause    = max(ceil(anisotropy.*cellradius/2), 2);
 voxelvolume = prod(opts.pxsize);
 %------------------------------------------------------------------------
-% let's figure out batches. TODO: make dependent on cell diameter
+% let's figure out batches.
 batchsizez  = getOr(opts, 'batchsizez', 32);
 batchsizexy = getOr(opts, 'batchsizexy', 1800);
 buffsizez   = ceil(cellradius);
