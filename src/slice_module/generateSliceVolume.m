@@ -1,6 +1,10 @@
 function [slicevol] = generateSliceVolume(sliceinfo, varargin)
-%GENERATESLICEVOLUME Summary of this function goes here
-%   Detailed explanation goes here
+%GENERATESLICEVOLUME Assemble a padded, centered slice volume from CZI or TIF files.
+%
+%   For CZI files: each file may contain multiple scenes (slices).
+%   For TIF files: each file in the folder is one slice (no scene selection).
+%     Multi-channel TIF files should be multi-page (one page per channel).
+%     sliceinfo.pxsize and sliceinfo.channames must be set by the caller.
 
 medfiltwidth = 2*floor((2./sliceinfo.pxsize)/2) + 1;
 scalefac     = sliceinfo.pxsize./sliceinfo.px_process;
@@ -8,6 +12,10 @@ Nbuff        = ceil(300/sliceinfo.px_process); % 200um for buffer size
 size_proc    = ceil(sliceinfo.maxsize.*scalefac);
 Nchannels    = numel(sliceinfo.channames);
 idx          = 1;
+
+% Detect file format from extension
+[~, ~, firstext] = fileparts(sliceinfo.filepaths{1});
+is_tif = any(strcmpi(firstext, {'.tif', '.tiff'}));
 
 if nargin > 1
     idreg    = lower(varargin{1});
@@ -39,14 +47,36 @@ dapipx = 2*floor((15./sliceinfo.px_process)/2) + 1;
 fprintf('Generating the slice volume by centering slices...\n')
 slicetimer   = tic; msg = [];
 for ifile = 1:Nfiles
-    dataim = BioformatsImage(sliceinfo.filepaths{ifile});
-    irel   = sliceinfo.sliceinds{ifile, 2};
-    Nscenes = numel(irel);
+
+    if is_tif
+        % TIF mode: one file = one slice, no scene selection needed
+        irel    = [1];
+        Nscenes = 1;
+    else
+        % CZI mode: one file may contain multiple scenes (slices)
+        dataim  = BioformatsImage(sliceinfo.filepaths{ifile});
+        irel    = sliceinfo.sliceinds{ifile, 2};
+        Nscenes = numel(irel);
+    end
+
     for iscene = 1:Nscenes
-        dataim.series = irel(iscene);
+
+        if ~is_tif
+            dataim.series = irel(iscene);
+        end
+
         %------------------------------------------------------------------
         for icol = 1:Nchannels
-            currim   = dataim.getPlane(1, chanids(icol), 1, irel(iscene));
+
+            if is_tif
+                if Nchannels > 1
+                    currim = imread(sliceinfo.filepaths{ifile}, chanids(icol));
+                else
+                    currim = imread(sliceinfo.filepaths{ifile});
+                end
+            else
+                currim = dataim.getPlane(1, chanids(icol), 1, irel(iscene));
+            end
 
             currim   = medfilt2(currim, medfiltwidth); % to remove salt n' pepper
             currim   = imresize(currim, scalefac(1));
@@ -61,14 +91,9 @@ for ifile = 1:Nfiles
 
             if icol == 1
                 [xrange, yrange] = extractBrainLimits3(currim, Nbuff);
-                % [xrange, yrange] = extractBrainLimits(currim, Nbuff);
-                % imagesc(currim(yrange,xrange))
-                % aa = 1;
             end
 
             currim   = currim(yrange,xrange);
-            % imagesc(currim);
-            % drawnow;
             backval  = quantile(currim(currim>0), 0.01, 'all');
             currsize = size(currim);
             padpx    = size_proc - currsize;
@@ -77,7 +102,7 @@ for ifile = 1:Nfiles
             currim   = padarray(currim, padpx - padleft, backval, 'post');
             slicevol(:, :, icol, idx) = currim;
             backvalues(icol, idx)     = backval;
-            
+
         end
         padvalues(:, idx) = padpx;
         %------------------------------------------------------------------
@@ -86,7 +111,6 @@ for ifile = 1:Nfiles
             idx, sliceinfo.Nslices, toc(slicetimer)/idx, toc(slicetimer));
         fprintf(msg);
         %------------------------------------------------------------------
-        % imagesc(currdata(yrange,xrange, icol))
         idx = idx + 1;
         %------------------------------------------------------------------
     end
@@ -110,15 +134,11 @@ fprintf('Done! Took %2.2f s\n', toc);
 % save volume for ordering
 scalesize   = [ceil(size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
 volproc     = zeros([scalesize(1:2) 3 scalesize(3)], 'uint8');
-% Nwidth = floor(100/sliceinfo.px_register)*2 + 1;
-% matuse   = ones(Nwidth);
-% Nmed     = floor(sum(matuse, 'all')*0.5);
 
 for ich = 1:min(Nchannels, 3)
     currchan    = squeeze(slicevol(:, :, ich, :));
     currchan    = imresize3(currchan, scalesize);
-  
-    % backproc    = reshape(single(backvalues(ich, :)), [1 1 sliceinfo.Nslices]);
+
     backproc    = median(single(backvalues(ich, :)));
     if backproc > 0
         currchan    = (single(currchan) - backproc)./backproc;
@@ -142,4 +162,3 @@ dpsliceinfo = fullfile(sliceinfo.procpath, 'sliceinfo.mat');
 save(dpsliceinfo, 'sliceinfo')
 %--------------------------------------------------------------------------
 end
-

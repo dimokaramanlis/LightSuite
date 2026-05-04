@@ -8,11 +8,32 @@ dp = dir(dp);
 dp = fullfile(dp.folder, dp.name);
 sliceinfo = parseSettingsFile(fullfile(dp, 'local_settings.txt'));
 
-sliceinfo.mousename   = mousename;
-filelistcheck         = dir(fullfile(dp, '*.czi'));
-filepaths             = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
-sliceinfo.filepaths   = filepaths;
-sliceinfo             = getSliceInfo(sliceinfo);
+sliceinfo.mousename = mousename;
+
+% --- Locate input files: CZI or a folder of TIF/TIFF images ---
+filelistcheck = dir(fullfile(dp, '*.czi'));
+if ~isempty(filelistcheck)
+    % CZI mode: each file may contain multiple scenes (slices)
+    filepaths = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
+else
+    % TIF mode: one TIF file per slice, read directly (no scene selection).
+    %   Multi-channel slices should be stored as multi-page TIFs (one page
+    %   per channel). Single-channel TIFs are also supported.
+    filelistcheck = dir(fullfile(dp, '*.tif'));
+    if isempty(filelistcheck)
+        filelistcheck = dir(fullfile(dp, '*.tiff'));
+    end
+    filepaths = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
+
+    % Pixel size and channel names cannot be read from TIF metadata and
+    % must be specified manually before calling getSliceInfo.
+    sliceinfo.pxsize    = [0.65 0.65];           % um/pixel — set to your value
+    sliceinfo.channames = {'DAPI', 'Cy3', 'Cy5'}; % set to your channel names
+end
+
+sliceinfo.filepaths = filepaths;
+sliceinfo           = getSliceInfo(sliceinfo);
+
 %% (auto) we first generate the slice volume
 slicevol = generateSliceVolume(sliceinfo, sliceinfo.regchan);
 
@@ -61,7 +82,7 @@ cellsout         = cellsout.cell_locations;
 transformparams  = load(fullfile(sliceinfo.procpath, "transform_params.mat"));
 atlasptcoords    = slicePointsToAtlas(cellsout, transformparams);
 fsavename        = fullfile(sliceinfo.procpath, 'cell_locations_atlas.mat');
-save(fsavename, 'atlasptcoords') 
+save(fsavename, 'atlasptcoords')
 
 % we can plot the cells in atlas space
 nrand = min(size(atlasptcoords,1), 1e5);

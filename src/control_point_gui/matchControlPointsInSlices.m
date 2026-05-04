@@ -53,7 +53,7 @@ angle_data_path = fullfile(opts.procpath, 'cutting_angle_data.mat');
 % Check if the cutting angle data file exists
 if exist(angle_data_path, 'file')
     fprintf('Found saved cutting angle data. Overwriting transformation rotation...\n');
-    
+
     % --- 1. Load and process angle data ---
     data = load(angle_data_path);
     cutting_angle_data = data.cutting_angle_data;
@@ -62,7 +62,7 @@ if exist(angle_data_path, 'file')
     end
     data = load(angle_data_path);
     cutting_angle_data = data.cutting_angle_data;
-    tformuse = applyAngleToTransform(tformuse, Ratlas, cutting_angle_data);    
+    tformuse = applyAngleToTransform(tformuse, Ratlas, cutting_angle_data);
 end
 gui_data.tv = imwarp(gui_data.tv, Ratlas, tformuse, 'linear',  'OutputView', Rout);
 gui_data.av = imwarp(gui_data.av, Ratlas, tformuse, 'nearest', 'OutputView', Rout);
@@ -98,13 +98,12 @@ ylinesall = [xlinesy(:); ylinesy(:)];
 auto_ccf_alignment_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
 if exist(auto_ccf_alignment_fn,'file')
     oldtform = load(auto_ccf_alignment_fn);
-    % gui_data.histology_ccf_auto_alignment = oldtform.atlas2histology_tform;
-    gui_data.histology_control_points     = oldtform.histology_control_points;
-    gui_data.atlas_control_points         = oldtform.atlas_control_points;
+    gui_data.histology_control_points = pad_to_4col(oldtform.histology_control_points);
+    gui_data.atlas_control_points     = pad_to_4col(oldtform.atlas_control_points);
 else
-    % Initialize alignment control points and tform matricies
-    gui_data.histology_control_points = repmat({zeros(0,3)}, gui_data.Nslices, 1);
-    gui_data.atlas_control_points     = repmat({zeros(0,3)}, gui_data.Nslices,1);
+    % Initialize alignment control points: [slice, row, col, timestamp]
+    gui_data.histology_control_points = repmat({zeros(0,4)}, gui_data.Nslices, 1);
+    gui_data.atlas_control_points     = repmat({zeros(0,4)}, gui_data.Nslices, 1);
 end
 
 % Create figure, set button functions
@@ -124,29 +123,17 @@ gui_fig = figure('KeyPressFcn',@keypress, ...
     'CloseRequestFcn',@close_gui);
 
 
-% gui_data.curr_slice = randperm(numel(chooselist), 1);
-% curr_image = volumeIdtoImage(gui_data.volume, gui_data.volindids(1, :));
 gui_data.curr_slice = 1;
 curr_image = squeeze(gui_data.volume(gui_data.curr_slice, :, :, :));
 
-% curr_image = adapthisteq(curr_image);
-
 % Set up axis for histology image
-gui_data.histology_ax = subplot(1,2,1,'YDir','reverse'); 
+gui_data.histology_ax = subplot(1,2,1,'YDir','reverse');
 set(gui_data.histology_ax,'Position',[0,0,0.5,0.9]);
 hold on; colormap(gray); axis image off;
 gui_data.histology_im_h = image(curr_image,...
     'Parent',gui_data.histology_ax,'ButtonDownFcn',@mouseclick_histology);
 gui_data.histology_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
 set(gui_data.histology_grid,'Visible','off')
-
-% Set up histology-aligned atlas overlay
-% (and make it invisible to mouse clicks)
-% histology_aligned_atlas_boundaries_init = ...
-%     zeros(size(curr_image));
-% gui_data.histology_aligned_atlas_boundaries = ...
-%     imagesc(histology_aligned_atlas_boundaries_init,'Parent',gui_data.histology_ax, ...
-%     'AlphaData',histology_aligned_atlas_boundaries_init,'PickableParts','none');
 
 histology_aligned_atlas_boundaries_init = ...
     zeros(size(curr_image));
@@ -158,7 +145,7 @@ gui_data.atlas_slice = gui_data.atlasinds(1);
 curr_atlas = squeeze(gui_data.tv(gui_data.atlas_slice, :, :));
 
 % Set up axis for atlas slice
-gui_data.atlas_ax = subplot(1,2,2,'YDir','reverse'); 
+gui_data.atlas_ax = subplot(1,2,2,'YDir','reverse');
 set(gui_data.atlas_ax,'Position',[0.5,0,0.5,0.9]);
 hold on; axis image off; colormap(gray); clim([0,255]);
 gui_data.atlas_im_h = imagesc(curr_atlas, ...
@@ -174,6 +161,10 @@ gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,...
 gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,...
     'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'r');
 
+% Text label handles for numbered points
+gui_data.h_text_hist  = gobjects(0);
+gui_data.h_text_atlas = gobjects(0);
+
 % If there was previously auto-alignment, intitialize with that
 if isfield(gui_data,'histology_ccf_auto_alignment')
     gui_data.histology_ccf_manual_alignment = gui_data.histology_ccf_auto_alignment;
@@ -182,7 +173,7 @@ end
 % Upload gui data
 guidata(gui_fig,gui_data);
 
-% Initialize alignment - FIX!!!
+% Initialize alignment
 align_ccf_to_histology(gui_fig);
 
 % Print controls
@@ -193,6 +184,7 @@ msgbox( ...
     '\bf Controls: \rm' ...
     'Left/right: switch slice' ...
     'click: set reference points for manual alignment (3 minimum)', ...
+    'backspace: delete last added point', ...
     'space: toggle alignment overlay visibility', ...
     'g: toggle alignment grid', ...
     'c: clear reference points', ...
@@ -209,26 +201,25 @@ function keypress(gui_fig,eventdata)
 gui_data = guidata(gui_fig);
 
 switch eventdata.Key
-    
+
     % left/right arrows: move slice
     case 'leftarrow'
         gui_data.curr_slice = max(gui_data.curr_slice - 1,1);
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
-        
+
     case 'rightarrow'
         gui_data.curr_slice = ...
             min(gui_data.curr_slice + 1, gui_data.Nslices);
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
-        
+
     % space: toggle overlay visibility
     case 'space'
         curr_visibility = ...
             get(gui_data.histology_aligned_atlas_boundaries,'Visible');
         set(gui_data.histology_aligned_atlas_boundaries,'Visible', ...
             cell2mat(setdiff({'on','off'},curr_visibility)))
-         % space: toggle overlay visibility
     case 'g'
         curr_visibility = ...
             get(gui_data.histology_grid,'Visible');
@@ -244,15 +235,32 @@ switch eventdata.Key
         gui_data.colsuse = [1 2 3];
         guidata(gui_fig,gui_data);
         update_slice(gui_fig, true);
-        
+
     % c: clear current points
     case 'c'
-        gui_data.histology_control_points{gui_data.curr_slice} = zeros(0,3);
-        gui_data.atlas_control_points{gui_data.curr_slice} = zeros(0,3);
-        
+        gui_data.histology_control_points{gui_data.curr_slice} = zeros(0,4);
+        gui_data.atlas_control_points{gui_data.curr_slice}     = zeros(0,4);
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
-        
+
+    % backspace: delete the most recently added point (uses timestamp)
+    case 'backspace'
+        h_pts = gui_data.histology_control_points{gui_data.curr_slice};
+        a_pts = gui_data.atlas_control_points{gui_data.curr_slice};
+
+        t_h = -inf; t_a = -inf;
+        if ~isempty(h_pts), t_h = h_pts(end, 4); end
+        if ~isempty(a_pts), t_a = a_pts(end, 4); end
+
+        if t_h > t_a
+            gui_data.histology_control_points{gui_data.curr_slice}(end,:) = [];
+        elseif t_a > -inf
+            gui_data.atlas_control_points{gui_data.curr_slice}(end,:) = [];
+        end
+
+        guidata(gui_fig, gui_data);
+        update_slice(gui_fig);
+
     % s: save
     case 's'
         histology_control_points = gui_data.histology_control_points;
@@ -260,7 +268,7 @@ switch eventdata.Key
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
         save(save_fn,'atlas_control_points', 'histology_control_points');
         disp(['Saved ' save_fn]);
-        
+
 end
 
 end
@@ -271,21 +279,17 @@ function mouseclick_histology(gui_fig,eventdata)
 
 % Get guidata
 gui_data = guidata(gui_fig);
-toplot   = [2 3];
 cpt(1)   = gui_data.curr_slice;
 cpt(2:3) = flip(eventdata.IntersectionPoint(1:2));
 
-% Add clicked location to control points
+% Add clicked location to control points with timestamp
 gui_data.histology_control_points{gui_data.curr_slice} = ...
     vertcat(gui_data.histology_control_points{gui_data.curr_slice}, ...
      [cpt convertTo(datetime('now'), 'datenum')]);
 
-set(gui_data.histology_control_points_plot, ...
-    'XData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(2)), ...
-    'YData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(1)));
-
-% Upload gui data
+% Upload gui data and refresh markers
 guidata(gui_fig, gui_data);
+update_markers(gui_fig, 'histology');
 
 % If equal number of histology/atlas control points > 3, draw boundaries
 if size(gui_data.histology_control_points{gui_data.curr_slice},1) == ...
@@ -306,20 +310,16 @@ gui_data = guidata(gui_fig);
 
 cpt      = zeros(1,3);
 cpt(1)   = gui_data.atlas_slice;
-cpt(2:3) =  flip(eventdata.IntersectionPoint(1:2));
-toplot   = [2 3];
+cpt(2:3) = flip(eventdata.IntersectionPoint(1:2));
 
-% Add clicked location to control points
+% Add clicked location to control points with timestamp
 gui_data.atlas_control_points{gui_data.curr_slice} = ...
     vertcat(gui_data.atlas_control_points{gui_data.curr_slice}, ...
     [cpt convertTo(datetime('now'), 'datenum')]);
 
-set(gui_data.atlas_control_points_plot, ...
-    'XData',gui_data.atlas_control_points{gui_data.curr_slice}(:,toplot(2)), ...
-    'YData',gui_data.atlas_control_points{gui_data.curr_slice}(:,toplot(1)));
-
-% Upload gui data
+% Upload gui data and refresh markers
 guidata(gui_fig, gui_data);
+update_markers(gui_fig, 'atlas');
 
 % If equal number of histology/atlas control points > 3, draw boundaries
 if size(gui_data.histology_control_points{gui_data.curr_slice},1) == ...
@@ -334,14 +334,14 @@ end
 
 function align_ccf_to_histology(gui_fig)
 
-% Get guidata 
+% Get guidata
 gui_data = guidata(gui_fig);
 
 
 Nmin = 3;
 cptsatlas     = gui_data.atlas_control_points{gui_data.curr_slice};
 idatlas       = gui_data.atlas_slice;
-cptsatlas     = cptsatlas(:, [3 2]); 
+cptsatlas     = cptsatlas(:, [3 2]);
 cptshistology = gui_data.histology_control_points{gui_data.curr_slice};
 cptshistology = cptshistology(:, [3 2]);
 currim        = squeeze(gui_data.av(idatlas, :, :));
@@ -350,18 +350,16 @@ tstrcurr      = sprintf('Slice %d/%d', gui_data.curr_slice, gui_data.Nslices);
 
 if size(cptshistology,1) == size(cptsatlas,1) && ...
         (size(cptshistology,1) >= Nmin && size(cptsatlas,1) >= Nmin)
-    
+
     tform = fitgeotform2d(cptsatlas, cptshistology, "affine");
     mse = mean(sqrt(sum((cptshistology-tform.transformPointsForward(cptsatlas)).^2, 2)));
 
-    % tform = estgeotform3d(cptsatlas, cptshistology, 'similarity');
     currim = imwarp(currim, gui_data.Rmoving, tform, 'OutputView',gui_data.Rfixed);
 
     tstrcurr = sprintf('%s, Npoints = %d, mse = %2.2f ', tstrcurr, size(cptshistology,1), mse);
 
 elseif size(gui_data.histology_control_points{gui_data.curr_slice},1) >= 1 ||  ...
         size(gui_data.atlas_control_points{gui_data.curr_slice},1) >= 1
-    % If less than 3 or nonmatching points, use auto but don't draw
     tstrcurr = sprintf('%s, New alignment ', tstrcurr);
 
     % Upload gui data
@@ -369,7 +367,6 @@ elseif size(gui_data.histology_control_points{gui_data.curr_slice},1) >= 1 ||  .
     return
 
 elseif isfield(gui_data,'histology_ccf_auto_alignment')
-    % If no points, use automated outline if available
     tform = gui_data.histology_ccf_auto_alignment;
     tform = affinetform2d(tform);
     tstrcurr = sprintf('%s, Previous alignment ', tstrcurr);
@@ -384,10 +381,6 @@ av_warp_boundaries = round(conv2(currim,ones(3)./9,'same')) ~= currim;
 
 [row,col] = ind2sub(size(currim), find(av_warp_boundaries));
 
-
- % set(gui_data.histology_aligned_atlas_boundaries, ...
- %    'CData',av_warp_boundaries, ...
- %    'AlphaData',av_warp_boundaries*0.6);
 set(gui_data.histology_aligned_atlas_boundaries, ...
 'XData', col, 'YData', row);
 
@@ -400,10 +393,58 @@ guidata(gui_fig, gui_data);
 end
 
 
+function update_markers(h, type)
+% Update control point scatter plots and numbered text labels
+
+gui_data = guidata(h);
+toplot   = [2 3]; % [row_col, col_col] within the point array
+
+if strcmp(type, 'histology')
+    ax       = gui_data.histology_ax;
+    h_plot   = gui_data.histology_control_points_plot;
+    pts      = gui_data.histology_control_points{gui_data.curr_slice};
+    old_text = gui_data.h_text_hist;
+else
+    ax       = gui_data.atlas_ax;
+    h_plot   = gui_data.atlas_control_points_plot;
+    pts      = gui_data.atlas_control_points{gui_data.curr_slice};
+    old_text = gui_data.h_text_atlas;
+end
+
+% Update scatter plot
+if ~isempty(pts)
+    set(h_plot, 'XData', pts(:,toplot(2)), 'YData', pts(:,toplot(1)));
+else
+    set(h_plot, 'XData', nan, 'YData', nan);
+end
+
+% Delete old number labels
+if numel(old_text) > 0
+    delete(old_text(isgraphics(old_text)));
+end
+
+% Create new numbered labels
+new_text = gobjects(size(pts,1), 1);
+for i = 1:size(pts,1)
+    new_text(i) = text(ax, pts(i,toplot(2)), pts(i,toplot(1)), num2str(i), ...
+        'Color', 'yellow', 'FontSize', 10, 'FontWeight', 'bold', ...
+        'PickableParts', 'none');
+end
+
+if strcmp(type, 'histology')
+    gui_data.h_text_hist  = new_text;
+else
+    gui_data.h_text_atlas = new_text;
+end
+guidata(h, gui_data);
+
+end
+
+
 function update_slice(gui_fig, varargin)
 % Draw histology and CCF slice
 
-if nargin < 2 
+if nargin < 2
     sliceonly = false;
 else
     sliceonly = varargin{1};
@@ -423,12 +464,10 @@ if nnz(hascp) > 0
     replaceinds = round(newinds);
 end
 if nnz(hascp) > 1
-    % refine remaining
     pfit        = polyfit(gui_data.atlasinds(hascp), useratlasinds, 1);
     replaceinds = round(polyval(pfit, gui_data.atlasinds));
 end
 if nnz(hascp) > 3
-    % refine remaining
     pfit        = interp1(find(hascp), useratlasinds, 1:gui_data.Nslices, 'linear', 'extrap')';
     replaceinds = round(pfit);
 end
@@ -449,49 +488,21 @@ else
     gui_data.atlas_slice = gui_data.atlasindsuse(gui_data.curr_slice);
 end
 
-
-toplot     = [2 3];
-
 % Set next histology slice
-
 curr_image = squeeze(gui_data.volume(gui_data.curr_slice, :, :, gui_data.colsuse));
 set(gui_data.histology_im_h,'CData', curr_image)
-
-% Plot control points for slice
-set(gui_data.histology_control_points_plot, ...
-    'XData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(2)), ...
-    'YData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(1)));
 
 histology_aligned_atlas_boundaries_init = nan(1,2);
 set(gui_data.histology_aligned_atlas_boundaries, ...
     'XData',histology_aligned_atlas_boundaries_init(:,1), 'YData',histology_aligned_atlas_boundaries_init(:,2));
 
-% Upload gui data
+% Upload gui data, then refresh markers and overlay
 guidata(gui_fig, gui_data);
-
-% Update atlas boundaries
+update_markers(gui_fig, 'histology');
 align_ccf_to_histology(gui_fig)
 
 if ~sliceonly
-
-    % update atlas slice
     update_atlas_slice(gui_fig)
-    % update title
-    % set_histology_title(gui_fig)
-
-    % % clear points that are not used
-    % cptsatlas     = gui_data.atlas_control_points;
-    % cptshistology = gui_data.histology_control_points;
-    % Nptsatlas     = cellfun(@(x) size(x, 1), cptsatlas);
-    % Nptshisto     = cellfun(@(x) size(x, 1), cptshistology);
-    % badpts        = find(~(Nptsatlas == Nptshisto));
-    % for ii = 1:numel(badpts)
-    %     % curratlas = cptsatlas{badpts(ii)};
-    %     % currhisto = cptshistology{badpts(ii)};
-    %     % temp fix, clearing bad stuff, use timestamps later
-    %     gui_data.atlas_control_points{badpts(ii)} = {zeros(0,4)};
-    %     gui_data.histology_control_points{badpts(ii)} = {zeros(0,4)};
-    % end
 end
 
 end
@@ -546,7 +557,7 @@ switch user_confirm
     case 'Cancel'
         % Do nothing
 
-end   
+end
 
 end
 
@@ -557,43 +568,28 @@ function update_atlas_slice(gui_fig)
 % Get guidata
 gui_data = guidata(gui_fig);
 
-toplot     = [2 3];
 sluse      = gui_data.atlas_slice;
 curr_atlas = squeeze(gui_data.tv(sluse, :, :));
 curr_atlas = adapthisteq(curr_atlas);
 
 set(gui_data.atlas_im_h,'CData', curr_atlas);
-set(gui_data.atlas_control_points_plot, ...
-    'XData',gui_data.atlas_control_points{gui_data.curr_slice}(:,toplot(2)), ...
-    'YData',gui_data.atlas_control_points{gui_data.curr_slice}(:,toplot(1)));
-
-% Reset histology-aligned atlas boundaries if not
-% histology_aligned_atlas_boundaries_init = zeros(size(curr_image));
-% set(gui_data.histology_aligned_atlas_boundaries, ...
-%     'CData',histology_aligned_atlas_boundaries_init, ...
-%     'AlphaData',histology_aligned_atlas_boundaries_init);
-
 
 title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
         sluse/gui_data.slicewidth));
 
-% Upload gui_data
+% Upload gui_data then refresh markers
 guidata(gui_fig, gui_data);
+update_markers(gui_fig, 'atlas');
 
 end
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+function pts_cell = pad_to_4col(pts_cell)
+% Ensure all point arrays have 4 columns [slice, row, col, timestamp].
+% Pads legacy 3-column arrays with NaN timestamps.
+for i = 1:numel(pts_cell)
+    if size(pts_cell{i}, 2) == 3
+        pts_cell{i} = [pts_cell{i}, nan(size(pts_cell{i},1), 1)];
+    end
+end
+end
