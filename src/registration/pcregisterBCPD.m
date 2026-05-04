@@ -97,7 +97,7 @@ Ndims = size(moving, 2);
 if ~isempty(params.BCPDPath)
     bcpd_exe = params.BCPDPath;
 else
-    if ispc, bcpd_exe = 'bcpd.exe'; else, bcpd_exe = './bcpd'; end
+    if ispc, bcpd_exe = which('bcpd.exe'); else, bcpd_exe = './bcpd'; end
 end
 if ~isfile(bcpd_exe) && isempty(dir(which(bcpd_exe)))
     error('BCPD executable not found: %s\nPlease add it to your path or specify ''BCPDPath''.', bcpd_exe);

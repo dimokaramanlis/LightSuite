@@ -24,13 +24,13 @@ params.MovingImagePyramid              = 'MovingRecursiveImagePyramid';
 params.UseRandomSampleRegion           = true;
 params.NewSamplesEveryIteration        = true;
 params.NumberOfResolutions             = 4;
-params.NumberOfHistogramBins           = 16;
+params.NumberOfHistogramBins           = 32;
 params.SP_A                            = 20;
 %--------------------------------------------------------------------------
 % these may affect more
 params.FinalGridSpacingInPhysicalUnits = 0.96*ones(1,2);
-params.MaximumNumberOfIterations       = [600 800 1200 1600]; %1000; %[1000 1500 2000 2500]; %
-params.NumberOfSpatialSamples          = 3000;%[1000 1000 2000 2000];% [2000 2500 3000 3000];%
+params.MaximumNumberOfIterations       = [600 800 1200 1600];
+params.NumberOfSpatialSamples          = 5000;
 params.Metric1Weight                   = cpwt; %cpwt;%[1  0.5 0.25 0.125] * cpwt; %
 params.Metric0Weight                   = 1.0;
 params.ImagePyramidSchedule            = kron([8 4 2 1],     ones(1,2));

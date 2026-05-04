@@ -7,7 +7,7 @@ orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisio
 if ~isnumeric(slicevol)
     % it is a path and we have to load it as a path
     assert(isstring(slicevol) | ischar(slicevol))
-    slicevol = loadLargeSliceVolume(slicevol, 1:numel(sliceinfo.channames), orderfile);
+    slicevol = loadLargeSliceVolume(slicevol, 1:numel(sliceinfo.channames));
 end
 fprintf('Done! Took %2.2f s\n', toc); 
 %--------------------------------------------------------------------------
@@ -92,8 +92,8 @@ tvreg            = imresize3(tv, sliceinfo.px_atlas/sliceinfo.px_register);
 avreg            = imresize3(av, sliceinfo.px_atlas/sliceinfo.px_register);
 atlasframe = size(tv, [2 3]);
 
-thresuse         = quantile(tvreg(tvreg>0),0.99,'all')/4;
-ipx = find(tvreg(:) > thresuse);
+thresuse            = quantile(tvreg(tvreg>0),0.99,'all')/4;
+ipx                 = find(tvreg(:) > thresuse);
 [row, col, lastdim] = ind2sub(size(tvreg), ipx);
 tv_cloud = pointCloud(gather([col, row, lastdim]));
 
@@ -141,7 +141,7 @@ regopts.allenres     = 10; % um
 regopts.errall       = errall;
 regopts.atlasaplims  = sliceinfo.atlasaplims;
 regopts.pxsizes      = [sliceinfo.slicethickness/sliceinfo.px_register 1 1];
-regopts.extentfactor = 6; % # slices to extend beyond rigid registration
+regopts.extentfactor = 10; % # slices to extend beyond rigid registration
 save(fullfile(sliceinfo.procpath, 'regopts.mat'), '-struct', 'regopts')
 %--------------------------------------------------------------------------
 scalesize = [ceil(size(slicevol,[1 2])*sliceinfo.px_process/sliceinfo.px_register) Nslices];

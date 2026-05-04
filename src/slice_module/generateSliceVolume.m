@@ -54,17 +54,21 @@ for ifile = 1:Nfiles
             currim(currim == 0) = backval; % to replace empty tiles
 
             if sliceinfo.denoisedapi && contains(lower(sliceinfo.channames(icol)), 'dapi')
-                currim = stdfilt(currim, ones(dapipx));
+                currim  = stdfilt(currim, ones(dapipx));
+                backval = quantile(currim(currim>0), 0.01, 'all');
+                currim(currim == 0) = backval; % to replace empty tiles
             end
 
             if icol == 1
                 [xrange, yrange] = extractBrainLimits3(currim, Nbuff);
-                % [xrange, yrange] = extractBrainLimits(imtofit, Nbuff);
+                % [xrange, yrange] = extractBrainLimits(currim, Nbuff);
                 % imagesc(currim(yrange,xrange))
-                aa = 1;
+                % aa = 1;
             end
 
             currim   = currim(yrange,xrange);
+            % imagesc(currim);
+            % drawnow;
             backval  = quantile(currim(currim>0), 0.01, 'all');
             currsize = size(currim);
             padpx    = size_proc - currsize;

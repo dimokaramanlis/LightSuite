@@ -54,7 +54,7 @@ pcmov  = pcdownsample(pcatlas, 'random', 1e4/Nptsatlas, 'PreserveStructure',true
 % pcmov  = pcdownsample(pcatlas, 'random',  10);
 
 [tformout, pcreg, res] = pcregistercpd(pcmov, pcplot, "Transform","Rigid",...
-    "Verbose",false,"OutlierRatio",0.00, 'MaxIterations', 20, 'Tolerance', 1e-6);
+    "Verbose",false,"OutlierRatio",0.00, 'MaxIterations', 10, 'Tolerance', 1e-6);
 
 % figure;
 % pcshowpair(pctransform(pcplot, tformout.invert), pcmov);

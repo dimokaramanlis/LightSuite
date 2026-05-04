@@ -93,7 +93,7 @@ wholetic = tic; msg = repmat('=', [1 100]);
 ratlas      = imref2d(size(tvnew,  [2 3]));
 rahist      = imref2d(size(volume, [2 3]));
 slicetforms = affinetform2d;
-cpwt        = 0.2;
+cpwt        = getOr(opts, 'cpwt',0.2);
 forsavepath = fullfile(opts.procpath, 'elastix_forward');
 revsavepath = fullfile(opts.procpath, 'elastix_reverse');
 makeNewDir(forsavepath);
