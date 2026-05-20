@@ -31,5 +31,5 @@ axis(ax, 'equal');
 axis(ax, 'vis3d');
 axis(ax, 'off');
 f = get(ax, 'Parent');
-    
+
    
