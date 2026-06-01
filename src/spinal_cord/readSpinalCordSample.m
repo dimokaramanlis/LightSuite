@@ -6,13 +6,19 @@ tiffiles = dir(fullfile(dp, '*.tiff'));
 tifiles  = dir(fullfile(dp, '*.tif'));
 tfiles   = cat(1, tifiles, tiffiles);
 tic;
-if numel(tfiles) == 1
-    data   = bfopen(fullfile(tfiles.folder, tfiles.name));
-    finvol = cat(3, data{1}{:,1});
-    Nchans = str2double(data{1}{1,2}(end)); 
-    Nz     = size(finvol, 3)/Nchans;
-    finvol = reshape(finvol, [size(finvol, [1 2]) Nchans Nz]);
-    finvol = permute(finvol, [1 2 4 3]);
+if numel(tfiles) == 1 
+    dataim  = BioformatsImage(fullfile(tfiles.folder, tfiles.name));
+    Nchans  = dataim.sizeC;
+    
+    finvol  = zeros(dataim.height, dataim.width, dataim.sizeZ, Nchans, 'uint16');
+    for ii = 1:Nchans
+        currchan = zeros(dataim.height, dataim.width, dataim.sizeZ, 'uint16');
+        for iz = 1:dataim.sizeZ
+            currchan(:, :, iz) = dataim.getPlane(iz, ii, 1, 1);
+        end
+        % currchan(currchan==0) = mode(currchan(currchan>0));
+        finvol(:, :, :, ii) = currchan;
+    end
 else
     Nchans = numel(tfiles);
     finvol = cell(Nchans, 1);
