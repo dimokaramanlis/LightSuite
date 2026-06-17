@@ -63,13 +63,3 @@ The whole-brain pipeline runs this in 3D; the slice module uses a 2D adaptation.
 * **Registered volumes** for every channel, warped into atlas space.
 * **Cell positions** in atlas space, plus **regional cell counts and fluorescence intensities** per area and hemisphere (exportable to CSV).
 * **Implant localization** for optical fibers / GRIN lenses and Neuropixels probes — see [Probe & implant tracing](usage_tracing.md).
-
----
-
-## References
-
-* Allen CCF v3: Wang et al., *Cell*, 2020.
-* Spinal cord atlas: Fiederling et al., *Cell Rep. Methods*, 2021.
-* Coherent Point Drift (BCPD): Hirose, [github.com/ohirose/bcpd](https://github.com/ohirose/bcpd).
-* Deformable registration: [Elastix](https://elastix.lumc.nl/).
-* LightSuite: Karamanlis et al., *high-throughput registration and cell counting in the central nervous system* (in preparation).

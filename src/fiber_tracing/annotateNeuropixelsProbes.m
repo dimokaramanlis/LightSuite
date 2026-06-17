@@ -1,39 +1,42 @@
-function annotateGRINLens(savepath, varargin)
-% ANNOTATEGRINLENS  GUI for annotating optical fiber / GRIN lens positions
-%   in a LightSuite registered volume.
+function annotateNeuropixelsProbes(savepath, varargin)
+% ANNOTATENEUROPIXELSPROBES  GUI for annotating Neuropixels (or any linear
+%   probe) tracks in a LightSuite registered volume.
 %
 %   Displays the 20 µm registration volume in coronal view.  The user
-%   navigates slices and clicks the fiber edges.  Up to 9 fibers can be
-%   annotated simultaneously, each in a separate numbered group.  Pressing F
-%   transforms all groups to Allen-CCF atlas space, fits a circle per fiber,
-%   and opens one atlas-region figure per fiber (depths 0–250 µm).
+%   navigates slices and clicks points along each probe track.  Up to 9 probes
+%   can be annotated simultaneously, each in a separate numbered group.
+%   Pressing F transforms all groups to Allen-CCF atlas space, fits a straight
+%   line through each probe's points, computes the brain regions traversed, and
+%   saves an AP_histology-style probe_ccf structure (see
+%   https://github.com/petersaj/AP_histology).
 %
 %   Usage:
-%       annotateGRINLens(savepath)
-%       annotateGRINLens(savepath, 'Diameter', 500)
+%       annotateNeuropixelsProbes(savepath)
 %
 %   Required:
 %       savepath   – LightSuite folder with regopts.mat + transform_params.mat
 %
-%   Optional:
-%       Diameter   – fiber diameter in µm  (default 500)
-%
 %   Keyboard controls:
 %       ←  / →  or scroll   navigate coronal slices
-%       1 – 9               select active fiber group (colour-coded)
-%       Click               add edge point to active fiber
-%       Backspace           delete last point from active fiber
-%       C                   clear active fiber's points on current slice
-%       S                   save all points to grin_fiber_points.mat
-%       F                   fit every non-empty fiber + show atlas images
+%       1 – 9               select active probe group (colour-coded)
+%       Click               add a track point to the active probe
+%       Backspace           delete last point from active probe
+%       C                   clear active probe's points on current slice
+%       S                   save all points to neuropixels_probe_points.mat
+%       F                   fit every probe + save probe_ccf.mat + show figure
 %       Enter               jump to a specific slice number
+%
+%   Output (on F):
+%       <savepath>/probe_ccf.mat – struct array with fields points,
+%       trajectory_coords, trajectory_areas (AP_histology format) plus
+%       probe_number and fit metadata.
 
 p = inputParser;
-addRequired(p,  'savepath');
-addParameter(p, 'Diameter', 500, @isnumeric);
+addRequired(p, 'savepath');
 parse(p, savepath, varargin{:});
 
-% 9 distinct group colours (used for point overlays and status labels)
+% 9 distinct group colours (must match neuropixels_probe_colors in
+% plotProbeAtlasImages so each probe keeps its colour across figures)
 GROUP_COLORS = [ ...
     1.00 0.20 0.20;   % 1  red
     0.15 0.82 0.15;   % 2  green
@@ -51,7 +54,7 @@ GROUP_COLORS = [ ...
 optsfile = fullfile(savepath, 'regopts.mat');
 trfile   = fullfile(savepath, 'transform_params.mat');
 if ~exist(optsfile, 'file') || ~exist(trfile, 'file')
-    error('annotateGRINLens: regopts.mat or transform_params.mat not found in %s', savepath);
+    error('annotateNeuropixelsProbes: regopts.mat or transform_params.mat not found in %s', savepath);
 end
 
 opts_data = load(optsfile);
@@ -62,7 +65,7 @@ trstruct  = load(trfile);
 [~, currname, currext] = fileparts(regopts.regvolpath);
 regvolpath = fullfile(savepath, [currname currext]);
 if ~exist(regvolpath, 'file')
-    error('annotateGRINLens: registration volume not found at %s', regvolpath);
+    error('annotateNeuropixelsProbes: registration volume not found at %s', regvolpath);
 end
 
 fprintf('Loading registration volume from %s ...\n', regvolpath);
@@ -91,7 +94,6 @@ gui_data.trstruct      = trstruct;
 gui_data.regopts       = regopts;
 gui_data.vol           = voldisp;
 gui_data.how_to_perm   = how_to_perm;
-gui_data.diameter_um   = p.Results.Diameter;
 gui_data.registres     = regopts.registres;
 gui_data.ori_pxsize    = trstruct.ori_pxsize;
 gui_data.slice_dim     = SLICE_DIM;
@@ -99,24 +101,22 @@ gui_data.curr_slice    = round(size(voldisp, SLICE_DIM) / 2);
 gui_data.active_group  = 1;
 gui_data.all_points    = repmat({zeros(0,3)}, 1, NGROUPS);  % {1×9} of Nx3
 gui_data.group_colors  = GROUP_COLORS;
-gui_data.save_file     = fullfile(savepath, 'grin_fiber_points.mat');
+gui_data.save_file     = fullfile(savepath, 'neuropixels_probe_points.mat');
 
 % Re-load previously saved points if present
 if exist(gui_data.save_file, 'file')
     sv = load(gui_data.save_file, 'all_points', 'active_group');
     if isfield(sv, 'all_points') && iscell(sv.all_points)
-        % Pad to NGROUPS in case the file was saved with fewer groups
         for g = 1:min(numel(sv.all_points), NGROUPS)
             gui_data.all_points{g} = sv.all_points{g};
         end
         total = sum(cellfun(@(x) size(x,1), gui_data.all_points));
-        fprintf('Loaded %d points across all groups.\n', total);
+        fprintf('Loaded %d points across all probes.\n', total);
     end
-    if isfield(sv, 'active_group');   gui_data.active_group = sv.active_group; end
-    if ~isempty(sv.all_points{1});
-        gui_data.curr_slice = round(median(sv.all_points{1}(:,1)));
+    if isfield(sv, 'active_group');  gui_data.active_group = sv.active_group; end
+    if ~isempty(gui_data.all_points{1})
+        gui_data.curr_slice = round(median(gui_data.all_points{1}(:,1)));
     end
-    
 end
 
 %----------------------------------------------------------------------
@@ -126,7 +126,7 @@ screen_sz = get(0, 'screensize');
 fig_w = screen_sz(3) * 0.55;
 fig_h = fig_w * 0.72;
 gui_fig = figure( ...
-    'Name',                 'GRIN Lens Annotation', ...
+    'Name',                 'Neuropixels Probe Annotation', ...
     'KeyPressFcn',          @keypress, ...
     'WindowScrollWheelFcn', @scroll_slice, ...
     'Toolbar',              'none', ...
@@ -141,10 +141,10 @@ gui_data.pp.pack('v', {0.91, 0.09});
 gui_data.pp.margin = [2 2 2 30];
 
 gui_data.base_title = { ...
-    ['\bfGRIN Lens Annotation  (diameter: ' num2str(gui_data.diameter_um) ' µm)'], ...
-    ['\bfControls:\rm  ←/→ or scroll: slice  |  Click: add point  |  ' ...
-     'Backspace: delete  |  C: clear slice  |  1–9: select fiber  |  ' ...
-     'F: fit atlas  |  S: save  |  Enter: jump']};
+    '\bfNeuropixels Probe Annotation', ...
+    ['\bfControls:\rm  ←/→ or scroll: slice  |  Click: add track point  |  ' ...
+     'Backspace: delete  |  C: clear slice  |  1–9: select probe  |  ' ...
+     'F: fit + save probe\_ccf  |  S: save  |  Enter: jump']};
 gui_data.pp.title(gui_data.base_title);
 gui_data.pp.fontname = 'Arial';
 
@@ -167,7 +167,7 @@ for g = 1:NGROUPS
         'Color',          GROUP_COLORS(g,:), ...
         'MarkerSize',     16, ...
         'PickableParts',  'none', ...
-        'DisplayName',    sprintf('Fiber %d', g));
+        'DisplayName',    sprintf('Probe %d', g));
 end
 
 % Status line
@@ -180,7 +180,7 @@ gui_data.status_txt = text(stat_ax, 0.01, 0.5, '', ...
 guidata(gui_fig, gui_data);
 update_display(gui_fig);
 
-end  % annotateGRINLens
+end  % annotateNeuropixelsProbes
 
 %==========================================================================
 % CALLBACKS
@@ -190,7 +190,7 @@ function keypress(gui_fig, event)
     gui_data     = guidata(gui_fig);
     needs_update = true;
 
-    % Number keys 1-9: select active fiber group
+    % Number keys 1-9: select active probe group
     num_keys = {'1','2','3','4','5','6','7','8','9', ...
                 'numpad1','numpad2','numpad3','numpad4','numpad5', ...
                 'numpad6','numpad7','numpad8','numpad9'};
@@ -242,7 +242,7 @@ function keypress(gui_fig, event)
         case 'f'
             guidata(gui_fig, gui_data);
             do_save(gui_data);
-            fit_and_show_atlas(gui_fig);
+            fit_and_show_probes(gui_fig);
             return;
 
         otherwise
@@ -344,7 +344,7 @@ function update_display(gui_fig)
                         1:NGROUPS, 'UniformOutput', false), '  ');
     gc        = gui_data.group_colors(gui_data.active_group, :);
     col_name  = group_color_name(gui_data.active_group);
-    msg = sprintf('Coronal  %d / %d  |  Active: Fiber %d (%s)  |  Pts  %s', ...
+    msg = sprintf('Coronal  %d / %d  |  Active: Probe %d (%s)  |  Pts  %s', ...
         gui_data.curr_slice, max_sl, gui_data.active_group, col_name, cnt_str);
     set(gui_data.status_txt, 'String', msg, ...
         'Color', gc);
@@ -371,107 +371,88 @@ function flash_title(gui_data, msg)
 end
 
 function do_save(gui_data)
-    all_points  = gui_data.all_points;   %#ok<NASGU>
-    diameter_um = gui_data.diameter_um;  %#ok<NASGU>
-    active_group = gui_data.active_group; %#ok<NASGU>
-    save(gui_data.save_file, 'all_points', 'diameter_um', 'active_group');
+    all_points   = gui_data.all_points;    %#ok<NASGU>
+    active_group = gui_data.active_group;  %#ok<NASGU>
+    save(gui_data.save_file, 'all_points', 'active_group');
     total = sum(cellfun(@(x) size(x,1), gui_data.all_points));
     fprintf('Saved %d total points to %s\n', total, gui_data.save_file);
 end
 
 %==========================================================================
-% FIT AND VISUALISE (all non-empty fiber groups)
+% FIT AND VISUALISE (all non-empty probe groups)
 %==========================================================================
 
-function fit_and_show_atlas(gui_fig)
+function fit_and_show_probes(gui_fig)
     gui_data = guidata(gui_fig);
 
-    % Check that at least one group has enough points
+    % Probes need at least 2 points to define a line (3+ recommended)
     grp_cnts   = cellfun(@(x) size(x,1), gui_data.all_points);
-    valid_grps = find(grp_cnts >= 4);
+    valid_grps = find(grp_cnts >= 2);
     if isempty(valid_grps)
-        warndlg('Each fiber needs at least 4 edge points. Add more points and try again.', ...
+        warndlg('Each probe needs at least 2 track points. Add more points and try again.', ...
                 'Not enough points');
         return;
     end
 
-    fprintf('--- GRIN Lens Fitting (%d fiber(s)) ---\n', numel(valid_grps));
+    fprintf('--- Neuropixels Probe Fitting (%d probe(s)) ---\n', numel(valid_grps));
 
-    % Load atlas resources once (shared across all fibers)
-    allen_atlas_path = fileparts(which('annotation_10.nii.gz'));
-    if isempty(allen_atlas_path)
-        error('annotation_10.nii.gz not found on MATLAB path.');
-    end
-    fprintf('Loading annotation volume...\n');
-    av = niftiread(fullfile(allen_atlas_path, 'annotation_10.nii.gz'));
+    % Load atlas resources once (shared across all probes)
+    fprintf('Loading annotation volume and parcellation...\n');
+    atlas = loadTracingAtlas();
 
-    parcel_path = fileparts(which('parcellation_to_parcellation_term_membership.csv'));
-    parcelinfo  = readtable(fullfile(parcel_path, 'parcellation_to_parcellation_term_membership.csv'));
-    substridx   = strcmp(parcelinfo.parcellation_term_set_name, 'substructure');
-    [areaidx, ib] = unique(parcelinfo.parcellation_index(substridx));
-    namessub    = parcelinfo.parcellation_term_acronym(substridx);
-    namessub    = namessub(ib);
+    %------------------------------------------------------------------
+    % Transform all probe points to atlas space in a single call
+    %------------------------------------------------------------------
+    counts  = grp_cnts(valid_grps);
+    all_pts = cat(1, gui_data.all_points{valid_grps});
 
-    colorsub      = [parcelinfo.red(substridx), parcelinfo.green(substridx), parcelinfo.blue(substridx)];
-    colorsub     = colorsub(ib, :);
-
-    depths_um  = 0 : 100 : 400;
-    depths_vox = depths_um / 10;
-    Ndepths    = numel(depths_um);
-
-    radius_vox = (gui_data.diameter_um / 2) / 10;
-    all_results = cell(1, numel(valid_grps));
-
-    % Transform all fiber edge points to atlas space in one shared call
-    % (same coordinate transform used by annotateNeuropixelsProbes)
-    counts     = cellfun(@(x) size(x,1), gui_data.all_points(valid_grps));
-    all_pts    = cat(1, gui_data.all_points{valid_grps});
-    atlas_all  = registrationPointsToAtlas(all_pts, gui_data.trstruct, ...
+    fprintf('Transforming %d points to atlas space...\n', size(all_pts, 1));
+    atlas_all = registrationPointsToAtlas(all_pts, gui_data.trstruct, ...
         gui_data.registres, gui_data.savepath);
-    grp_ends   = cumsum(counts(:)');
-    grp_starts = [1, grp_ends(1:end-1) + 1];
+
+    ends   = cumsum(counts(:)');
+    starts = [1, ends(1:end-1) + 1];
+
+    %------------------------------------------------------------------
+    % Fit each probe and build the probe_ccf struct array
+    %------------------------------------------------------------------
+    probe_ccf = struct('probe_number', {}, 'points', {}, ...
+        'trajectory_coords', {}, 'trajectory_areas', {}, ...
+        'fit_centroid', {}, 'fit_direction', {}, 'fit_endpoints', {});
 
     for ki = 1:numel(valid_grps)
-        g    = valid_grps(ki);
-        ptscurr  = gui_data.all_points{g};
-        fprintf('\n[Fiber %d]  %d points\n', g, size(ptscurr,1));
+        g = valid_grps(ki);
+        atlas_pts = atlas_all(starts(ki):ends(ki), :);
 
-        atlas_pts = atlas_all(grp_starts(ki):grp_ends(ki), :);
+        % Reorder transform output to [AP DV ML] (same convention used to
+        % index annotation_10 in the GRIN pipeline)
+        points = atlas_pts(:, [2 1 3]);
 
+        fprintf('\n[Probe %d]  %d points\n', g, size(points, 1));
         fprintf('  Atlas: AP [%.0f–%.0f]  DV [%.0f–%.0f]  ML [%.0f–%.0f]\n', ...
-            min(atlas_pts(:,1)), max(atlas_pts(:,1)), ...
-            min(atlas_pts(:,2)), max(atlas_pts(:,2)), ...
-            min(atlas_pts(:,3)), max(atlas_pts(:,3)));
+            min(points(:,1)), max(points(:,1)), ...
+            min(points(:,2)), max(points(:,2)), ...
+            min(points(:,3)), max(points(:,3)));
 
-        [center_vox, normal_vox] = fitFiberInAtlas(atlas_pts(:, [2 1 3]), radius_vox);
-        fprintf('  Centre: [%.1f  %.1f  %.1f]  Normal: [%.3f  %.3f  %.3f]\n', ...
-            center_vox, normal_vox);
+        probe = fitProbeTrajectory(points, atlas);
+        probe.probe_number = g;
 
-        % Extract annotation slices
-        slices_av = cell(1, Ndepths);
-        rvec_arr  = cell(1, Ndepths);
-        for ii = 1:Ndepths
-            [slices_av{ii}, rvec_arr{ii}] = extractAnnotationCircularSlice( ...
-                av, center_vox, normal_vox, radius_vox, depths_vox(ii));
-        end
+        fprintf('  Insertion [AP DV ML]: [%.0f %.0f %.0f]  Tip: [%.0f %.0f %.0f]\n', ...
+            probe.trajectory_coords(1,:), probe.trajectory_coords(2,:));
+        fprintf('  Regions traversed: %d\n', height(probe.trajectory_areas));
 
-        % Save per-fiber results
-        res.center_vox = center_vox;
-        res.normal_vox = normal_vox;
-        res.radius_vox = radius_vox;
-        res.atlas_pts  = atlas_pts;
-        res.depths_um  = depths_um;
-        res.slices_av  = slices_av;
-        res.rvec_arr   = rvec_arr;
-        res.atlas_pts  = atlas_pts;
-        all_results{ki} = res;
-
-        outfile = fullfile(gui_data.savepath, sprintf('grin_fiber%d_atlas.mat', g));
-        save(outfile, '-struct', 'res');
-        fprintf('  Results saved to %s\n', outfile);
+        % Order fields consistently with the struct template
+        probe = orderfields(probe, {'probe_number', 'points', ...
+            'trajectory_coords', 'trajectory_areas', ...
+            'fit_centroid', 'fit_direction', 'fit_endpoints'});
+        probe_ccf(ki) = probe; %#ok<AGROW>
     end
 
-        
-        % Show atlas figure for this fiber
-        plotGRINAtlasImages(all_results, areaidx, namessub, colorsub);
+    % Save in AP_histology probe_ccf convention
+    outfile = fullfile(gui_data.savepath, 'probe_ccf.mat');
+    save(outfile, 'probe_ccf');
+    fprintf('\nSaved probe_ccf (%d probe(s)) to %s\n', numel(probe_ccf), outfile);
+
+    % Show trajectory figure
+    plotProbeAtlasImages(probe_ccf);
 end
