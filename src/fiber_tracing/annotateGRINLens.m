@@ -31,6 +31,8 @@ function annotateGRINLens(savepath, varargin)
 p = inputParser;
 addRequired(p,  'savepath');
 addParameter(p, 'Diameter', 500, @isnumeric);
+addParameter(p, 'Channel',    [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(p, 'VolumePath', '', @(x) ischar(x) || isstring(x));
 parse(p, savepath, varargin{:});
 
 % 9 distinct group colours (used for point overlays and status labels)
@@ -58,14 +60,15 @@ opts_data = load(optsfile);
 regopts   = opts_data.opts;
 trstruct  = load(trfile);
 
-% Locate registration volume – resolve path relative to savepath
-[~, currname, currext] = fileparts(regopts.regvolpath);
-regvolpath = fullfile(savepath, [currname currext]);
-if ~exist(regvolpath, 'file')
-    error('annotateGRINLens: registration volume not found at %s', regvolpath);
-end
+% Locate the volume to trace on. Defaults to the registration channel, but
+% the 'Channel' / 'VolumePath' options let you annotate on a different channel
+% (the fiber may be labelled outside the registration channel). All channels
+% share the same 20 µm registration grid, so the atlas transform is unchanged.
+regvolpath = resolveTracingVolumePath(savepath, regopts, ...
+    p.Results.Channel, p.Results.VolumePath);
+[~, rvname, rvext] = fileparts(regvolpath);
 
-fprintf('Loading registration volume from %s ...\n', regvolpath);
+fprintf('Loading volume from %s ...\n', regvolpath);
 volraw = readDownStack(regvolpath);
 
 % Permute to atlas orientation (same convention as the registration pipeline)
@@ -90,6 +93,7 @@ gui_data.savepath      = savepath;
 gui_data.trstruct      = trstruct;
 gui_data.regopts       = regopts;
 gui_data.vol           = voldisp;
+gui_data.regvolname    = [rvname rvext];
 gui_data.how_to_perm   = how_to_perm;
 gui_data.diameter_um   = p.Results.Diameter;
 gui_data.registres     = regopts.registres;
@@ -141,7 +145,7 @@ gui_data.pp.pack('v', {0.91, 0.09});
 gui_data.pp.margin = [2 2 2 30];
 
 gui_data.base_title = { ...
-    ['\bfGRIN Lens Annotation  (diameter: ' num2str(gui_data.diameter_um) ' µm)'], ...
+    ['\bfGRIN Lens Annotation  (diameter: ' num2str(gui_data.diameter_um) ' µm  |  volume: ' strrep(gui_data.regvolname, '_', '\_') ')'], ...
     ['\bfControls:\rm  ←/→ or scroll: slice  |  Click: add point  |  ' ...
      'Backspace: delete  |  C: clear slice  |  1–9: select fiber  |  ' ...
      'F: fit atlas  |  S: save  |  Enter: jump']};

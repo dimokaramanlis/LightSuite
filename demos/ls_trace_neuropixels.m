@@ -6,7 +6,7 @@
 % (opts.savepath) must contain regopts.mat and transform_params.mat.
 
 % folder produced by the lightsheet registration pipeline
-savepath = 'D:\DATA\DK001\lightsuite';
+savepath = 'K:\localization_imaging\20260616_DK037_1p25x\lightsuite';
 
 %% (manual) annotate probe tracks
 % Navigate coronal slices, press 1-9 to pick a probe, and click points along
@@ -15,8 +15,13 @@ savepath = 'D:\DATA\DK001\lightsuite';
 %
 % Pressing F transforms the points to atlas space, fits a straight line per
 % probe (SVD), reads the brain regions along the trajectory, saves
-% <savepath>\probe_ccf.mat, and opens the trajectory figure.
-annotateNeuropixelsProbes(savepath);
+% <savepath>\probe_ccf.mat, and opens the trajsectory figure.
+%
+% By default the probe is traced on the registration channel. If the track is
+% clearest in another channel, trace on that channel instead -- the atlas
+% mapping is identical because all channels share the registration grid:
+%   annotateNeuropixelsProbes(savepath, 'Channel', 2);
+annotateNeuropixelsProbes(savepath, 'Channel', 2);
 
 %% (auto) re-load and re-plot saved results without the GUI
 [probe_ccf, cf] = plotNeuropixelsTracingResults(savepath); %#ok<ASGLU>
