@@ -30,7 +30,7 @@ function [center, normal] = fitFiberInAtlas(pts, radius_vox)
     %--------------------------------------------------------------
     % 1. Find fibre axis via PCA on the centred cloud
     %--------------------------------------------------------------
-    centroid = median(pts, 1);
+    centroid = mean(pts, 1);
     pts_c    = pts - centroid;       % Nx3 centred
 
     % Scatter matrix; eigenvectors in ascending eigenvalue order

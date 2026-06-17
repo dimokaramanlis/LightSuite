@@ -36,8 +36,7 @@ function [slice_av, rvec] = extractAnnotationCircularSlice(av, center, normal, r
     %------------------------------------------------------------------
     % Sampling grid in the plane
     %------------------------------------------------------------------
-    pad   = 5;                                          % extra voxels beyond radius
-    rspan = radius_vox + pad;
+    rspan = radius_vox * 2;
     Ngrid = 2 * ceil(rspan) + 1;
     rvec  = linspace(-rspan, rspan, Ngrid);
 

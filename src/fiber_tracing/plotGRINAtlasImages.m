@@ -1,4 +1,4 @@
-function [cf, pp] = plotGRINAtlasImages(all_results,...
+function [cf, pp, resplot] = plotGRINAtlasImages(all_results,...
     areaidx, namessub, colorsub)
 % PLOTGRINATLASIAMGES  Visualise atlas-region maps at multiple depths.
 %
@@ -23,6 +23,9 @@ function [cf, pp] = plotGRINAtlasImages(all_results,...
     
     Ndepths = max(cellfun(@(x) numel(x.depths_um), all_results));
     Nfibers = numel(all_results);
+    mf = which('brainGridData.npy');
+    bgdata = readNPY(mf);
+    bgdata = reduceBrainGrid(bgdata, 6);
 
     fiber_cmap = cbrewer('qual', 'Dark2', max(3, Nfibers));
     %------------------------------------------------------------------
@@ -51,10 +54,18 @@ function [cf, pp] = plotGRINAtlasImages(all_results,...
 
 
     currax = pp(1).select(); cla;
-    plotBrainGrid([], currax);
+    plotBrainGrid(bgdata, currax);
     hold on;
+
+     % Calculate 3D coordinates of the cylinder surface
+    n_cyl = 30;
+    theta = linspace(0, 2*pi, n_cyl);
+
+    Cyl_AP = zeros(2, n_cyl, Nfibers);
+    Cyl_DV = zeros(2, n_cyl, Nfibers);
+    Cyl_ML = zeros(2, n_cyl, Nfibers);
     
-    for ii = 1:numel(all_results)
+    for ii = 1:Nfibers
         ptsshow = all_results{ii}.atlas_pts;
         center = all_results{ii}.center_vox;
         w      = all_results{ii}.normal_vox;
@@ -76,14 +87,7 @@ function [cf, pp] = plotGRINAtlasImages(all_results,...
         min_p = -(max(proj) + 100);
         max_p = 0;
         
-        % Calculate 3D coordinates of the cylinder surface
-        n_cyl = 30;
-        theta = linspace(0, 2*pi, n_cyl);
-        
-        Cyl_AP = zeros(2, n_cyl);
-        Cyl_DV = zeros(2, n_cyl);
-        Cyl_ML = zeros(2, n_cyl);
-        
+   
         C1 = center + min_p * w;
         C2 = center + max_p * w;
         
@@ -92,17 +96,21 @@ function [cf, pp] = plotGRINAtlasImages(all_results,...
             p1 = C1 + offset;
             p2 = C2 + offset;
             
-            Cyl_AP(1, k) = p1(1); Cyl_DV(1, k) = p1(2); Cyl_ML(1, k) = p1(3);
-            Cyl_AP(2, k) = p2(1); Cyl_DV(2, k) = p2(2); Cyl_ML(2, k) = p2(3);
+            Cyl_AP(1, k, ii) = p1(1); Cyl_DV(1, k, ii) = p1(2); Cyl_ML(1, k, ii) = p1(3);
+            Cyl_AP(2, k, ii) = p2(1); Cyl_DV(2, k, ii) = p2(2); Cyl_ML(2, k, ii) = p2(3);
         end
         
         % Plot the cylinder using DV(2), ML(3), AP(1) mapping
-        surf(  Cyl_AP,Cyl_ML, Cyl_DV,'FaceColor', fiber_cmap(ii,:), ...
+        surf(  Cyl_AP(:,:, ii),Cyl_ML(:,:, ii), Cyl_DV(:,:, ii),'FaceColor', fiber_cmap(ii,:), ...
             'EdgeColor', 'none', 'FaceAlpha', 0.5);
 
         scatter3(ptsshow(:,2), ptsshow(:,3), ptsshow(:,1), 5, 'filled',...
             'MarkerFaceColor',fiber_cmap(ii,:),'MarkerEdgeColor','k')
     end
+
+    resplot.Cyl_AP = Cyl_AP;
+    resplot.Cyl_ML = Cyl_ML;
+    resplot.Cyl_DV = Cyl_DV;
 
     for ifiber = 1:Nfibers
        %------------------------------------------------------------------
