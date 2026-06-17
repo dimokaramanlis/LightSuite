@@ -18,7 +18,7 @@ You need **MATLAB R2022b** or newer. Ensure the following toolboxes are installe
 * [Bioformats functions](https://downloads.openmicroscopy.org/bio-formats/5.5.0/artifacts/bfmatlab.zip)
 
 ### 2. Install repository dependencies
-Clone the following two repositories and add them to MATLAB's path: 
+Clone the following repositories and add them to MATLAB's path: 
 
 * [matlab_elastix](https://github.com/dimokaramanlis/matlab_elastix), updated fork based on Rob Campbell's repository
 * [yamlmatlab](https://github.com/raacampbell/yamlmatlab), Rob Campbell's repository

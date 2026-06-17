@@ -1,6 +1,8 @@
 # Slice Analysis
 
-The Slice Module is optimized for conventional wide-field microscope data where you have individual coronal rather than a continuous 3D volume.
+The Slice Module is optimized for conventional wide-field microscope data, where you have individual coronal sections rather than a continuous 3D volume. It orders and aligns the sections, registers each to the atlas, and reconstructs them into a volume in atlas space.
+
+> The registration and cell-detection concepts are shared across modules and explained in [How it works](how_it_works.md). This page covers the slice-specific steps (ordering, cutting angle, per-section registration).
 
 ## Workflow Overview
 
@@ -127,10 +129,7 @@ Because slices may be loaded out of order or incorrectly oriented, `SliceOrderEd
 | **Enter** | Jump to a specific slice number |
 | **s** | Save control points |
 
-**Tips:**
-* At least 3 matched point pairs are required per slice for an affine fit.
-* Spread points across the full extent of the slice — don't cluster them in one region.
-* The MSE displayed updates live; lower is better.
+**Tips:** At least **3 matched pairs per slice** are needed for the 2D affine fit, spread across the slice; the live MSE shows fit quality. See [How it works → control points](how_it_works.md#refining-registration-with-control-points-active-learning) for the general landmark strategy.
 
 **Output:** `atlas2histology_tform.mat` — per-slice affine transforms and control point arrays.
 
@@ -170,10 +169,8 @@ Both forward (atlas → sample) and reverse (sample → atlas) transforms are sa
 `extractCellsFromSliceVolume(opts, ichan)` detects cells slice by slice using a 2D SNR-based approach.
 
 ### Algorithm
-1. **Background subtraction:** Computes a local background using a median filter and generates a difference-from-background (DFF) image.
-2. **Bandpass filtering:** Enhances objects matching the expected cell size while suppressing noise and background.
-3. **Local maxima detection:** Identifies candidate cells as local maxima above `thresuse(1)`.
-4. **Morphological filtering:** Removes candidates that are too elongated (circularity < 0.7), too small, or too dim (below `thresuse(2)`).
+
+A 2D adaptation of LightSuite's SBR detection (background → bandpass → local maxima → morphological filter); see [How it works → cell detection](how_it_works.md#cell-detection-and-artifact-classification). Slice-specific details: a difference-from-background (DFF) image supplies the local background, and candidates are filtered by circularity (< 0.7), size, and a minimum intensity set by `thresuse(2)`.
 
 ### Key Parameters
 * **`celldiam`**: Expected cell diameter in µm. This directly controls the bandpass filter kernel size — it is the most important detection parameter.

@@ -2,6 +2,8 @@
 
 This module processes whole-brain datasets acquired via lightsheet microscopy. It handles large volumetric data (100 GB+), performing preprocessing, cell detection, and registration to the Allen Brain Atlas (CCF v3).
 
+> New to LightSuite? Read [How it works](how_it_works.md) first — it explains the registration stages, control-point active learning, and SBR cell detection that this page builds on. Here we cover the brain-specific steps and parameters.
+
 ## Before You Start
 
 You will need:
@@ -137,12 +139,7 @@ This is the main step requiring your attention. The GUI shows your sample alongs
 | **Enter** | Jump to a specific slice number |
 | **s** | Save and exit |
 
-### Tips for Good Results
-* **Use at least 16 matched pairs** spread across the full AP extent of the brain. The fit only activates once 16 points are placed. 100 points or more are recommended.
-* **Slices are shown in randomized order.** This is intentional — it encourages you to spread points evenly rather than clustering them in one region.
-* **Watch the MSE** in the top banner. It updates live as you add points. A lower MSE means a tighter correspondence and less locally deformed tissue.
-* **Good landmarks** include the boundaries of ventricles, major fiber tracts (corpus callosum, anterior commissure), and distinct nuclei outlines. Avoid regions with tissue damage.
-* If a region is damaged in your sample, estimate where the structure *would* be and place a point there anyway. This prevents the registration from bending the atlas into the damaged area.
+See [How it works → control points](how_it_works.md#refining-registration-with-control-points-active-learning) for landmark strategy: at least 16 pairs spread across the brain, watching the live MSE, good landmark choices, and how to handle damaged tissue. Views are shown in randomized order to encourage even coverage.
 
 **Output:** `atlas2histology_tform.mat` — affine transform and all control point arrays.
 
@@ -187,12 +184,7 @@ Cell detection runs automatically during preprocessing (Step 1) on the channel s
 
 ### Detection Algorithm
 
-Detection is performed in 3D batches on the full-resolution data:
-
-1. **3D Bandpass Filtering:** Enhances signal at the expected cell size while suppressing noise and background.
-2. **Background Estimation:** Estimates the local noise floor from a statistical sample of voxels.
-3. **Local Maxima Detection:** Finds candidate cells as local maxima above `thres_cell_detect(1)`.
-4. **Morphological Filtering:** Removes candidates that are too elongated (axis ratio > 2.5), too small, or too dim.
+Detection runs in 3D batches on the full-resolution data using LightSuite's SBR pipeline — bandpass filter → signal-to-background ratio → local maxima → morphological filter → CNN artifact classifier. See [How it works → cell detection](how_it_works.md#cell-detection-and-artifact-classification) for the full description.
 
 ### Key Parameters
 * **`celldiam`** — controls the bandpass filter. Set this to your actual cell diameter.

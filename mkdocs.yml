@@ -19,7 +19,9 @@ extra_css:
 nav:
   - Home: index.md
   - Installation: installation.md
-  - Usage:
+  - How it works: how_it_works.md
+  - Workflows:
       - Lightsheet brain: usage_lightsheet_brain.md
       - Lightsheet spinal cord: usage_spinal_cord.md
-      - Slice Module: usage_slice.md
+      - Slice module: usage_slice.md
+      - Probe & implant tracing: usage_tracing.md

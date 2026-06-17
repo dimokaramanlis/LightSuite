@@ -2,6 +2,8 @@
 
 This module processes lightsheet spinal cord datasets and registers them to the Fiederling et al. spinal cord atlas. The main challenge specific to spinal cord data is that the tissue is curved — this module handles straightening the cord before atlas registration.
 
+> The registration backbone and control-point GUI are shared with the brain pipeline and explained in [How it works](how_it_works.md). This page focuses on the cord-specific straightening step.
+
 ## Before You Start
 
 You will need:
@@ -117,13 +119,7 @@ This GUI lets you refine the alignment by clicking matching anatomical landmarks
 | **Enter** | Jump to a specific slice number |
 | **s** | Save and exit |
 
-### Tips for Good Results
-
-* **Minimum 16 matched pairs** are required for a robust 3D affine fit. Place points across the full length of the cord (rostral to caudal) and in different radial positions (dorsal, ventral, lateral).
-* The fit quality (MSE) updates live in the top banner — a lower MSE indicates better correspondence.
-* **Good landmarks** include the central canal, the dorsal horn boundaries, and white matter funiculi outlines.
-* Use the **Scroll Wheel** on the atlas panel if the correct anatomical plane isn't shown — the atlas and sample can be scrolled independently.
-* If a tissue region is damaged or missing, estimate where it *should* be and place a point there anyway. This prevents the deformable registration from bending the atlas into the damaged void.
+This is the same control-point interface used for whole brains — see [How it works → control points](how_it_works.md#refining-registration-with-control-points-active-learning) for the general strategy (at least 16 pairs, the live MSE, and handling damaged tissue). For the cord specifically, spread points along the full rostrocaudal length and at different radial positions (dorsal, ventral, lateral); good landmarks are the central canal, dorsal-horn boundaries, and white-matter funiculi. The atlas plane can be scrolled independently with the wheel.
 
 **Output:** `corresponding_points.mat` — 3D affine transform and all control point arrays.
 

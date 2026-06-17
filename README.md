@@ -20,6 +20,7 @@ LightSuite currently supports three main types of data:
 * **Interactive Registration Refinement**: Unlike many standard pipelines, LightSuite includes a dedicated GUI to manually adjust and fine-tune registrations using corresponding points. This is highly recommended for processing damaged, deformed, or asymmetrical tissue samples.
 * **Automated 3D Cell Counting**: Detects cells by applying a size-based 3D band-pass filter, converting intensities to a signal-to-background ratio, and extracting local maxima to pinpoint cell locations.
 * **Standardized Atlas-Space Outputs**: Exports exact 3D cell positions in atlas space (currently for brain datasets) as well as continuous, atlas-aligned intensity volumes for *every* acquired channel.
+* **Probe & Implant Tracing**: Annotate Neuropixels probe tracks or GRIN lens / optical fiber positions directly on the registered volume and export their Allen CCF trajectories — including an AP_histology-compatible `probe_ccf` structure with the brain regions each probe traverses.
 * **Multi-Format Support**: Process multi-color TIFF volumes or single-color 2D TIFF series natively.
 
 ---
@@ -51,6 +52,11 @@ Spinal cord volumes utilize a similar volumetric workflow but register against t
 ### 3. Widefield: Coronal Slices
 For slices acquired through conventional widefield microscopy, use `demos\ls_analyze_slice_volume.m`. This pipeline includes registration, though manual adjustments are supported and recommended on a per-slice basis.
 ![Example slice registration](./images/example_slice_registration.png)
+
+### 4. Probe & Implant Tracing (Lightsheet Brain)
+Once a lightsheet brain has been registered (entry point 1), you can trace implanted hardware on the registered volume:
+* **Neuropixels probes** — `demos\ls_trace_neuropixels.m` opens an annotation GUI (`annotateNeuropixelsProbes`) where you click points along each probe track, fits a straight line per probe in Allen CCF space, and exports `probe_ccf.mat` (points, insertion/tip coordinates, and the brain regions traversed) in the [AP_histology](https://github.com/petersaj/AP_histology) format.
+* **GRIN lenses / optical fibers** — `annotateGRINLens` annotates circular fiber cross-sections and reports the atlas regions under the lens at a range of depths.
 
 *For advanced configuration, parameter tuning (like average cell radius or signal thresholds), GUI instructions, and detailed tutorials, please refer to the [LightSuite Documentation](https://lightsuite.readthedocs.io/en/latest/).*
 
