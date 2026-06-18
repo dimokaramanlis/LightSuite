@@ -431,7 +431,7 @@ function fit_and_show_atlas(gui_fig)
     counts     = cellfun(@(x) size(x,1), gui_data.all_points(valid_grps));
     all_pts    = cat(1, gui_data.all_points{valid_grps});
     atlas_all  = registrationPointsToAtlas(all_pts, gui_data.trstruct, ...
-        gui_data.registres, gui_data.savepath);
+        gui_data.registres, gui_data.savepath, size(gui_data.vol));
     grp_ends   = cumsum(counts(:)');
     grp_starts = [1, grp_ends(1:end-1) + 1];
 

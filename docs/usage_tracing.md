@@ -21,6 +21,17 @@ You will need:
 | Neuropixels probes | `annotateNeuropixelsProbes` | Line (SVD) | `probe_ccf.mat` |
 | GRIN lens / optical fiber | `annotateGRINLens` | Cylinder | `grin_fiber<N>_atlas.mat` |
 
+### Choosing the tracing channel
+
+By default both tools display the **registration channel**. Implants are often labelled in a *different* channel (a probe dip-coated in dye, fiber autofluorescence, etc.), so you can trace on any channel:
+
+```matlab
+annotateNeuropixelsProbes(savepath, 'Channel', 2);   % trace on channel 2
+annotateGRINLens(savepath, 'Channel', 2, 'Diameter', 500);
+```
+
+Every channel is downsampled onto the **same 20 µm registration grid**, so the atlas mapping is identical no matter which channel you trace on — only the displayed image changes. Pass `'VolumePath', '<file>'` instead of `'Channel'` to point at a specific volume (absolute path, or a filename inside `savepath`). The active volume is shown in the GUI title bar.
+
 ---
 
 ## Neuropixels Probe Tracing
@@ -32,7 +43,7 @@ The GUI shows the registration volume in coronal view. You annotate up to nine p
 
 ### Workflow
 
-1. **Open the GUI** on a registered folder: `annotateNeuropixelsProbes(savepath)`.
+1. **Open the GUI** on a registered folder: `annotateNeuropixelsProbes(savepath)` (add `'Channel', N` to trace on a non-registration channel — see [Choosing the tracing channel](#choosing-the-tracing-channel)).
 2. **Select a probe** with number keys `1`–`9` (the active probe is colour-coded).
 3. **Click points** along the probe track. Click it in *every* slice where it is visible — points may span many slices.
 4. **Press `S`** to save your points (you can reopen and continue later).
@@ -110,7 +121,7 @@ This tool localizes a cylindrical implant and reports the atlas regions beneath 
 
 ### Workflow
 
-1. `annotateGRINLens(savepath, 'Diameter', 500)` — set `Diameter` (µm) to your fiber/lens diameter (default 500).
+1. `annotateGRINLens(savepath, 'Diameter', 500)` — set `Diameter` (µm) to your fiber/lens diameter (default 500). Add `'Channel', N` to trace on a non-registration channel (see [Choosing the tracing channel](#choosing-the-tracing-channel)).
 2. Select a fiber with `1`–`9` and click points around the **fiber edge** on each slice where it is visible.
 3. Press `S` to save, then `F` to fit. Each fiber is fit as a circle/cylinder in CCF space and its sub-lens atlas regions are displayed.
 

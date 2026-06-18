@@ -81,8 +81,8 @@ function [cf, pp] = plotProbeAtlasImages(probe_ccf)
         plot3(ax3d, tc(:,1), tc(:,3), tc(:,2), '-', 'Color', col, 'LineWidth', 2.5);
 
         % Mark the tip (deepest point in DV)
-        [~, itip] = max(tc(:,2));
-        scatter3(ax3d, tc(itip,1), tc(itip,3), tc(itip,2), 45, col, 'filled', ...
+        [~, itip] = max(pts(:,2));
+        scatter3(ax3d, pts(itip,1), pts(itip,3), pts(itip,2), 45, col, 'filled', ...
             'MarkerEdgeColor', 'k');
     end
     title(ax3d, '3-D probe trajectories');
@@ -118,6 +118,7 @@ function [cf, pp] = plotProbeAtlasImages(probe_ccf)
             end
         end
 
+        pbaspect([1 8 1]);
         ax.YDir = 'reverse';
         ax.XLim = [0 1];
         ax.YLim = [0 max_depth * 1.02];

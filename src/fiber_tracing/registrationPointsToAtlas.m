@@ -1,74 +1,78 @@
-function atlas_pts = registrationPointsToAtlas(pts_disp, trstruct, registres, savepath)
-% REGISTRATIONPOINTSTOATLAS  Map points clicked on the registration volume to
-%   Allen CCF atlas voxel coordinates.
+function atlas_pts = registrationPointsToAtlas(pts_disp, trstruct, registres, savepath, volsize)
+% REGISTRATIONPOINTSTOATLAS  Map points clicked on the registration display
+%   volume to Allen CCF atlas voxel coordinates.
 %
-%   ATLAS_PTS = registrationPointsToAtlas(PTS_DISP, TRSTRUCT, REGISTRES, SAVEPATH)
+%   ATLAS_PTS = registrationPointsToAtlas(PTS_DISP, TRSTRUCT, REGISTRES, ...
+%                                         SAVEPATH, VOLSIZE)
 %
-%   Transforms points that were picked on the permuted LightSuite registration
-%   display volume (the same volume shown by annotateGRINLens and
-%   annotateNeuropixelsProbes) into Allen CCF 10 µm atlas voxels, applying the
-%   bspline deformation field followed by the affine transform produced by the
-%   registration pipeline.  This is the shared coordinate transform reused by
-%   both the GRIN lens and the Neuropixels probe tracing tools.
+%   Points are picked on the permuted registration display volume shown by
+%   annotateGRINLens / annotateNeuropixelsProbes (i.e. permuteBrainVolume
+%   applied to chan_X_sample_register_20um.tif).  To stay consistent with the
+%   rest of LightSuite, this function does NOT re-implement the sample→atlas
+%   transform: it converts the clicked points back into full-resolution sample
+%   coordinates and then defers to transformPointsToAtlas / coreTransform — the
+%   same validated similarity→affine→B-spline chain used for cell mapping.
 %
 %   Inputs
 %   ------
-%   PTS_DISP  – N×3 voxel coordinates in the permuted registration display
-%               volume.  Columns are [slice(AP), row(DV), col(ML)], i.e. the
-%               same convention as gui_data.all_points in the annotation GUIs.
-%   TRSTRUCT  – struct loaded from transform_params.mat.  Must contain
-%               how_to_perm, ori_pxsize,
-%               tform_bspline_samp20um_to_atlas_20um_px (a file path) and
-%               tform_affine_samp20um_to_atlas_10um_px (an affine transform).
+%   PTS_DISP  – N×3 voxel coords in the permuted display volume. Columns are
+%               [dim1 dim2 dim3], matching gui_data.all_points in the GUIs.
+%   TRSTRUCT  – struct loaded from transform_params.mat (needs how_to_perm,
+%               ori_pxsize, ori_size, the bspline path and the affine, as
+%               required by coreTransform).
 %   REGISTRES – registration resolution in µm (regopts.registres, e.g. 20).
-%   SAVEPATH  – LightSuite output folder; used to resolve the bspline
-%               deformation file relative to the (possibly moved) folder.
+%   SAVEPATH  – LightSuite output folder (used to resolve the bspline file).
+%   VOLSIZE   – size of the permuted display volume, size(voldisp); needed to
+%               invert the display flips.
 %
 %   Output
 %   ------
-%   ATLAS_PTS – N×3 points in Allen CCF atlas space.  The column order matches
-%               the GRIN pipeline: ATLAS_PTS(:, [2 1 3]) gives [AP DV ML] voxel
+%   ATLAS_PTS – N×3 atlas points in the same column order coreTransform
+%               returns. ATLAS_PTS(:, [2 1 3]) gives [AP DV ML] voxel
 %               coordinates suitable for indexing annotation_10.nii.gz.
 
-    regsize_mm = registres * 1e-3;
+    htp     = trstruct.how_to_perm;
+    absperm = abs(htp);
 
     %------------------------------------------------------------------
-    % 1. Convert display-volume voxels to registration (20 µm) voxels.
-    %    The ori_pxsize factors cancel; this reduces to a [2 1 3] reorder
-    %    because the display volume is already at the registration
-    %    resolution.  Kept explicit to mirror the original GRIN pipeline.
+    % 1. Undo the display flips applied by permuteBrainVolume (it flips the
+    %    permuted volume along every dim where how_to_perm < 0).
     %------------------------------------------------------------------
-    absperm = abs(trstruct.how_to_perm);
-    facmult = registres ./ trstruct.ori_pxsize;
-    facmult = facmult(absperm);
-    ptsuse  = pts_disp .* facmult .* trstruct.ori_pxsize(absperm) * 1e-3;
-    pts     = ptsuse(:, [2 1 3]) / regsize_mm;
-
-    %------------------------------------------------------------------
-    % 2. Apply the bspline deformation field (resolved relative to savepath)
-    %------------------------------------------------------------------
-    [~, trname, trext] = fileparts(trstruct.tform_bspline_samp20um_to_atlas_20um_px);
-    bsplinepath = fullfile(savepath, [trname trext]);
-    if ~exist(bsplinepath, 'file')
-        bsplinepath = trstruct.tform_bspline_samp20um_to_atlas_20um_px;
+    pd = pts_disp;
+    for d = 1:3
+        if htp(d) < 0
+            pd(:, d) = volsize(d) + 1 - pd(:, d);
+        end
     end
 
-    Dfield = transformix([], bsplinepath);
-    Dfield = permute(Dfield, [2 3 4 1]) / regsize_mm;
-    [Sx, Sy, Sz, ~] = size(Dfield);
-
-    Xgv = 1:Sx; Ygv = 1:Sy; Zgv = 1:Sz;
-    dx = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,1), pts(:,1), pts(:,2), pts(:,3), 'linear');
-    dy = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,2), pts(:,1), pts(:,2), pts(:,3), 'linear');
-    dz = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,3), pts(:,1), pts(:,2), pts(:,3), 'linear');
-
-    interpolated_displacements = -[dx, dy, dz];
-    interpolated_displacements(isnan(interpolated_displacements)) = 0;
+    %------------------------------------------------------------------
+    % 2. Undo the display permute. permuteBrainVolume does
+    %    voldisp = permute(volraw, absperm), so display dim d corresponds to
+    %    sample (volraw) dim absperm(d).
+    %------------------------------------------------------------------
+    s20 = zeros(size(pd), 'like', pd);
+    s20(:, absperm) = pd;                 % sample-orientation 20 µm voxels [Y X Z]
 
     %------------------------------------------------------------------
-    % 3. Apply the affine transform to land in 10 µm atlas voxels
+    % 3. Convert 20 µm sample voxels to full-resolution sample coordinates
+    %    [x y z] — the input expected by transformPointsToAtlas/coreTransform.
+    %    coreTransform multiplies (pts-1) by ori_pxsize, so this reproduces the
+    %    clicked point's physical position exactly regardless of ori_pxsize.
     %------------------------------------------------------------------
-    atlas_pts = trstruct.tform_affine_samp20um_to_atlas_10um_px.transformPointsForward( ...
-        pts + interpolated_displacements);
+    s20_xyz    = s20(:, [2 1 3]);                                  % [x y z]
+    sample_pts = (s20_xyz - 1) .* (registres ./ trstruct.ori_pxsize) + 1;
+
+    %------------------------------------------------------------------
+    % 4. Resolve the bspline file relative to savepath (robust to moved
+    %    folders), then defer to the validated transform.
+    %------------------------------------------------------------------
+    truse = trstruct;
+    [~, bn, be] = fileparts(trstruct.tform_bspline_samp20um_to_atlas_20um_px);
+    bpath = fullfile(savepath, [bn be]);
+    if exist(bpath, 'file')
+        truse.tform_bspline_samp20um_to_atlas_20um_px = bpath;
+    end
+
+    atlas_pts = transformPointsToAtlas(sample_pts, 'transform_params', truse);
     atlas_pts = atlas_pts(:, 1:3);
 end
