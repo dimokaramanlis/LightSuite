@@ -190,7 +190,7 @@ if isfield(opts, 'savepath')
         save(fsavename, 'cell_locations')
         if opts.savecellimages
             imwindow = sigmause*6;
-            save(fsavename, 'cell_locations', 'cell_images', 'imwindow')
+            save(fsavename, 'cell_locations', 'cell_images', 'imwindow', '-v7.3')
         end
         if writetocsv
             csvfilename = fullfile(opts.savepath, sprintf('%scell_locations_sample.csv', opts.prefix));
