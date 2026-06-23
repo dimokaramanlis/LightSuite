@@ -23,7 +23,7 @@ function CellLabelingTool()
     end
     
     % Hardcoded sigma as requested
-    data.sigmause = 6*[3 3 2]; 
+    data.sigmause = getOr(data, 'imwindow', 6*[3 3 2]); 
 
     % --- 2. Preprocessing ---
     fprintf('Generating images... this may take a moment.\n');
