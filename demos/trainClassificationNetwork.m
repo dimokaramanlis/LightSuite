@@ -92,8 +92,11 @@ traccuracy  = mean(YPredtr == Y_tr);
 YPredall    = classify(net, XTrainall);
 totaccuracy = mean(YPredall == categorical(YTrainall));
 
-fprintf('Training succeeded! Train error: %2.3f. Test error: %2.3f\n', traccuracy, valaccuracy)
 
 save(fullfile(netowrksavepath,...
     sprintf('%s_CellClassifierNet.mat', string(datetime('now'),'yyyyMMdd'))), ...
     'net', 'valaccuracy', 'totaccuracy', 'traccuracy');
+fprintf('Training succeeded! Train error: %2.3f. Test error: %2.3f\n', traccuracy, valaccuracy)
+
+visualizeNetworkClassification(net, X_val, Y_val, netowrksavepath);
+
