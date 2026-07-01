@@ -1,6 +1,9 @@
 
 % the text file contains paths of training data produced by CellLabelingTool
-dp = importdata('D:\DATA_folder\training_datasets.txt');
+textfilewithpaths = 'D:\DATA_folder\training_datasets.txt';
+netowrksavepath   = 'D:\DATA_folder\'; % where to save the trained network
+%==========================================================================
+dp = importdata(textfilewithpaths);
 
 XTrain = cell(numel(dp), 1);
 YTrain = cell(numel(dp), 1);
@@ -91,8 +94,6 @@ totaccuracy = mean(YPredall == categorical(YTrainall));
 
 fprintf('Training succeeded! Train error: %2.3f. Test error: %2.3f\n', traccuracy, valaccuracy)
 
-
-dpsave = 'C:\Users\karamanl\Documents\GitHub\LightSuite\src\helpers';
-save(fullfile(dpsave, ...
+save(fullfile(netowrksavepath,...
     sprintf('%s_CellClassifierNet.mat', string(datetime('now'),'yyyyMMdd'))), ...
     'net', 'valaccuracy', 'totaccuracy', 'traccuracy');
