@@ -1,11 +1,27 @@
 function cf = plotAnnotationComparison(volume, anvol, dimplot, varargin)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
+%
+%   plotAnnotationComparison(volume, anvol, dimplot, pxsize, ...)
+%   Optional name-value pairs:
+%       'MarkerSize' - size of the boundary markers (default 1)
+%       'Visible'    - show the figure (true/'on') or keep it hidden
+%                      (false/'off', default)
 
-if nargin < 4
-    pxsize = [1 1 1]; 
+p = inputParser;
+p.addOptional('pxsize', [1 1 1], @(x) isnumeric(x) && isvector(x));
+p.addParameter('MarkerSize', 1, @(x) isnumeric(x) && isscalar(x) && x > 0);
+p.addParameter('Visible', false, @(x) islogical(x) || (isnumeric(x) && isscalar(x)) || ...
+    any(strcmpi(x, {'on','off'})));
+p.parse(varargin{:});
+
+pxsize = p.Results.pxsize;
+mksize = p.Results.MarkerSize;
+if ischar(p.Results.Visible) || isstring(p.Results.Visible)
+    visible = char(p.Results.Visible);
 else
-    pxsize = varargin{1};
+    visstates = {'off','on'};
+    visible = visstates{logical(p.Results.Visible) + 1};
 end
 
 pxsize(dimplot) = [];
@@ -16,7 +32,7 @@ ishow = round(linspace(0.15*Ny, 0.85*Ny, Nshow));
 
 cf = figure;
 cf.Position = [50 50 1700 900];
-cf.Visible = 'off';
+cf.Visible = visible;
 ppanel = panel();
 ppanel.pack(2, Nshow/2)
 ppanel.de.margin = 1;
@@ -42,7 +58,6 @@ for ii = 1:Nshow
     image(xvals, yvals, histim); ax = gca; ax.Visible = 'off';axis equal; axis tight;
     ax.Title.Visible = 'on';
     ax.YDir = 'reverse'; ax.Colormap = gray;
-    mksize = 1;
     line(col*pxsize(2), row*pxsize(1), 'Marker','.','LineStyle','none', 'Color',[1 0.8 0.5],'MarkerSize',mksize)
     title(ishow(ii))
 end

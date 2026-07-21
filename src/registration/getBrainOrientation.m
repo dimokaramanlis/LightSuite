@@ -1,13 +1,49 @@
-function permvec = getBrainOrientation(backvol, atlasvol)
+function permvec = getBrainOrientation(backvol, atlasvol, atlas_voxsize, sample_voxsize)
 %GETBRAINORIENTATION Interactive GUI to determine the volume permutation
 %   permvec = getBrainOrientation(backvol, atlasvol) opens an interactive figure 
 %   allowing the user to map the sample's axes to the target atlas.
 %   The top row shows the fixed atlas reference.
 %   The bottom row dynamically updates the sample based on the selected mapping.
+%
+%   permvec = getBrainOrientation(backvol, atlasvol, atlas_voxsize, sample_voxsize)
+%   additionally accepts the physical voxel sizes so that anisotropic volumes
+%   are displayed with the correct aspect ratio. Without this, MATLAB draws
+%   every voxel as a square and the anatomy looks stretched/squashed, which
+%   makes the orientation hard to judge.
+%
+%   Inputs:
+%     backvol        - 3-D sample volume to be reoriented.
+%     atlasvol       - 3-D target atlas volume (fixed reference).
+%     atlas_voxsize  - (optional) physical voxel size of the atlas, ordered
+%                      [dim1 dim2 dim3]. Defaults to [1 1 1] (isotropic).
+%                      A scalar is accepted and treated as isotropic.
+%     sample_voxsize - (optional) physical voxel size of the sample, ordered
+%                      along the ORIGINAL (un-permuted) sample axes
+%                      [dim1 dim2 dim3]. Defaults to [1 1 1] (isotropic).
+%                      A scalar is accepted and treated as isotropic.
+%
+%   Note: each preview shows 2-D slices taken along dim 3, so only the two
+%   in-plane voxel sizes affect the displayed aspect ratio (the through-plane
+%   spacing only controls slice spacing, not the look of a single slice).
+%   The sample's in-plane spacings are permuted together with the volume as
+%   the mapping changes, so the aspect stays correct for every candidate
+%   orientation.
 
     % Default output if user closes without saving
     permvec = [1 2 3];
-    
+
+    % --- Handle optional voxel-size inputs (default to isotropic) ---
+    if nargin < 3, atlas_voxsize  = []; end
+    if nargin < 4, sample_voxsize = []; end
+    atlas_voxsize  = validateVoxSize(atlas_voxsize,  'atlas_voxsize');
+    sample_voxsize = validateVoxSize(sample_voxsize, 'sample_voxsize');
+
+    % In-plane aspect ratio for the atlas slices (rows = dim1, cols = dim2).
+    % DataAspectRatio uses INVERSE spacings: a larger physical spacing must map
+    % to a longer screen axis, and screen-length-per-unit is proportional to
+    % 1/DataAspectRatio. Hence [1/colSpacing, 1/rowSpacing, 1].
+    atlas_aspect = [1/atlas_voxsize(2), 1/atlas_voxsize(1), 1];
+
     % Configuration for dropdown options
     opts_str = {'Dim 1 (+)', 'Dim 1 (Flipped -)', ...
                 'Dim 2 (+)', 'Dim 2 (Flipped -)', ...
@@ -104,6 +140,8 @@ function permvec = getBrainOrientation(backvol, atlasvol)
         end
         
         imshow(currim_atlas, [], 'Parent', ax_atlas(i));
+        % Apply anisotropic aspect ratio so voxels are drawn at true proportions
+        set(ax_atlas(i), 'DataAspectRatio', atlas_aspect);
         title(ax_atlas(i), sprintf('Atlas Z: %d', atlas_preview_slices(i)), 'FontSize', 11, 'Color', [0 0.4 0.7]);
         
         if i == 1
@@ -148,6 +186,13 @@ function permvec = getBrainOrientation(backvol, atlasvol)
         % Apply permutation
         tempvol = permuteBrainVolume(backvol, current_pvec);
 
+        % Voxel sizes after permutation follow the SAME reordering as the
+        % volume, so the two in-plane spacings correspond to the new
+        % dim1 (rows) and dim2 (cols). Flips (negative signs) do not change
+        % a voxel's size, so abs() is what matters here.
+        perm_vs = sample_voxsize(abs(current_pvec));
+        sample_aspect = [1/perm_vs(2), 1/perm_vs(1), 1];
+
         % Extract 5 slices along the new Dim 3
         Nz_new = size(tempvol, 3);
         sample_preview_slices = round(linspace(Nz_new * 0.1, Nz_new * 0.9, n_preview));
@@ -162,6 +207,8 @@ function permvec = getBrainOrientation(backvol, atlasvol)
 
             
             imshow(currim, [], 'Parent', ax_sample(idx));
+            % Apply anisotropic aspect ratio for the current mapping
+            set(ax_sample(idx), 'DataAspectRatio', sample_aspect);
             title(ax_sample(idx), sprintf('Sample Z: %d', islice), 'FontSize', 11, 'Color', [0.7 0.2 0]);
             
             if idx == 1
@@ -200,5 +247,23 @@ function permvec = getBrainOrientation(backvol, atlasvol)
             case 'No'
                 return;
         end
+    end
+end
+
+function vs = validateVoxSize(vs, name)
+%VALIDATEVOXSIZE Normalize a voxel-size argument to a 1x3 positive row vector.
+%   Empty -> isotropic [1 1 1]. A scalar -> isotropic [s s s]. Otherwise it
+%   must be a positive 3-element vector.
+    if isempty(vs)
+        vs = [1 1 1];
+        return;
+    end
+    vs = double(vs(:)).';           % force to a row vector
+    if isscalar(vs)
+        vs = [vs vs vs];            % isotropic spacing given as a scalar
+    end
+    if numel(vs) ~= 3 || any(~isfinite(vs)) || any(vs <= 0)
+        error('getBrainOrientation:invalidVoxSize', ...
+              '%s must be a positive 1x3 vector (or a scalar for isotropic).', name);
     end
 end
