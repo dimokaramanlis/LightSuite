@@ -3,7 +3,7 @@ function tempvol = permuteBrainVolume(bvol, permvec)
 %   Detailed explanation goes here
 
 perm_order = abs(permvec);
-tempvol    = permute(bvol, perm_order);
+tempvol    = permute(bvol, [perm_order 4]);
 
 % Apply flips where value is negative
 for dim = 1:3
