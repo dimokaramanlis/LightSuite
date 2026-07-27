@@ -7,7 +7,8 @@ fprintf('Looking for data in %s\n', opts.datafolder)
 tifftype = getOr(opts, 'tifftype', 'planeperfile');
 tiffiles = dir(fullfile(opts.datafolder, '*.tiff'));
 tifiles  = dir(fullfile(opts.datafolder, '*.tif'));
-tfiles   = sort_nat(cat(1, tifiles, tiffiles));
+tiflist  = cat(1, tifiles, tiffiles);
+tfiles   = sort_nat(fullfile({tiflist(:).folder}', {tiflist(:).name}'));
 opts.multitiffs = false;
 %--------------------------------------------------------------------------
 switch tifftype
@@ -18,13 +19,13 @@ switch tifftype
         opts.Nz  = numel(tifiles);
         fprintf('Found %d tiff files ', opts.Nz)
         %--------------------------------------------------------------------------
-        tinfo    = imfinfo(fullfile(tifiles(1).folder, tifiles(1).name));
+        tinfo    = imfinfo(tfiles{1});
         Ny       = tinfo.Height;
         Nx       = tinfo.Width;
         %--------------------------------------------------------------------------
         allnyx = nan(opts.Nz, 2);
         for ii = 1:5:opts.Nz
-            tinfo         = imfinfo(fullfile(tifiles(ii).folder, tifiles(ii).name));
+            tinfo         = imfinfo(tfiles{ii});
             allnyx(ii, :) = [tinfo.Height tinfo.Width];
         end
         icheck = ~isnan(sum(allnyx,2));
@@ -40,7 +41,7 @@ switch tifftype
         fprintf('Using channelperfile loading, every channel should be in a different tiff\n')
         Nfiles = numel(tfiles);
         if Nfiles == 1
-             datainfo = BioformatsImage(fullfile(tfiles.folder, tfiles.name));
+             datainfo = BioformatsImage(tfiles{1});
              opts.Nchans = datainfo.sizeC;
              fprintf('Found a single tiff with %d channels \n', opts.Nchans);
              allnyxz = [datainfo.height datainfo.width datainfo.sizeZ];
@@ -49,8 +50,9 @@ switch tifftype
             fprintf('Assuming each channel is a separate tiff. Found %d channels \n', opts.Nchans)
             allnyxz = nan(opts.Nchans, 3);
             for ichan = 1 : opts.Nchans
-                fprintf('Channel %d: %s \n',ichan, tfiles(ichan).name);
-                datainfo          = BioformatsImage(fullfile(tfiles(ichan).folder, tfiles(ichan).name));
+                [~, currname, ~] = fileparts(tfiles{ichan});
+                fprintf('Channel %d: %s \n',ichan, currname);
+                datainfo          = BioformatsImage(tfiles{ichan});
                 allnyxz(ichan, :) = [datainfo.height datainfo.width datainfo.sizeZ];
             end
             opts.multitiffs = true;
@@ -65,7 +67,7 @@ switch tifftype
         %======================================================================
 end
 %--------------------------------------------------------------------------
-opts.tfiles = fullfile({tfiles(:).folder},{tfiles(:).name})';
+opts.tfiles = tfiles;
 makeNewDir(opts.savepath)
 %--------------------------------------------------------------------------
 
