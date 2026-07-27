@@ -35,9 +35,7 @@ sliceinfo.channames = sliceinfo.channames(chanids);
 
 slicevol     = zeros([size_proc Nchannels sliceinfo.Nslices], 'uint16');
 backvalues   = zeros([Nchannels sliceinfo.Nslices], 'uint16');
-padvalues    = zeros([2 sliceinfo.Nslices]); % for removing later
-xrange       = 1:size_proc(2);
-yrange       = 1:size_proc(1);
+cropsugg     = zeros(4, sliceinfo.Nslices); % [xmin; xmax; ymin; ymax] per slice
 Nfiles       = numel(sliceinfo.filepaths);
 maxval = 2^16-1;
 %--------------------------------------------------------------------------
@@ -89,22 +87,25 @@ for ifile = 1:Nfiles
                 currim(currim == 0) = backval; % to replace empty tiles
             end
 
-            if icol == 1
-                [xrange, yrange] = extractBrainLimits3(currim, Nbuff);
-            end
-
-            currim   = currim(yrange,xrange);
             backval  = quantile(currim(currim>0), 0.01, 'all');
             currsize = size(currim);
             padpx    = size_proc - currsize;
             padleft  = floor(padpx/2);
+
+            if icol == 1
+                [xrange, yrange] = extractBrainLimits(currim, Nbuff);
+                % xrange/yrange are in unpadded-image coords; offset to padded-volume coords
+                cropsugg(:, idx) = [xrange(1)   + padleft(2);
+                                    xrange(end) + padleft(2);
+                                    yrange(1)   + padleft(1);
+                                    yrange(end) + padleft(1)];
+            end
             currim   = padarray(currim, padleft, backval, 'pre');
             currim   = padarray(currim, padpx - padleft, backval, 'post');
             slicevol(:, :, icol, idx) = currim;
             backvalues(icol, idx)     = backval;
 
         end
-        padvalues(:, idx) = padpx;
         %------------------------------------------------------------------
         fprintf(repmat('\b', 1, numel(msg)));
         msg = sprintf('Slice %d/%d. Time/slice %2.2f s. Time elapsed %2.2f s...\n', ...
@@ -117,17 +118,38 @@ for ifile = 1:Nfiles
 
 end
 %--------------------------------------------------------------------------
-% volume is reduced to save space
-sizerem              = floor(min(padvalues, [], 2)/4)*2;
-keepx                = (sizerem(2)/2+1):(size_proc(2) - sizerem(2)/2);
-keepy                = (sizerem(1)/2+1):(size_proc(1) - sizerem(1)/2);
-slicevol             = slicevol(keepy, keepx, :, :);
-size_proc            = size_proc - sizerem';
 sliceinfo.size_proc  = size_proc;
 sliceinfo.backvalues = backvalues;
 %--------------------------------------------------------------------------
-% save volume for processing
-fprintf('Saving volume after centering... '); tic;
+% save centering suggestions to decisions file (applied later by alignSliceVolume)
+% suggestions are stored in ordering-TIFF pixel coordinates so that
+% SliceOrderEditor can display and edit them without knowing the proc resolution
+fprintf('Saving centering suggestions to decisions file... ');
+ord_scale  = sliceinfo.px_process / sliceinfo.px_register;
+ord_size   = ceil(size_proc * ord_scale); % [height, width] of ordering TIFF
+cropsugg_ord = max(1, round(cropsugg * ord_scale));
+cropsugg_ord([1 2], :) = min(cropsugg_ord([1 2], :), ord_size(2)); % x <= width
+cropsugg_ord([3 4], :) = min(cropsugg_ord([3 4], :), ord_size(1)); % y <= height
+
+orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisions.txt');
+if exist(orderfile, 'file')
+    T = readtable(orderfile, 'Delimiter', '\t', 'ReadVariableNames', true);
+    if height(T) == sliceinfo.Nslices
+        T.xmin = cropsugg_ord(1, :)';
+        T.xmax = cropsugg_ord(2, :)';
+        T.ymin = cropsugg_ord(3, :)';
+        T.ymax = cropsugg_ord(4, :)';
+    else
+        T = makeCropDecisionsTable(sliceinfo.Nslices, cropsugg_ord);
+    end
+else
+    T = makeCropDecisionsTable(sliceinfo.Nslices, cropsugg_ord);
+end
+writetable(T, orderfile, 'WriteVariableNames', true, 'Delimiter', '\t');
+fprintf('Done!\n');
+%--------------------------------------------------------------------------
+% save volume for processing (centering is NOT yet applied)
+fprintf('Saving raw volume... '); tic;
 saveLargeSliceVolume(slicevol, sliceinfo.channames, sliceinfo.slicevol);
 fprintf('Done! Took %2.2f s\n', toc);
 %--------------------------------------------------------------------------
@@ -161,4 +183,10 @@ saveastiff(volproc, sliceinfo.volorder, options);
 dpsliceinfo = fullfile(sliceinfo.procpath, 'sliceinfo.mat');
 save(dpsliceinfo, 'sliceinfo')
 %--------------------------------------------------------------------------
+end
+
+function T = makeCropDecisionsTable(Nslices, cropsugg)
+T = array2table([(1:Nslices)', zeros(Nslices,1), (1:Nslices)', cropsugg'], ...
+    'VariableNames', {'OriginalIndex','FlipState','NewOrderOriginalIndex', ...
+    'xmin','xmax','ymin','ymax'});
 end
