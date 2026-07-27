@@ -7,7 +7,7 @@ fprintf('Looking for data in %s\n', opts.datafolder)
 tifftype = getOr(opts, 'tifftype', 'planeperfile');
 tiffiles = dir(fullfile(opts.datafolder, '*.tiff'));
 tifiles  = dir(fullfile(opts.datafolder, '*.tif'));
-tfiles   = cat(1, tifiles, tiffiles);
+tfiles   = sort_nat(cat(1, tifiles, tiffiles));
 opts.multitiffs = false;
 %--------------------------------------------------------------------------
 switch tifftype
@@ -49,6 +49,7 @@ switch tifftype
             fprintf('Assuming each channel is a separate tiff. Found %d channels \n', opts.Nchans)
             allnyxz = nan(opts.Nchans, 3);
             for ichan = 1 : opts.Nchans
+                fprintf('Channel %d: %s \n',ichan, tfiles(ichan).name);
                 datainfo          = BioformatsImage(fullfile(tfiles(ichan).folder, tfiles(ichan).name));
                 allnyxz(ichan, :) = [datainfo.height datainfo.width datainfo.sizeZ];
             end
