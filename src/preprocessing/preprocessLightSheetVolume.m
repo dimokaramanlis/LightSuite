@@ -95,7 +95,7 @@ for ichannel = 1:opts.Nchans
         opts.fproc      = fproc;
         peakvalsextract = extractCellsFromVolumeNew(opts);
         %----------------------------------------------------------------------
-        delete(opts.fproc);
+        delete(fproc);
         %----------------------------------------------------------------------
     end
     %----------------------------------------------------------------------
