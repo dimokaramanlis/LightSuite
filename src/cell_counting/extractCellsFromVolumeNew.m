@@ -4,6 +4,7 @@ function cell_locations = extractCellsFromVolumeNew(opts)
 %------------------------------------------------------------------------
 opts.prefix = getOr(opts, 'prefix', '');
 writetocsv  = getOr(opts, 'writetocsv', false);
+usegpu      = getOr(opts, 'usegpu', true);
 %------------------------------------------------------------------------
 if opts.debug
     fprintf('Using debug mode, you will get pictures with cell detections\n');
@@ -104,7 +105,11 @@ for ibatchz = 1:NbatchesZ
             iloadx     = (istartx-startbuffx):(iendx+endbuffx);
             %----------------------------------------------------------------------
             % data goes into the gpu
-            datgpu = gpuArray(dat(iloady, iloadx, :));
+            if usegpu
+                datgpu = gpuArray(dat(iloady, iloadx, :));
+            else
+                 datgpu = dat(iloady, iloadx, :);
+            end
             datgpu = single(datgpu);
             %----------------------------------------------------------------------
             % extract candidate cells with info

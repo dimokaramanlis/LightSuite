@@ -16,6 +16,7 @@ opts.tifftype           = 'channelperfile'; % can be planeperfile or channelperf
 opts.pxsize             = [6.55 6.55 5]; % voxel size, xy and z, in um
 opts.atlasres           = 10; % better keep this fixed for highest resolution, in um
 opts.registres          = 20; % resolution to do the nonrigid registration, keep fixed, in um
+opts.usegpu             = true; % activate if you have a GPU, used for cell detection
 % cell detection parameters
 opts.debug              = true; % toggle plotting (takes longer) for cell detections
 opts.savecellimages     = false; % toggle saving of individual cell images
