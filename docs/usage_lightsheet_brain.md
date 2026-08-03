@@ -198,7 +198,7 @@ Detection runs in 3D batches on the full-resolution data using LightSuite's SBR 
 Detected cells are transformed to atlas space through the same chain of transforms used for the volume: similarity → affine → B-spline.
 
 **Outputs** (in `volume_registered/`):
-* `chan_X_cell_locations_atlas.mat` — N×6 array with columns `[x, y, z, intensity, diameter, ellipticity]` in atlas voxel coordinates
+* `chan_X_cell_locations_atlas.mat` — N×6 array with columns `[x, y, z, intensity, diameter, elongation]` in atlas voxel coordinates
 * `cell_counts_by_region.csv` — cell counts and median intensities per region and hemisphere (if `writetocsv = true`)
 
 ---
