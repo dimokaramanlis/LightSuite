@@ -12,6 +12,8 @@ scaledownz   = opts.pxsize(3)/opts.registres;
 saveopts.compress  = 'lzw';
 saveopts.message   = false;
 %--------------------------------------------------------------------------
+makeNewDir(opts.fproc); % for processing
+%--------------------------------------------------------------------------
 regvolpaths     = cell(opts.Nchans, 1);
 %--------------------------------------------------------------------------
 for ichannel = 1:opts.Nchans
