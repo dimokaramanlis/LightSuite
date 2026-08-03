@@ -122,7 +122,13 @@ for idim = 1:3
     print(cf, fullfile(regopts.savepath, sprintf('%s_dim%d_bspline_registration', opts.mousename, idim)), '-dpng');
     close(cf);
 end
-%%
+%==========================================================================
+% we save the annotation volume for inspection later
+[fpath, volname, volext] = fileparts(dp);
+dpannotout               = fullfile(fpath, sprintf('%s_annotation%s',volname, volext));
+saveopts.compress  = 'lzw';
+saveopts.message   = false;
+saveastiff(avreg, dpannotout, saveopts);
 %==========================================================================
 % here we obtain the inverse transform
 outdir     = fullfile(regopts.savepath, 'elastix_inverse_temp');
