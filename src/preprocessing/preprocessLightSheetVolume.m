@@ -19,6 +19,7 @@ regvolpaths     = cell(opts.Nchans, 1);
 for ichannel = 1:opts.Nchans
     %----------------------------------------------------------------------
     hascells = ismember(ichannel, opts.channelforcells);
+    chanopts = opts;
     %----------------------------------------------------------------------
     % initialize collections
     backvol  = zeros(ceil(scaledownxy*Ny), ceil(scaledownxy*Nx), Nz, 'uint16');
@@ -93,11 +94,11 @@ for ichannel = 1:opts.Nchans
         fclose(fid);
         %----------------------------------------------------------------------
         fprintf('Extracting cell candidates from channel %d \n', ichannel)
-        opts.prefix     = sprintf('chan_%d_', ichannel);
-        opts.fproc      = fproc;
-        peakvalsextract = extractCellsFromVolumeNew(opts);
+        chanopts.prefix     = sprintf('chan_%d_', ichannel);
+        chanopts.fproc      = fproc;
+        peakvalsextract = extractCellsFromVolumeNew(chanopts);
         %----------------------------------------------------------------------
-        delete(fproc);
+        delete(chanopts.fproc);
         %----------------------------------------------------------------------
     end
     %----------------------------------------------------------------------
