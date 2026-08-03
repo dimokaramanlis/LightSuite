@@ -25,7 +25,7 @@ switch params.Space
         txtuse = 'Atlas space';
 end
 
-locpaths = dir(fullfile(inputpath, lastbit));
+locpaths = dir(fullfile(inputpath, '**', lastbit));
 %==========================================================================
 if isempty(locpaths)
     warning("Can't find any valid detections...");
