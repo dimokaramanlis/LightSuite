@@ -38,11 +38,12 @@ function [cf, pp] = plotProbeAtlasImages(probe_ccf)
     %------------------------------------------------------------------
     % Brain-grid wireframe
     %------------------------------------------------------------------
-    mf = which('brainGridData.npy');
+    mf = which('brainGridData.mat');
+    bgdata = load(mf);
     if isempty(mf)
         error('plotProbeAtlasImages: brainGridData.npy not found on the MATLAB path.');
     end
-    bgdata = reduceBrainGrid(readNPY(mf), 6);
+    bgdata = reduceBrainGrid(bgdata.bgdata, 6);
 
     %------------------------------------------------------------------
     % Figure layout

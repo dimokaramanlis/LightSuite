@@ -18,6 +18,14 @@ function [cf, pp] = plotGRINIntensityImages(all_results, intensity_results, chan
 %   (1st–99th percentile of all nonzero in-circle voxels pooled across
 %   every fiber and every depth).
 
+    % Show only the non-negative depths (lens face and below). Both the atlas
+    % slices (all_results) and the sampled intensity (intensity_results) may
+    % carry negative depths above the tip; they share one depth ordering, so
+    % filtering both by the same rule keeps the boundary overlay aligned with
+    % its intensity panel. The negative depths stay on disk, not in the figure.
+    all_results       = grinKeepDepths(all_results,       @(d) d >= 0);
+    intensity_results = grinKeepDepths(intensity_results, @(d) d >= 0);
+
     Nfibers   = numel(all_results);
     Nchannels = numel(channames);
     Ndepths   = numel(intensity_results{1}.depths_um);

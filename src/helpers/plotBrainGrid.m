@@ -4,8 +4,8 @@ function [f, h] = plotBrainGrid(brainGridData, ax, brain_figure, black_brain)
 % To plot the wire mesh data loaded from brainGridData.npy. 
 
 if nargin<1 || isempty(brainGridData)
-    mf = mfilename('fullpath');
-    brainGridData = readNPY(fullfile(fileparts(mf), 'brainGridData.npy'));
+    mf = which('brainGridData.mat');
+    brainGridData = load(mf);
 end
 
 bp = double(brainGridData); 

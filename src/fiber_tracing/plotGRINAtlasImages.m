@@ -20,12 +20,16 @@ function [cf, pp, resplot] = plotGRINAtlasImages(all_results,...
 %   AREAIDX    – column vector of parcellation indices (from CSV).
 %   NAMESSUB   – cell array of brain-area name strings, same order as AREAIDX.
 
-    
+    % Show only the non-negative depths (lens face and below). The results may
+    % also carry negative depths sampled above the tip for QC; those are stored
+    % on disk but not drawn here.
+    all_results = grinKeepDepths(all_results, @(d) d >= 0);
+
     Ndepths = max(cellfun(@(x) numel(x.depths_um), all_results));
     Nfibers = numel(all_results);
-    mf = which('brainGridData.npy');
-    bgdata = readNPY(mf);
-    bgdata = reduceBrainGrid(bgdata, 6);
+    mf = which('brainGridData.mat');
+    bgdata = load(mf);
+    bgdata = reduceBrainGrid(bgdata.bgdata, 6);
 
     fiber_cmap = cbrewer('qual', 'Dark2', max(3, Nfibers));
     %------------------------------------------------------------------
@@ -82,9 +86,11 @@ function [cf, pp, resplot] = plotGRINAtlasImages(all_results,...
         u = cross(w, tmp); u = u / norm(u);
         v = cross(w, u);   v = v / norm(v);
         
-        % Determine cylinder span along the normal using projected points
-        proj  = (ptsshow - center) * w';
-        min_p = -(max(proj) + 100);
+        % Determine cylinder span along the normal using projected points.
+        % atlas_pts columns are [DV AP ML] while center/normal are [AP DV ML],
+        % so the points must be reordered before projecting onto the axis.
+        proj  = (ptsshow(:, [2 1 3]) - center) * w';   % <= 0: clicks sit above the tip
+        min_p = min(min(proj), 0) - 100;
         max_p = 0;
         
    

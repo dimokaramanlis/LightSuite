@@ -7,10 +7,13 @@ usemultistep = getOr(optsreg, 'usemultistep', true);
 bspscale     = getOr(optsreg, 'bspline_spatial_scale', 0.64);
 cpwt         = getOr(optsreg, 'cpwt', 0.2);
 nhistbins    = getOr(optsreg, 'n_histogram_bins', 48);
+usesamplereg = getOr(optsreg, 'custom_sampleregion', true);
 
 if isempty(movingpts) | isempty(fixedpts)
 	cpwt = 0;
 end
+%==========================================================================
+% facscale = volscale/min(volscale);
 %==========================================================================
 addElastixRepoPaths;
 params = struct();
@@ -43,12 +46,14 @@ params.Metric1Weight                   = cpwt; %cpwt;%[1  0.5 0.25 0.125] * cpwt
 params.Metric0Weight                   = 1.0;
 params.ImagePyramidSchedule            = [8*ones(1,3) 4*ones(1,3) 2*ones(1,3) 1*ones(1,3)];
 params.FinalGridSpacingInPhysicalUnits = bspscale*ones(1,3);
-if usemultistep
-    % for quite damaged brains
-    params.SampleRegionSize            = [4.5*ones(1,3) 4*ones(1,3) 3*ones(1,3) 2*ones(1,3)];
-else
-    % for the rest
-    params.SampleRegionSize            = 2*ones(1,3); %
+if usesamplereg 
+    if usemultistep
+        % for quite damaged brains
+        params.SampleRegionSize            = [4.5*ones(1,3) 4*ones(1,3) 3*ones(1,3) 2*ones(1,3)];
+    else
+        % for the rest
+        params.SampleRegionSize            = 2*ones(1,3); %
+    end
 end
 %--------------------------------------------------------------------------
 pathtemp = fullfile(savepath, 'elastix_temp');
@@ -58,14 +63,14 @@ movpath  = fullfile(pathtemp, 'moving.txt');
 fixpath  = fullfile(pathtemp, 'fixed.txt');
 
 % -1 because offset is always zero. this way, the first pixel is at 0
-writePointsFile(movpath, (movingpts-1)*volscale)
-writePointsFile(fixpath, (fixedpts-1)*volscale)
+writePointsFile(movpath, (movingpts-1).*volscale)
+writePointsFile(fixpath, (fixedpts-1).*volscale)
 
 
 fprintf('Performing B-spline registration with elastix...\n'); tic;
 [regimg,tform_bspline] = elastix(movingvol, fixedvol, pathtemp,'elastix_default.yml','paramstruct',params,...
     'movingpoints', movpath,  'fixedpoints', fixpath,...
-    'movingscale', volscale*[1 1 1],  'fixedscale', volscale*[1 1 1]);
+    'movingscale', volscale.*[1 1 1],  'fixedscale', volscale.*[1 1 1]);
 fprintf('Done! Took %2.2f s.\n', toc)
 
 % copy file and delete temporary folder

@@ -3,10 +3,12 @@ function annotateGRINLens(savepath, varargin)
 %   in a LightSuite registered volume.
 %
 %   Displays the 20 µm registration volume in coronal view.  The user
-%   navigates slices and clicks the fiber edges.  Up to 9 fibers can be
-%   annotated simultaneously, each in a separate numbered group.  Pressing F
-%   transforms all groups to Allen-CCF atlas space, fits a circle per fiber,
-%   and opens one atlas-region figure per fiber (depths 0–250 µm).
+%   navigates slices and clicks points marking where the implant is – on its
+%   edge, inside it, just around it – over as many slices as it is visible on.
+%   Up to 9 fibers can be annotated simultaneously, each in a separate
+%   numbered group.  Pressing F transforms all groups to Allen-CCF atlas
+%   space, fits a cylinder axis per fiber (see fitFiberInAtlas) and opens one
+%   atlas-region figure per fiber (depths 0–400 µm).
 %
 %   Usage:
 %       annotateGRINLens(savepath)
@@ -21,7 +23,7 @@ function annotateGRINLens(savepath, varargin)
 %   Keyboard controls:
 %       ←  / →  or scroll   navigate coronal slices
 %       1 – 9               select active fiber group (colour-coded)
-%       Click               add edge point to active fiber
+%       Click               add a point on the active fiber
 %       Backspace           delete last point from active fiber
 %       C                   clear active fiber's points on current slice
 %       S                   save all points to grin_fiber_points.mat
@@ -419,7 +421,10 @@ function fit_and_show_atlas(gui_fig)
     colorsub      = [parcelinfo.red(substridx), parcelinfo.green(substridx), parcelinfo.blue(substridx)];
     colorsub     = colorsub(ib, :);
 
-    depths_um  = 0 : 100 : 400;
+    % Sample the cross-sections above the tip as well as below it (negative
+    % offsets run back up the fiber track toward the entry). The whole range
+    % is stored; plotGRINAtlasImages shows only the non-negative depths.
+    depths_um  = grinTracingDepths();
     depths_vox = depths_um / 10;
     Ndepths    = numel(depths_um);
 
@@ -447,7 +452,10 @@ function fit_and_show_atlas(gui_fig)
             min(atlas_pts(:,2)), max(atlas_pts(:,2)), ...
             min(atlas_pts(:,3)), max(atlas_pts(:,3)));
 
-        [center_vox, normal_vox] = fitFiberInAtlas(atlas_pts(:, [2 1 3]), radius_vox);
+        % av is passed in so the fit can read the brain surface where the
+        % implant enters and keep the axis within 45° of going straight in.
+        [center_vox, normal_vox, fit_info] = fitFiberInAtlas( ...
+            atlas_pts(:, [2 1 3]), radius_vox, av);
         fprintf('  Centre: [%.1f  %.1f  %.1f]  Normal: [%.3f  %.3f  %.3f]\n', ...
             center_vox, normal_vox);
 
@@ -467,7 +475,7 @@ function fit_and_show_atlas(gui_fig)
         res.depths_um  = depths_um;
         res.slices_av  = slices_av;
         res.rvec_arr   = rvec_arr;
-        res.atlas_pts  = atlas_pts;
+        res.fit_info   = fit_info;
         all_results{ki} = res;
 
         outfile = fullfile(gui_data.savepath, sprintf('grin_fiber%d_atlas.mat', g));
