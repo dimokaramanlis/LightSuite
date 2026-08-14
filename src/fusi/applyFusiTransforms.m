@@ -2,8 +2,9 @@ function [res] = applyFusiTransforms(opts, data, voxelsize_mm, savefullvols, tra
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
-if nargout < 4
-    warning('Functional and anatomical scans may be misaligned')
+if nargin < 5 || isempty(transfuntoanatomy)
+    warning('applyFusiTransforms:noRigidTransform', ...
+        'No functional->anatomy transform given; assuming data is already in anatomy space')
     rigidfirst = false;
 else
     rigidfirst = true;

@@ -12,7 +12,7 @@ if exist(bofile, 'file')
     fprintf('Found it, brain orientation is %s\n', mat2str(permvec))
 else
     fprintf('You have to specify the orientation, check GUI\n')
-    permvec = getBrainOrientation(data,opts.atlas, [], pxsize);
+    permvec = getBrainOrientation(data(:,:,:,1),opts.atlas, [], pxsize);
     % Save to file
     writematrix(permvec, bofile);
     fprintf('Brain orientation saved as %s to %s\n', mat2str(permvec), bofile);
