@@ -1,6 +1,6 @@
-function [regimg,tform_bspline, tformpath, pathtemp] = performElastixAffineRegistration(movingvol,fixedvol,...
+function [regimg,tform_bspline, tformpath, pathtemp] = performElastixRigidRegistration(movingvol,fixedvol,...
     volscale, savepath, paramoverrides)
-%PERFORMELASTIXAFFINEREGISTRATION Affine registration with elastix.
+%PERFORMELASTIXRIGIDREGISTRATION Rigid (Euler) registration with elastix.
 %   paramoverrides (optional struct) overwrites individual elastix parameters
 %   set below, e.g. struct('NumberOfResolutions',1,'ImagePyramidSchedule',[1 1 1])
 %   to fit at a single full scale when the inputs are already roughly aligned.
@@ -12,7 +12,7 @@ params = struct();
 % general parameters, probably won't touch
 params.Registration                    = 'MultiResolutionRegistration';
 params.Metric                          = 'AdvancedMattesMutualInformation';
-params.Transform                       = 'AffineTransform';%'RecursiveBSplineTransform';
+params.Transform                       = 'EulerTransform';%'EulerTransform';%'RecursiveBSplineTransform';
 params.Optimizer                       = 'AdaptiveStochasticGradientDescent';%,AdaptiveStochasticGradientDescent, QuasiNewtonLBFGSOptimizer]
 params.ImageSampler                    = 'RandomCoordinate'; % RandomCoordinate
 params.AutomaticParameterEstimation    = true;
@@ -26,7 +26,7 @@ params.MovingImagePyramid              = 'MovingRecursiveImagePyramid';
 params.UseRandomSampleRegion           = true;
 params.NewSamplesEveryIteration        = true;
 params.NumberOfResolutions             = 4;
-params.NumberOfHistogramBins           = 16;
+params.NumberOfHistogramBins           = 32;
 %--------------------------------------------------------------------------
 % these may affect more
 params.MaximumNumberOfIterations       = [500 1000 1500 2000]; %1000; %[1000 1500 2000 2500]; %
@@ -44,13 +44,13 @@ end
 pathtemp = fullfile(savepath, 'elastix_temp');
 makeNewDir(pathtemp);
 
-fprintf('Performing affine registration with elastix...\n'); tic;
+fprintf('Performing rigid registration with elastix...\n'); tic;
 [regimg,tform_bspline] = elastix(movingvol, fixedvol, pathtemp,'elastix_default.yml','paramstruct',params,...
-    'movingscale', volscale*[1 1 1],  'fixedscale', volscale*[1 1 1]);
+    'movingscale', volscale.*[1 1 1],  'fixedscale', volscale.*[1 1 1]);
 fprintf('Done! Took %2.2f s.\n', toc)
 
 % copy file and delete temporary folder
-tformpath = fullfile(savepath, 'affine_atlas_to_samp_20um.txt');
+tformpath = fullfile(savepath, 'rigid_atlas_to_samp_20um.txt');
 copyfile(tform_bspline.TransformParametersFname{1}, tformpath)
 rmdir(pathtemp, 's');
 %==========================================================================

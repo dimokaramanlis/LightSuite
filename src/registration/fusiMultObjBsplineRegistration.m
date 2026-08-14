@@ -1,0 +1,82 @@
+function [regimg,tform_bspline, tformpath, pathtemp] = fusiMultObjBsplineRegistration(movingvol,fixedvol,...
+    volscale, movingpts, fixedpts, savepath, optsreg)
+%UNTITLED Summary of this function goes here
+%   Detailed explanation goes here
+%==========================================================================
+usemultistep = getOr(optsreg, 'usemultistep', true);
+bspscale     = getOr(optsreg, 'bspline_spatial_scale', 0.64);
+cpwt         = getOr(optsreg, 'cpwt', 0.2);
+nhistbins    = getOr(optsreg, 'n_histogram_bins', 48);
+usesamplereg = getOr(optsreg, 'custom_sampleregion', true);
+
+if isempty(movingpts) | isempty(fixedpts)
+	cpwt = 0;
+end
+%==========================================================================
+% facscale = volscale/min(volscale);
+%==========================================================================
+addElastixRepoPaths;
+params = struct();
+%==========================================================================
+% general parameters, probably won't touch
+params.Registration                  = 'MultiMetricMultiResolutionRegistration';
+params.Metric                        = {'AdvancedMattesMutualInformation',...
+    'CorrespondingPointsEuclideanDistanceMetric'};
+params.Transform                       = 'RecursiveBSplineTransform';%'RecursiveBSplineTransform';
+params.Optimizer                       = 'AdaptiveStochasticGradientDescent';%'StandardGradientDescent';
+params.ImageSampler                    = 'RandomCoordinate';
+params.AutomaticParameterEstimation    = true;
+params.AutomaticScalesEstimation       = false;
+params.BSplineInterpolationOrder       = 3;
+params.FinalBSplineInterpolationOrder  = 3;
+params.FixedImageDimension             = 3;
+params.MovingImageDimension            = 3;
+params.FixedImagePyramid               = 'FixedRecursiveImagePyramid';
+params.MovingImagePyramid              = 'MovingRecursiveImagePyramid';
+params.UseRandomSampleRegion           = true;
+params.NewSamplesEveryIteration        = true;
+params.NumberOfResolutions             = 3;
+params.NumberOfHistogramBins           = nhistbins;
+params.SP_A                            = 20;
+%--------------------------------------------------------------------------
+% these may affect more
+params.MaximumNumberOfIterations       = [1000 1500 2000];
+params.NumberOfSpatialSamples          = 5000;
+params.Metric1Weight                   = cpwt;
+params.Metric0Weight                   = 1.0;
+params.ImagePyramidSchedule            = [4*ones(1,3) 2*ones(1,3) 1*ones(1,3)];
+
+params.FinalGridSpacingInPhysicalUnits = bspscale*ones(1,3);
+if usesamplereg 
+    if usemultistep
+        % for quite damaged brains
+        params.SampleRegionSize            = [4*ones(1,3) 3*ones(1,3) 2*ones(1,3)];
+    else
+        % for the rest
+        params.SampleRegionSize            = 2*ones(1,3); %
+    end
+end
+%--------------------------------------------------------------------------
+pathtemp = fullfile(savepath, 'elastix_temp');
+makeNewDir(pathtemp);
+
+movpath  = fullfile(pathtemp, 'moving.txt');
+fixpath  = fullfile(pathtemp, 'fixed.txt');
+
+% -1 because offset is always zero. this way, the first pixel is at 0
+writePointsFile(movpath, (movingpts-1).*volscale)
+writePointsFile(fixpath, (fixedpts-1).*volscale)
+
+
+fprintf('Performing B-spline registration with elastix...\n'); tic;
+[regimg,tform_bspline] = elastix(movingvol, fixedvol, pathtemp,'elastix_default.yml','paramstruct',params,...
+    'movingpoints', movpath,  'fixedpoints', fixpath,...
+    'movingscale', volscale.*[1 1 1],  'fixedscale', volscale.*[1 1 1]);
+fprintf('Done! Took %2.2f s.\n', toc)
+
+% copy file and delete temporary folder
+tformpath = fullfile(savepath, 'bspline_atlas_to_samp_20um.txt');
+copyfile(tform_bspline.TransformParametersFname{1}, tformpath)
+% rmdir(pathtemp, 's');
+%==========================================================================
+end

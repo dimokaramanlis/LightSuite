@@ -1,8 +1,9 @@
-function [regimg,tform_bspline, tformpath, pathtemp]  = performMultObjAffineRegistration(movingvol,fixedvol,volscale,...
-    movingpts, fixedpts, cpwt, savepath)
+function [regimg,tform_bspline, tformpath, pathtemp]  = performMultObjAffineRegistration(...
+    movingvol,fixedvol,volscale,...
+    movingpts, fixedpts, cpwt, savepath, paramoverrides)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
-
+if nargin < 8 || isempty(paramoverrides), paramoverrides = struct(); end
 %==========================================================================
 addElastixRepoPaths;
 params = struct();
@@ -34,6 +35,14 @@ params.MaximumNumberOfIterations       = [500 1000 1500 2000]; %1000; %[1000 150
 params.NumberOfSpatialSamples          = 5000;%[1000 1000 2000 2000];% [2000 2500 3000 3000];%
 params.ImagePyramidSchedule            = [8*ones(1,3) 4*ones(1,3) 2*ones(1,3) 1*ones(1,3)];
 %--------------------------------------------------------------------------
+% caller overrides (e.g. a single full-scale resolution for a warm-started
+% residual fit) take precedence over the defaults above
+fn = fieldnames(paramoverrides);
+for ii = 1:numel(fn)
+    params.(fn{ii}) = paramoverrides.(fn{ii});
+end
+%--------------------------------------------------------------------------
+
 pathtemp = fullfile(savepath, 'elastix_temp');
 makeNewDir(pathtemp);
 movpath = fullfile(pathtemp, 'moving.txt');
