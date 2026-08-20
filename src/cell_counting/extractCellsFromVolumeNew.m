@@ -35,8 +35,8 @@ sigmause    = max(ceil(anisotropy.*cellradius/2), 2);
 % let's figure out batches.
 batchsizez  = getOr(opts, 'batchsizez', 32);
 batchsizexy = getOr(opts, 'batchsizexy', 1800);
-buffsizez   = ceil(cellradius);
-buffsizexy  = ceil(cellradius * 4);
+buffsizez   = floor(cellradius*anisotropy(3)*4);
+buffsizexy  = floor(cellradius*anisotropy(1)*4);
 
 NbatchesZ   = ceil(Nslices/batchsizez);
 NbatchesX   = ceil(Nx/batchsizexy);
