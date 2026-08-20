@@ -27,10 +27,10 @@ if thresuse(2) > thresuse(1)
     thresuse(2) = thresuse(1);
 end
 
-cellradius  = round(opts.celldiam/2.5);
+voxelvolume = prod(opts.pxsize);
+cellradius  = ceil(opts.celldiam/(2*min(opts.pxsize)) + 1);
 anisotropy  = min(opts.pxsize)./opts.pxsize;
 sigmause    = max(ceil(anisotropy.*cellradius/2), 2);
-voxelvolume = prod(opts.pxsize);
 %------------------------------------------------------------------------
 % let's figure out batches.
 batchsizez  = getOr(opts, 'batchsizez', 32);
