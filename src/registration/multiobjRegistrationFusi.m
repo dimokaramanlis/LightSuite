@@ -17,6 +17,13 @@ volume    = imresize3(volume, 'Scale', facresize);
 
 fprintf('Done! Took %2.2f s\n', toc);
 %==========================================================================
+optsreg.usemultistep              = usemultistep;
+optsreg.n_histogram_bins          = getOr(opts, 'n_histogram_bins', 48);
+optsreg.cpwt                      = contol_point_wt;
+optsreg.bspline_spatial_scale     = getOr(opts, 'bspline_spatial_scale', 2);
+opts.registres                    = opts.atlas_res;
+optsreg.custom_sampleregion       = true;
+%==========================================================================
 % we also load user points
 cppath        = dir(fullfile(opts.savepath,'*minimal.mat'));
 cptshistology = zeros(0, 3);
@@ -52,7 +59,7 @@ tv = tv./quantile(tv,0.99,'all');
 % affine optimization
 % tform_aff       = fitAffineTrans3D(cptsatlas, cptshistology);
 elastixparams = struct('NumberOfResolutions', 2, 'ImagePyramidSchedule', [2 1], ...
-    'MaximumNumberOfIterations', [1000 1000],'NumberOfHistogramBins',48);
+    'MaximumNumberOfIterations', [1000 1000],'NumberOfHistogramBins',optsreg.n_histogram_bins );
 [~,~,affelastix] = performMultObjAffineRegistration(tv, volume, 1, ...
     cptsatlas, cptshistology, contol_point_wt*0.5, opts.savepath, elastixparams);
 tform_aff = parse_elastix_tform_all(affelastix);
@@ -76,12 +83,6 @@ end
 %==========================================================================
 %%
 % we perform the b-spline registration
-optsreg.usemultistep              = usemultistep;
-optsreg.cpwt                      = contol_point_wt;
-optsreg.bspline_spatial_scale     = getOr(opts, 'bspline_spatial_scale', 2);
-opts.registres                    = opts.atlas_res;
-optsreg.n_histogram_bins          = getOr(opts, 'n_histogram_bins', 48);
-optsreg.custom_sampleregion       = true;
 [reg, ~, bspltformpath, pathbspl] = fusiMultObjBsplineRegistration(tvaffine, volume, opts.registres, ...
     cpaffine, cptshistology, opts.savepath, optsreg);
 
@@ -98,7 +99,7 @@ end
 %==========================================================================
 % here we obtain the inverse transform
 outdir     = fullfile(opts.savepath, 'elastix_inverse_temp');
-invstats   = invertElastixTransformCP( pathbspl, outdir, 0.8, 1, 1);
+invstats   = invertElastixTransformCP( pathbspl, outdir, 1, 1, 1);
 tformpath  = fullfile(opts.savepath, 'bspline_samp_to_atlas_20um.txt');
 elastix_paramStruct2txt(tformpath, invstats.TransformParameters{1});
 rmdir(invstats.outputDir, 's'); % remove inversion directory
