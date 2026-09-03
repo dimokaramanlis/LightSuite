@@ -5,7 +5,7 @@ function varargout = transformPointsToAtlas(input_data, varargin)
 %   transforms the N x M array of INPUT_PTS directly. N is the number of 
 %   detected points, and M must be >= 3. The first 3 columns represent the 
 %   [x, y, z] spatial coordinates in the original sample space. Any additional 
-%   columns (e.g., intensity, equivalent diameter, ellipticity) are purely 
+%   columns (e.g., intensity, equivalent diameter, elongation) are purely 
 %   descriptive and will be carried over to the output unmodified. TRSTRUCT 
 %   must contain the transformation parameters.
 %
