@@ -1,4 +1,4 @@
-function [ptcloud, volreturn] = extractSamplePoints(voluse, thresuse)
+function [ptcloud, volreturn, batchlims] = extractSamplePoints(voluse, thresuse)
 %EXTRACTMATCHINGGAUSSIAN Summary of this function goes here
 %   Detailed explanation goes here
 rng(1);
@@ -14,6 +14,7 @@ overallmode = mode(voluse, 'all');
 % for illustration
 if nargout > 1
     volreturn = cell(prod(Nbatches),1);
+    batchlims = cell(prod(Nbatches),1);
 end
 
 for ibatchy = 1:Nbatches(1)
@@ -50,6 +51,7 @@ for ibatchy = 1:Nbatches(1)
                 ipos      = floor(size(volcurr,2)*0.5);
                 volreturn{idx} = cat(3, squeeze(volcurr(:,ipos,:)), ...
                     squeeze(gradcurr(:,ipos,:))./squeeze(volcurr(:,ipos,:)));
+                batchlims{idx} = [istartx, iendx; istarty, iendy; istartz, iendz];
             end
 
            idx         = idx  + 1;
