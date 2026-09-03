@@ -37,15 +37,6 @@ dsX = arrayDatastore(X_tr, 'IterationDimension', 4);
 dsY = arrayDatastore(Y_tr);
 dsTrainRaw = combine(dsX, dsY);
 augimdsTrain = transform(dsTrainRaw, @augmentCellViews);
-% augmenter = imageDataAugmenter( ...
-%     'RandRotation', [-20 20], ...      % Rotate +/- 20 degrees
-%     'RandScale', [0.8 1.2], ...
-%     'RandXReflection', true, ...       % Flip horizontally
-%     'RandYReflection', true); ...       % Flip vertically);
-% 
-% % Create a datastore that applies these augmentations on the fly
-% augimdsTrain = augmentedImageDatastore(imgsize, X_tr, Y_tr, ...
-%     'DataAugmentation', augmenter);
 
 % --- 3. Define Architecture ---
 layers = [
