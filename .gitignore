@@ -3,3 +3,23 @@ script_analyze_slices.m
 script_analyze_slices_in_batch.m
 batch_run_colm_suite.m
 *CellClassifierNet.mat
+
+# personal / data-specific fUSI demo scripts (see demos/ls_analyze_fusi.m instead)
+demos/ls_register_fusi.m
+demos/ls_fusi_activation_maps.m
+demos/ls_fusi_flatmaps.m
+demos/fusi_all_data.m
+
+# stimulus-driven fUSI activation-mapping pipeline (paradigm-specific, kept out of the public repo)
+src/fusi/preprocessFusiScan.m
+src/fusi/loadFusiStimBlocks.m
+src/fusi/alignFusiStimToScan.m
+src/fusi/buildFusiStimRegressors.m
+src/fusi/computeFusiActivationMaps.m
+src/fusi/fusiPeristimulusTimecourses.m
+src/fusi/fusiSessionActivationMaps.m
+src/fusi/fusiMouseActivationMaps.m
+src/fusi/warpFusiSessionToAtlas.m
+src/fusi/plotFusiTimecourses.m
+src/fusi/fusiCohortObjectPreference.m
+src/fusi/fusiCrossMouseStructural.m

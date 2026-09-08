@@ -9,6 +9,7 @@ LightSuite automates the complex tasks of mapping experimental data to standard 
 * **Whole-Brain Lightsheet Analysis:** Process continuous 3D volumes. The pipeline handles preprocessing (median filtering, binary conversion), automated cell detection (SNR-based local maxima), and registration to the Allen Brain Atlas.
 * **Spinal Cord Analysis:** Specialized tools for straightening and registering spinal cord volumes. It includes a dedicated GUI for defining the central canal and anterior/posterior axes to unroll and map the cord before registration.
 * **Slice Analysis:** Optimized for conventional wide-field microscope data (e.g., coronal slices). It registers individual 2D planes to the atlas and outputs registered image stacks and cell coordinates.
+* **Functional Ultrasound (fUSI):** Build a per-mouse anatomy from repeated, freehand-repositioned fUSI sessions, register it to the Allen CCF against a vascular-contrast atlas, and carry activation maps and timecourses into atlas space — or onto the Allen cortical flatmap.
 * **Probe & Implant Tracing:** Localize Neuropixels probe tracks and cylindrical implants (optical fibers / GRIN lenses) on a registered brain, exporting their atlas-space trajectories and the regions they pass through (AP_histology-compatible `probe_ccf`).
 
 ## Hardware Requirements
@@ -30,6 +31,9 @@ We support:
 * A series of **2D TIFF planes** (one file per slice).
 * Direct output from AxioScan scanners (**`.czi`** files).
 
+### 4. Functional Ultrasound (fUSI) Volumes
+We support repeated 3D power-Doppler scans held in MATLAB arrays (any loader you can write works; a `*_FUS.mat` reader is provided). Sessions may be freehand-repositioned between days — the pipeline aligns them to a seed session before registration.
+
 ## Getting Started
 
 1.  **Installation:** Follow the instructions in [Installation](installation.md) to set up MATLAB dependencies and external tools (Elastix).
@@ -39,4 +43,5 @@ We support:
     * [Lightsheet Brain Analysis](usage_lightsheet_brain.md)
     * [Spinal Cord Analysis](usage_spinal_cord.md)
     * [Slice Analysis](usage_slice.md)
+    * [Functional Ultrasound (fUSI)](usage_fusi.md)
     * [Probe & Implant Tracing](usage_tracing.md)

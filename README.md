@@ -6,20 +6,22 @@
 
 **LightSuite** is a MATLAB-based software pipeline for the end-to-end analysis of whole-brain and spinal cord imaging data. Designed to seamlessly process 100GB+ datasets, it bridges the gap between raw experimental image stacks and quantitative data, yielding final cell positions and volumetric intensities mapped directly into standard atlas space.
 
-LightSuite currently supports three main types of data:
+LightSuite currently supports four main types of data:
 1. **Lightsheet volumes of the mouse brain**
 2. **Lightsheet volumes of the mouse spinal cord**
 3. **Widefield coronal slices across the mouse brain**
+4. **Functional ultrasound (fUSI) volumes of the mouse brain**
 
 ---
 
 ## 🌟 Key Features
 
-* **Three Distinct Modalities**: Dedicated workflows for 3D mouse brain volumes, 3D spinal cord volumes, and 2D coronal slice series.
+* **Four Distinct Modalities**: Dedicated workflows for 3D mouse brain volumes, 3D spinal cord volumes, 2D coronal slice series, and functional ultrasound (fUSI) recordings.
 * **Robust Anatomical Registration**: Align experimental image volumes to the standardized [Allen Common Coordinate Framework (CCF) v3](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) (2020) and the [Fiederling et al. (2021) spinal cord atlas](https://data.mendeley.com/datasets/4rrggzv5d5/1).
 * **Interactive Registration Refinement**: Unlike many standard pipelines, LightSuite includes a dedicated GUI to manually adjust and fine-tune registrations using corresponding points. This is highly recommended for processing damaged, deformed, or asymmetrical tissue samples.
 * **Automated 3D Cell Counting**: Detects cells by applying a size-based 3D band-pass filter, converting intensities to a signal-to-background ratio, and extracting local maxima to pinpoint cell locations.
 * **Standardized Atlas-Space Outputs**: Exports exact 3D cell positions in atlas space (currently for brain datasets) as well as continuous, atlas-aligned intensity volumes for *every* acquired channel.
+* **Functional Ultrasound Registration**: Build a per-mouse anatomy from repeated, freehand-repositioned fUSI sessions, register it to the Allen CCF against a *vascular-contrast* atlas (vessels matched to vessels, not to a cytoarchitectonic template), and carry activation maps, per-area timecourses, or whole recordings into atlas space — with optional projection onto the Allen cortical flatmap.
 * **Probe & Implant Tracing**: Annotate Neuropixels probe tracks or GRIN lens / optical fiber positions directly on the registered volume and export their Allen CCF trajectories — including an AP_histology-compatible `probe_ccf` structure with the brain regions each probe traverses.
 * **Multi-Format Support**: Process multi-color TIFF volumes or single-color 2D TIFF series natively.
 
@@ -53,7 +55,10 @@ Spinal cord volumes utilize a similar volumetric workflow but register against t
 For slices acquired through conventional widefield microscopy, use `demos\ls_analyze_slice_volume.m`. This pipeline includes registration, though manual adjustments are supported and recommended on a per-slice basis.
 ![Example slice registration](./images/example_slice_registration.png)
 
-### 4. Probe & Implant Tracing (Lightsheet Brain)
+### 4. Functional Ultrasound (fUSI)
+For repeated fUSI scans of one mouse, start with `demos\ls_analyze_fusi.m`. The script builds a within-mouse anatomy by rigidly aligning every session to a user-picked seed, registers that anatomy to a vascular Allen atlas (control-point GUI + multi-objective affine/B-spline fit), and then brings functional maps and timeseries into atlas space. It ends with an optional projection onto the Allen cortical flatmap. See the [fUSI workflow documentation](https://lightsuite.readthedocs.io/en/latest/usage_fusi/) for details.
+
+### 5. Probe & Implant Tracing (Lightsheet Brain)
 Once a lightsheet brain has been registered (entry point 1), you can trace implanted hardware on the registered volume:
 * **Neuropixels probes** — `demos\ls_trace_neuropixels.m` opens an annotation GUI (`annotateNeuropixelsProbes`) where you click points along each probe track, fits a straight line per probe in Allen CCF space, and exports `probe_ccf.mat` (points, insertion/tip coordinates, and the brain regions traversed) in the [AP_histology](https://github.com/petersaj/AP_histology) format.
 * **GRIN lenses / optical fibers** — `annotateGRINLens` annotates circular fiber cross-sections and reports the atlas regions under the lens at a range of depths.

@@ -24,4 +24,5 @@ nav:
       - Lightsheet brain: usage_lightsheet_brain.md
       - Lightsheet spinal cord: usage_spinal_cord.md
       - Slice module: usage_slice.md
+      - Functional ultrasound (fUSI): usage_fusi.md
       - Probe & implant tracing: usage_tracing.md
