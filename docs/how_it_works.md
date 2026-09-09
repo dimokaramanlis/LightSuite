@@ -51,7 +51,7 @@ Detection borrows from spike-sorting: extract candidates everywhere, then triage
 2. **Signal-to-background ratio (SBR).** Subtracting the bandpass result from the original gives a local background; dividing by it converts raw intensity into an SBR. SBR is robust to the threefold intensity differences seen across brain areas and to one-sided lightsheet illumination.
 3. **Local maxima.** Maxima above the primary SBR threshold become candidate centers, grown out to a secondary threshold.
 4. **Morphological filtering.** Candidates that are too elongated (axis ratio > 2.5), too small, or too large/bright (tissue folds, bubbles) are discarded.
-5. **CNN artifact classifier.** A lightweight network classifies each candidate from three maximum-intensity projections (cheaper than a 3D network) and removes false positives such as bubble edges, tissue–solution interfaces, and bright neurites. It reaches >98% accuracy and can be retrained on your own labels.
+5. **CNN artifact classifier.** A lightweight network classifies each candidate from three maximum-intensity projections (cheaper than a 3D network) and removes false positives such as bubble edges, tissue–solution interfaces, and bright neurites. It reaches >98% accuracy and can be retrained on your own labels — see [CNN cell classification](usage_lightsheet_brain.md#7-cnn-cell-classification) for labelling, training, and applying it.
 
 The whole-brain pipeline runs this in 3D; the slice module uses a 2D adaptation. `celldiam` sets the filter scale (the single most important parameter) and the threshold pair sets sensitivity.
 

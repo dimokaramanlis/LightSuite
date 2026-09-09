@@ -8,23 +8,36 @@ function allmedians = generateRegisteredBrainVolumes(savepath, varargin)
 %   ALLMEDIANS = GENERATEREGISTEREDBRAINVOLUMES(..., 'writetocsv', VAL) 
 %   specifies whether to write the parcellation intensities to a CSV file.
 %
-%   ALLMEDIANS = GENERATEREGISTEREDBRAINVOLUMES(..., 'saveregisteredvolume', VAL) 
+%   ALLMEDIANS = GENERATEREGISTEREDBRAINVOLUMES(..., 'saveregisteredvolume', VAL)
 %   specifies whether to save the registered volumes to disk.
 %
+%   ALLMEDIANS = GENERATEREGISTEREDBRAINVOLUMES(..., 'areafun', FUN) summarizes
+%   the voxels of each area with FUN instead of the median. FUN must be a
+%   function handle taking a column vector and returning a scalar - @median
+%   (default), @mean and @std are the obvious choices, but anything of that
+%   shape works (e.g. @(x) quantile(x, 0.9)). The same function is used for the
+%   out-of-brain background level, so the two stay comparable.
+%
 %   Inputs:
-%       savepath             - (char/string) Directory containing the volume 
+%       savepath             - (char/string) Directory containing the volume
 %                              files, 'transform_params.mat', and 'regopts.mat'.
 %
 %   Optional Name-Value Parameters:
-%       writetocsv           - (logical) If true, writes intensity data to CSV. 
+%       writetocsv           - (logical) If true, writes intensity data to CSV.
 %                              [Defaults to opts.writetocsv or false]
-%       saveregisteredvolume - (logical) If true, saves the registered volume 
+%       saveregisteredvolume - (logical) If true, saves the registered volume
 %                              stack. [Defaults to opts.saveregisteredvol or false]
+%       areafun              - (function_handle) Per-area summary statistic.
+%                              [Defaults to opts.areafun or @median]
 %
 %   Outputs:
-%       allmedians           - (single) Ngroups x 2 x Nchans array containing 
-%                              median intensities over brain areas and
-%                              hemispheres.
+%       allmedians           - (single) Ngroups x 2 x Nchans array containing
+%                              the per-area, per-hemisphere summary (the median
+%                              unless 'areafun' says otherwise).
+%
+%   The per-channel .mat files keep the variable name 'medianoverareas' whatever
+%   'areafun' is, so existing readers (loadMouseBackgroundSignal and friends)
+%   keep working; the function actually used is saved alongside it as 'areafun'.
 %--------------------------------------------------------------------------
 % 1. Load configuration and transforms
 %--------------------------------------------------------------------------
@@ -47,11 +60,18 @@ else
     defaultSaveVol  = false;
 end
 
+if isfield(opts, 'areafun') && isa(opts.areafun, 'function_handle')
+    defaultAreaFun  = opts.areafun;
+else
+    defaultAreaFun  = @median;
+end
+
 % Set up the input parser
 p = inputParser;
 addRequired(p, 'savepath', @(x) ischar(x) || isstring(x));
 addParameter(p, 'writetocsv', defaultWriteCsv, @(x) islogical(x) || isscalar(x));
 addParameter(p, 'saveregisteredvolume', defaultSaveVol, @(x) islogical(x) || isscalar(x));
+addParameter(p, 'areafun', defaultAreaFun, @(x) isa(x, 'function_handle'));
 
 % Parse the arguments passed to the function
 parse(p, savepath, varargin{:});
@@ -59,6 +79,23 @@ parse(p, savepath, varargin{:});
 % Assign the final parsed variables for the rest of the script
 writetocsv = p.Results.writetocsv;
 saveregvol = p.Results.saveregisteredvolume;
+areafun    = p.Results.areafun;
+
+% accumarray needs a function that reduces a column vector to a scalar; check
+% that here rather than letting it fail thousands of areas into the loop
+try
+    testout = areafun(single([1; 2; 3; 4]));
+catch ME
+    error('generateRegisteredBrainVolumes:badAreaFun', ...
+        ['''areafun'' (%s) could not be applied to a column vector: %s. It must ' ...
+         'take a vector of voxel values and return one number, like @median, ' ...
+         '@mean or @std.'], func2str(areafun), ME.message);
+end
+if ~isscalar(testout) || ~isnumeric(testout)
+    error('generateRegisteredBrainVolumes:badAreaFun', ...
+        ['''areafun'' (%s) must return a single number per area; it returned a ' ...
+         '%s of size %s.'], func2str(areafun), class(testout), mat2str(size(testout)));
+end
 %--------------------------------------------------------------------------
 % 3. Initialize paths and channel names
 %--------------------------------------------------------------------------
@@ -101,7 +138,8 @@ if saveregvol
     fprintf('Done! Took %2.2f s. \n', toc(savetic));
 end
 %==========================================================================
-fprintf('Calculating background fluoresence in atlas coords...\n'); proctic = tic;
+fprintf('Calculating background fluoresence in atlas coords (per-area %s)...\n', ...
+    func2str(areafun)); proctic = tic;
 
 allen_atlas_path        = fileparts(which('annotation_10.nii.gz'));
 av                      = niftiread(fullfile(allen_atlas_path, 'annotation_10.nii.gz'));
@@ -134,7 +172,7 @@ for ichan = 1:opts.Nchans
         sideav    = reshape(av(:, :, istart:iend), [], 1);
         sidevals  = reshape(straightvol(:, :, istart:iend, ichan), [], 1);
         ikeep     = sideav>0;
-        medareas  = single(accumarray(sideav(ikeep)+1, sidevals(ikeep), [Nforaccum 1], @median));
+        medareas  = single(accumarray(sideav(ikeep)+1, sidevals(ikeep), [Nforaccum 1], areafun));
         medareas  = medareas(areaidx+1);
 
         volareas  = accumarray(sideav+1, 1, [Nforaccum 1], @sum);
@@ -142,7 +180,7 @@ for ichan = 1:opts.Nchans
         volumeoverareas(:, iside) = volareas * (opts.atlasres*1e-3)^3;
 
         % get index 0 level for background
-        backlevel                 = single(median(sidevals(~ikeep)));
+        backlevel                 = single(areafun(sidevals(~ikeep)));
         medareas(areaidx == 0)    = backlevel;
         medianoverareas(:, iside) = medareas;
     end
@@ -151,7 +189,8 @@ for ichan = 1:opts.Nchans
 
     % save as mat file for later processing
     fmatname  = fullfile(registerpath, sprintf('chan%02d_intensities.mat', ichan));
-    save(fmatname, 'medianoverareas', 'areaidx', 'volumeoverareas')
+    areafunname = func2str(areafun);
+    save(fmatname, 'medianoverareas', 'areaidx', 'volumeoverareas', 'areafun', 'areafunname')
 
     % save as csv if asked
     if writetocsv

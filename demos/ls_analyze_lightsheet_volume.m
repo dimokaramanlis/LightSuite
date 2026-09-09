@@ -62,12 +62,30 @@ transform_params           = multiobjRegistration(opts, opts.weight_usr_pts, tru
 % change function arguments if you want to skip saving
 generateRegisteredBrainVolumes(opts.savepath, ...
     'writetocsv', true, 'saveregisteredvolume', true);
+% each brain area is summarized by its median voxel intensity. Pass 'areafun'
+% to use something else - any handle taking a vector and returning one number:
+%   generateRegisteredBrainVolumes(opts.savepath, 'areafun', @mean);
+%   generateRegisteredBrainVolumes(opts.savepath, 'areafun', @std);
 
 %% (auto) apply registration to cell detections
 % you can also run this function with a cell matrix of detections
 % calculated outside LightSuite, as long as the transform parameters are
 % provided as an argument
 transformPointsToAtlas(opts.savepath, 'writetocsv', true);
+
+% Points counted outside LightSuite go through the same transform. Supported
+% formats are .mat ('cell_locations'), .csv (the same array as text) and ImageJ
+% "Cell Counter" .xml marker files. Every point set must name its channel -
+% from the file name ('chan_3_...'), from the marker <Type>, or explicitly:
+%   transformPointsToAtlas('D:\data\cells.xml', 'savepath', opts.savepath, ...
+%       'channel', [2 3], 'writetocsv', true);   % Type 1 -> chan 2, Type 2 -> chan 3
+
+% To drop detection artifacts with the CNN classifier, pass a trained network
+% (see demos\trainClassificationNetwork.m). This requires opts.savecellimages =
+% true during detection. The verdict is cached next to the detections, so later
+% runs reuse it unless you pass 'reclassify', true:
+%   transformPointsToAtlas(opts.savepath, 'writetocsv', true, ...
+%       'network', 'D:\nets\20260602_CellClassifierNet.mat');
 
 %%
 % you can use visualizeCellDetections to plot all the detections in atlas
