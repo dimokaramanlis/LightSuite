@@ -1,13 +1,13 @@
 # Spinal Cord Volume Registration
 
-This module processes lightsheet spinal cord datasets and registers them to the Fiederling et al. spinal cord atlas. The main challenge specific to spinal cord data is that the tissue is curved — this module handles straightening the cord before atlas registration.
+This module registers cleared light-sheet spinal cords to the Fiederling et al. (2021) atlas. Cleared cords bend and twist in a sample-specific way that no atlas fit can absorb, so LightSuite first estimates centerline curvature and axial torsion and computationally **straightens and untwists** the volume into a canonical cylinder, then registers that.
 
 > The registration backbone and control-point GUI are shared with the brain pipeline and explained in [How it works](how_it_works.md). This page focuses on the cord-specific straightening step.
 
 ## Before You Start
 
 You will need:
-* A stitched lightsheet TIFF dataset of the spinal cord.
+* A stitched light-sheet TIFF dataset of the spinal cord.
 * [Elastix](https://elastix.lumc.nl/) installed and on your system path.
 * The spinal cord atlas files (loaded via `loadSpinalCordAtlas()`).
 
@@ -32,7 +32,7 @@ The analysis is driven by the main script: `ls_analyze_spinal_cord`.
 
 **Functions:** `readSpinalCordSample(dpspinesample, sampleres)` → `prepareCordSampleForRegistration(cordvol, opts)`
 
-These functions load your raw TIFF data at the specified resolution and prepare a downsampled registration volume, similar to the lightsheet brain pipeline. The registration options are saved to `regopts.mat`.
+These functions load your raw TIFF data at the specified resolution and prepare a downsampled registration volume, similar to the light-sheet brain pipeline. The registration options are saved to `regopts.mat`.
 
 ---
 
@@ -40,7 +40,7 @@ These functions load your raw TIFF data at the specified resolution and prepare 
 
 **Function:** `spinal_cord_aligner(regopts)`
 
-Before registration, the curved spinal cord must be "straightened" to match the linear coordinate system of the atlas. This GUI lets you trace anatomical landmarks along the cord, and LightSuite fits a smooth spline through your markings to model the cord's shape.
+The cord must be straightened before it can match the atlas coordinate system. You annotate the central canal and the dorsoventral axis on sparsely sampled axial slices; LightSuite fits **penalized smoothing splines** through those annotations to get continuous trajectories of centre position, orientation angle and radius along the rostrocaudal axis, then applies a per-slice rigid transform (translate the canal to centre, rotate to a standard pose) that straightens and untwists the volume. The smoothing parameter λ (default 5000, adjustable in the GUI) controls how tortuous a trajectory is allowed to be — raise it for straighter cords, lower it for more contorted ones.
 
 ### The Interface
 
@@ -129,7 +129,7 @@ This is the same control-point interface used for whole brains — see [How it w
 
 **Function:** `multiobjCordRegistration(regopts, control_point_weight)`
 
-Refines the alignment using Elastix B-spline registration, incorporating both your manual control points and the initial automatic landmarks. Both forward (atlas → sample) and reverse (sample → atlas) transforms are computed.
+Refines the alignment with the same multi-metric Elastix B-spline fit used for brains — mutual information plus a corresponding-points term from your landmarks — at a **960 µm** final control-point grid spacing, coarser than the brain grid to suit the cord. Both forward (atlas → sample) and reverse (sample → atlas) transforms are computed.
 
 **Outputs:**
 * `transform_params.mat` — complete registration parameters

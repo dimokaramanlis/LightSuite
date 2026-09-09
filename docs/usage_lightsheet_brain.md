@@ -1,6 +1,6 @@
-# Lightsheet Whole-Brain Analysis
+# Light-sheet Whole-Brain Analysis
 
-This module processes whole-brain datasets acquired via lightsheet microscopy. It handles large volumetric data (100 GB+), performing preprocessing, cell detection, and registration to the Allen Brain Atlas (CCF v3).
+This module registers whole-brain light-sheet volumes to the Allen CCFv3 and detects labelled cells at native resolution. It handles 100 GB+ datasets on a single workstation, yielding ~4.5 × 10⁵ cells per brain in 3–4 h.
 
 > New to LightSuite? Read [How it works](how_it_works.md) first — it explains the registration stages, control-point active learning, and SBR cell detection that this page builds on. Here we cover the brain-specific steps and parameters.
 
@@ -49,15 +49,15 @@ Open `ls_analyze_lightsheet_volume.m` and fill in the `opts` struct at the top o
 | Parameter | Description | Options |
 | :--- | :--- | :--- |
 | `opts.tifftype` | How your TIFF files are organized | `'channelperfile'` (BigStitcher) or `'planeperfile'` (Terastitcher) |
-| `opts.pxsize` | Voxel size in microns `[x y z]` | `[20 20 20]` |
+| `opts.pxsize` | Voxel size in microns `[x y z]` | `[6.55 6.55 5]` |
 
 ### Cell Detection
 
 | Parameter | Description | Example |
 | :--- | :--- | :--- |
 | `opts.channelforcells` | Which channel contains your labeled cells | `3` |
-| `opts.celldiam` | Approximate cell diameter in microns | `25` |
-| `opts.thres_cell_detect` | SNR thresholds `[detection, expansion]` | `[0.5, 0.4]` |
+| `opts.celldiam` | Approximate cell diameter in microns | `14` |
+| `opts.thres_cell_detect` | SBR thresholds `[primary, secondary]` | `[0.5, 0.4]` |
 | `opts.savecellimages` | Save 2D projections of each detected cell | `false` |
 
 > **Tip:** `celldiam` is the most important detection parameter. Measure a few representative cells in ImageJ and use that value. If you get too many false positives, raise `thres_cell_detect(1)`.
@@ -142,7 +142,7 @@ This is the main step requiring your attention. The GUI shows your sample alongs
 | **Enter** | Jump to a specific slice number |
 | **s** | Save and exit |
 
-See [How it works → control points](how_it_works.md#refining-registration-with-control-points-active-learning) for landmark strategy: at least 16 pairs spread across the brain, watching the live MSE, good landmark choices, and how to handle damaged tissue. Views are shown in randomized order to encourage even coverage.
+See [How it works → control points](how_it_works.md#refining-registration-with-control-points-active-learning) for landmark strategy. In short: the fit activates at 16 pairs and keeps improving to about 100, which takes 10–20 minutes; watch the live MSE; favour ventricles and fiber tracts; and in damaged regions place a point where the structure *should* be. Views are shown in randomized order to encourage even coverage.
 
 **Output:** `atlas2histology_tform.mat` — affine transform and all control point arrays.
 
@@ -154,8 +154,8 @@ See [How it works → control points](how_it_works.md#refining-registration-with
 
 This stage refines the alignment further using your control points and a deformable B-spline registration:
 
-1. **Affine step:** Fits a global affine transform using your control points combined with auto-detected landmarks.
-2. **B-spline step:** Runs Elastix to compute a smooth, local deformation field that captures non-linear tissue distortion.
+1. **Affine step:** Fits a global affine transform by least squares from your control points plus the auto-detected correspondences. Automatic points within 1 mm of a user point are dropped so they cannot dilute yours.
+2. **B-spline step:** Elastix computes a free-form deformation on a 0.64 mm control-point grid, optimizing Advanced Mattes mutual information (48 histogram bins, weight 1.0) *plus* a corresponding-points distance term (weight `opts.weight_usr_pts`, default 0.2), over four resolution levels with adaptive stochastic gradient descent. The coarse grid is what prevents overfitting — it matches the several-hundred-µm scale at which fixation and clearing actually deform tissue.
 3. **Inverse transform:** Computes the reverse mapping (sample → atlas), needed for cell coordinate mapping.
 
 **Outputs:**
@@ -201,11 +201,11 @@ Cell detection runs automatically during preprocessing (Step 1) on the channel s
 
 ### Detection Algorithm
 
-Detection runs in 3D batches on the full-resolution data using LightSuite's SBR pipeline — bandpass filter → signal-to-background ratio → local maxima → morphological filter → CNN artifact classifier. See [How it works → cell detection](how_it_works.md#cell-detection-and-artifact-classification) for the full description.
+Detection runs on the full-resolution channel in overlapping GPU 3D batches (1800 × 1800 × 32 voxels): band-pass filter → signal-to-background ratio → local maxima → morphological filter → CNN artifact classifier. See [How it works → cell detection](how_it_works.md#cell-detection-and-artifact-classification) for the full description.
 
 ### Key Parameters
-* **`celldiam`** — controls the bandpass filter. Set this to your actual cell diameter.
-* **`thres_cell_detect(1)`** — primary detection SNR threshold. Higher = fewer, more confident detections.
+* **`celldiam`** — controls the band-pass filter. Set this to your actual cell diameter.
+* **`thres_cell_detect(1)`** — primary SBR threshold for accepting a local maximum. Higher = fewer, more confident detections.
 * **`thres_cell_detect(2)`** — secondary threshold used during cell boundary expansion and minimum intensity filtering.
 
 ### Atlas Mapping
@@ -217,6 +217,18 @@ Detected cells are transformed to atlas space through the same chain of transfor
 **Outputs** (in `volume_registered/`):
 * `chan_X_cell_locations_atlas.mat` — N×6 array with columns `[x, y, z, intensity, diameter, elongation]` in atlas voxel coordinates
 * `cell_counts_by_region.csv` — cell counts and median intensities per region and hemisphere (if `writetocsv = true`)
+
+### Quantification conventions
+
+Quantification happens in atlas space, at the **substructure level** of the Allen parcellation, **separately per hemisphere** (the midplane splits the cells):
+
+* Detections outside the brain annotation or beyond the volume bounds are discarded.
+* Regional **volume** is the annotation voxel count × voxel volume (10⁻⁶ mm³ at 10 µm); **density** is count ÷ volume.
+* Regional **intensity** is the median voxel value in the region, reported **relative to the median out-of-brain intensity** of that hemisphere. Use `'areafun'` to summarize with something other than the median.
+
+> **Soma diameter is a relative measure.** The `diameter` column comes from the SBR-dilated candidate region, so it overestimates true anatomy (~20 µm reported against 10–16 µm actual), partly through the dilation and partly through point-spread-function broadening in undeconvolved light-sheet data. Laminar and cross-region *comparisons* are faithful; absolute values are not.
+
+For cohort work, note that labelling efficiency varies several-fold between animals — normalize before pooling rather than averaging raw densities.
 
 ### Bringing in points from elsewhere
 
@@ -264,7 +276,7 @@ The classifier needs the views, and they are written **only during detection**:
 opts.savecellimages = true;
 ```
 
-`chan_X_cell_locations_sample.mat` then also holds `cell_images` (`[Ncells × Nfeatures]`, the three flattened views) and `imwindow` (their half-window). Without them the classifier cannot be applied and the volume has to be re-processed.
+`chan_X_cell_locations_sample.mat` then also holds `cell_images` (the three flattened views) and `imwindow` (their half-window). Without them the volume has to be re-processed.
 
 ### Step 2 — label a training set
 
@@ -280,9 +292,7 @@ Opens a file picker, loads a detection `.mat`, and shows the candidates one at a
 | **← / →** | Back / next (skip) |
 | **S** | Save progress |
 
-Progress is saved to `<name>_labeled.mat` next to the source file and the tool offers to resume on reopen, so labelling can be spread over several sittings. A few hundred labelled candidates per brain is usually enough; label from more than one brain if your staining varies.
-
-Only labelled candidates are saved, so skipping the ambiguous ones is fine — better than forcing a call you are not sure about.
+Progress is saved to `<name>_labeled.mat` and the tool resumes on reopen, so labelling can be spread over sittings. A few hundred candidates per brain is usually enough; label from more than one brain if your staining varies. Only labelled candidates are saved, so skipping the ambiguous ones is fine.
 
 ### Step 3 — train
 
@@ -290,7 +300,7 @@ Only labelled candidates are saved, so skipping the ambiguous ones is fine — b
 
 Point `textfilewithpaths` at a text file listing your `*_labeled.mat` files, one per line, and set `netowrksavepath`. The script pools all of them, balances the two classes (`balanceChoices`), splits 80/20 into training and validation, and trains a small CNN — three conv/batchnorm/ReLU blocks with pooling, then a two-way fully connected layer — with rotation, reflection and translation augmentation (`augmentCellViews`) on the training half only.
 
-It saves `<date>_CellClassifierNet.mat` containing `net` plus the training, validation and overall accuracies, and calls `visualizeNetworkClassification` so you can see what it got wrong. The bundled networks reach ~97% validation accuracy.
+It saves `<date>_CellClassifierNet.mat` containing `net` plus the training, validation and overall accuracies, and calls `visualizeNetworkClassification` so you can see what it got wrong. The classifier reported in the paper reaches **98.7%** validation accuracy and discards 10–20% of candidates (median 16%); the networks bundled here sit around 97%.
 
 ### Step 4 — apply during atlas mapping
 
@@ -313,14 +323,14 @@ The result is cached next to the registration folder as `<name>_classification.m
 | `fracgood`, `ncells` | fraction kept, and how many were classified |
 | `netname`, `netpath`, `netaccuracy` | which network produced this |
 
-**A later run reuses that file instead of re-running the network.** Pass `'reclassify', true` to force a re-run — after retraining, say. A cache that no longer matches the number of detections is discarded automatically with a warning. The `_atlas.mat` output records the classification summary it was filtered with.
+**A later run reuses that file instead of re-running the network.** Pass `'reclassify', true` to force a re-run after retraining; a cache that no longer matches the detection count is discarded automatically. The `_atlas.mat` output records the classification it was filtered with.
 
 ### Notes and limits
 
 * **Classification needs cell images**, so it applies to `.mat` detections saved with `savecellimages = true`. CSV and XML point sets carry no images and are transformed unfiltered, with a warning.
-* **Candidates are classified in chunks** (10,000 at a time) so a million-cell brain fits in memory. The image scaling `prepareImagesForCNN` applies is measured once over the whole file and reused for every chunk, so the chunked result is identical to classifying the file in one pass.
-* **Retrain when the staining changes.** The network learns what your artifacts look like; a network trained on one label and microscope will not transfer perfectly to another. Labelling a few hundred new candidates and retraining takes under an hour.
-* **Check what it rejects, not just what it keeps.** `visualizeNetworkClassification` on your validation set is the fastest way to spot a network that has learned the wrong cue.
+* **Candidates are classified in chunks** (10,000 at a time) so a million-cell brain fits in memory. The image scaling is measured once over the whole file and reused per chunk, so the result is identical to classifying in one pass.
+* **Retrain when the staining changes.** The network learns *your* artifacts and will not transfer perfectly to another label or microscope. Relabelling a few hundred candidates takes under an hour.
+* **Check what it rejects, not just what it keeps** — `visualizeNetworkClassification` on your validation set is the fastest way to spot a network that learned the wrong cue.
 
 ---
 

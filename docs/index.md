@@ -1,47 +1,37 @@
 # Welcome to LightSuite
 
-**LightSuite** is a MATLAB-based pipeline designed for the registration and analysis of large-scale microscopy datasets. It provides modular workflows for whole-brain lightsheet volumes, coronal slice series, and spinal cord data, bridging the gap between raw microscopy images and anatomical reference atlases (CCF).
+**LightSuite** is an open-source MATLAB framework for **scalable atlas registration and cell detection across the central nervous system**. It combines damage-resilient 3D point-cloud registration, user-steerable non-rigid registration, and GPU-accelerated local background normalization for fast, illumination-invariant cell detection — on a standard workstation, at cohort scale.
 
 ## What can I do with LightSuite?
 
-LightSuite automates the complex tasks of mapping experimental data to standard anatomical coordinates and quantifying labeled cells.
+| Modality | What the module does |
+| :--- | :--- |
+| [**Whole-brain light-sheet**](usage_lightsheet_brain.md) | Detect cells at native resolution and register the volume to the Allen CCFv3; export per-region counts, densities, soma diameters and intensities per hemisphere. |
+| [**Spinal cord**](usage_spinal_cord.md) | Computationally straighten and untwist a curved cleared cord, then register it to the Fiederling et al. (2021) atlas. |
+| [**Wide-field slices**](usage_slice.md) | Order, align and non-rigidly register serial sections, then assemble them into a 3D volume in atlas space with 2D cell detection. |
+| [**Functional ultrasound (fUS)**](usage_fusi.md) | Align repeated sessions to a within-mouse seed, register that to a vascular CCFv3 template, and carry activation maps and timecourses into atlas space — or onto the cortical flatmap. |
+| [**Probe & implant tracing**](usage_tracing.md) | Localize optical fibers / GRIN lenses and Neuropixels probes in atlas space, with the regions and fluorescence beneath the implant. |
 
-* **Whole-Brain Lightsheet Analysis:** Process continuous 3D volumes. The pipeline handles preprocessing (median filtering, binary conversion), automated cell detection (SNR-based local maxima), and registration to the Allen Brain Atlas.
-* **Spinal Cord Analysis:** Specialized tools for straightening and registering spinal cord volumes. It includes a dedicated GUI for defining the central canal and anterior/posterior axes to unroll and map the cord before registration.
-* **Slice Analysis:** Optimized for conventional wide-field microscope data (e.g., coronal slices). It registers individual 2D planes to the atlas and outputs registered image stacks and cell coordinates.
-* **Functional Ultrasound (fUSI):** Build a per-mouse anatomy from repeated, freehand-repositioned fUSI sessions, register it to the Allen CCF against a vascular-contrast atlas, and carry activation maps and timecourses into atlas space — or onto the Allen cortical flatmap.
-* **Probe & Implant Tracing:** Localize Neuropixels probe tracks and cylindrical implants (optical fibers / GRIN lenses) on a registered brain, exporting their atlas-space trajectories and the regions they pass through (AP_histology-compatible `probe_ccf`).
+Registration does not need a dedicated autofluorescence channel: a single reporter-fluorescence volume usually carries enough anatomical contrast, halving acquisition time and storage.
 
 ## Hardware Requirements
 
-* **Standard Workstations:** The **Slice Analysis** module is optimized for efficiency and has been tested on standard computers without GPUs.
-* **High-Performance Workstations:** For **Large-scale lightsheet volumes**, we recommend a system with a dedicated GPU to accelerate 3D operations (such as spatial band-pass filtering and cell detection).
+A **dedicated GPU** is recommended for large light-sheet volumes (3D band-pass filtering and cell detection). The **slice module** runs comfortably without one. Reference timings on an i9-10900X / 64 GB / RTX A4000: whole-brain cell detection 3–4 h, automated registration 5–6 min, landmark curation 10–20 min.
 
 ## Supported Data Formats
 
-### 1. Large-scale Lightsheet Volumes
-The pipeline accepts axially-sliced data as a series of single-channel **2D TIFF planes**, as multi-channel volume TIFFs, or as per-channel volume TIFFs split across files. Support for other brain orientations is planned.
+| Modality | Accepted input |
+| :--- | :--- |
+| Light-sheet volumes | Single-channel 2D TIFF planes, multi-channel volume TIFFs, or per-channel volume TIFFs split across files |
+| Spinal cord | Low-resolution whole-cord volumes; channels together in one TIFF or separate |
+| Slices | 2D TIFF planes (one per slice), or AxioScan **`.czi`** output |
+| fUS | Repeated 3D power-Doppler scans as MATLAB arrays (a `*_FUS.mat` reader is provided; any loader works) |
 
-### 2. Spinal Cord Data
-We support low-resolution whole cord volumes. Channels can be stored within the same TIFF volume or separated.
-
-### 3. Slice Volumes
-We support:
-
-* A series of **2D TIFF planes** (one file per slice).
-* Direct output from AxioScan scanners (**`.czi`** files).
-
-### 4. Functional Ultrasound (fUSI) Volumes
-We support repeated 3D power-Doppler scans held in MATLAB arrays (any loader you can write works; a `*_FUS.mat` reader is provided). Sessions may be freehand-repositioned between days — the pipeline aligns them to a seed session before registration.
+Support for other brain orientations is planned.
 
 ## Getting Started
 
-1.  **Installation:** Follow the instructions in [Installation](installation.md) to set up MATLAB dependencies and external tools (Elastix).
-2.  **Understand the pipeline:** Skim [How it works](how_it_works.md) for the shared registration and cell-detection concepts that all workflows build on.
-3.  **Configuration:** LightSuite uses script-based configuration. You will adjust parameters (such as cell diameter or file paths) directly within the analysis scripts.
-4.  **Select your Workflow:**
-    * [Lightsheet Brain Analysis](usage_lightsheet_brain.md)
-    * [Spinal Cord Analysis](usage_spinal_cord.md)
-    * [Slice Analysis](usage_slice.md)
-    * [Functional Ultrasound (fUSI)](usage_fusi.md)
-    * [Probe & Implant Tracing](usage_tracing.md)
+1. **Install** MATLAB dependencies and external tools (Elastix) — see [Installation](installation.md).
+2. **Skim** [How it works](how_it_works.md) for the registration and detection concepts every workflow builds on.
+3. **Configure** by editing the `opts` struct at the top of the relevant demo script (cell diameter, paths, channels).
+4. **Pick your workflow** from the table above.

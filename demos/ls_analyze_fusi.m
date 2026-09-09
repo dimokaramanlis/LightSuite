@@ -1,6 +1,6 @@
-% LS_ANALYZE_FUSI  End-to-end functional ultrasound (fUSI) workflow.
+% LS_ANALYZE_FUSI  End-to-end functional ultrasound (fUS) workflow.
 %
-% This demo takes a set of repeated, freehand-repositioned fUSI scans of one
+% This demo takes a set of repeated, freehand-repositioned fUS scans of one
 % mouse and ends with functional maps in Allen CCF space (and, optionally, on
 % the Allen cortical flatmap). It is written to be adapted: every path is a
 % placeholder, and the only assumption about your data is that you can produce
@@ -28,13 +28,13 @@
 % recording.
 %
 % Prerequisites: elastix on the system PATH, the Allen CCF on the MATLAB path,
-% and the fUSI vascular atlas (see src/fusi/prepare_fusi_atlas.m). See the
+% and the fUS vascular atlas (see src/fusi/prepare_fusi_atlas.m). See the
 % "Functional ultrasound" page of the documentation for the full description.
 
 %==========================================================================
 %% (setup) atlas, paths and options
 %==========================================================================
-% The fUSI workflow registers against a VASCULAR atlas: the Allen CCF geometry
+% The fUS workflow registers against a VASCULAR atlas: the Allen CCF geometry
 % carrying a vascular-contrast template, so that image similarity is computed
 % between two images of the same modality (vessels against vessels).
 [tvvessel, avvessel, parcelinfo, atlas_res] = loadAtlasInfo('allen2020fusi_50um');
@@ -131,8 +131,9 @@ opts = setupFusiOptions(volanatomy, opts.atlas_res, opts);
 % ventricles all make good landmarks. Points are saved to
 % <savepath>/control_points_minimal.mat and reloaded when you reopen the GUI.
 %
-% You do not need many: ~20-40 well-spread pairs are plenty, and spreading them
-% over the full anteroposterior extent matters far more than the count.
+% At least five pairs spanning all three dimensions are required. In the paper a
+% median of 219 landmarks per mouse was used; spreading them over the full
+% anteroposterior extent matters more than the raw count.
 matchControlPoints_minimal(opts);
 
 %==========================================================================
@@ -144,7 +145,7 @@ matchControlPoints_minimal(opts);
 % control points. It writes <savepath>/transform_params.mat, plus per-dimension
 % overlay PNGs to check the result.
 wtpoints                   = 0.1;  % weight of the landmark term vs image similarity
-opts.bspline_spatial_scale = 1.6;  % mm; smaller = more local deformation
+opts.bspline_spatial_scale = 1.5;  % mm; smaller = more local deformation
 opts.n_histogram_bins      = 48;   % bins for the mutual-information estimate
 multiobjRegistrationFusi(opts, wtpoints, false);
 
@@ -258,7 +259,7 @@ fmopts.kind        = 'mean';    % streamline average ('max' is also available)
 
 vol = rescorr.vreg;
 
-% Optional: symmetrize across the midline before projecting. fUSI coverage is
+% Optional: symmetrize across the midline before projecting. fUS coverage is
 % rarely identical on the two sides, and mirroring fills one hemisphere with
 % whatever the other one saw. Skip this if left/right differences matter.
 Nmid = size(vol, 3)/2;

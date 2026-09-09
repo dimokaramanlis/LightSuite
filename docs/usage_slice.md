@@ -1,6 +1,8 @@
 # Slice Analysis
 
-The Slice Module is optimized for conventional wide-field microscope data, where you have individual coronal sections rather than a continuous 3D volume. It orders and aligns the sections, registers each to the atlas, and reconstructs them into a volume in atlas space.
+The slice module reconstructs serial wide-field sections into a 3D volume in Allen CCFv3 space. You order the sections, rigidly align them, correct the cutting angle, and register each one non-rigidly with the same landmark-guided objective used for volumes; the inverse transforms then assemble the stack into atlas space, with gaps from irregular spacing filled by nearest-neighbour interpolation.
+
+Each section carries its own transforms, so this workflow is more involved than the 3D one — but the same active-learning interface finds the best-matching atlas slice for you to annotate on.
 
 > The registration and cell-detection concepts are shared across modules and explained in [How it works](how_it_works.md). This page covers the slice-specific steps (ordering, cutting angle, per-section registration).
 
@@ -36,7 +38,7 @@ Parameters are stored in a `sliceinfo` struct defined at the top of `ls_analyze_
 | `sliceinfo.slicethickness` | Physical spacing between slices (µm) | `40` |
 | `sliceinfo.Nslices` | Total number of slices | `50` |
 | `sliceinfo.celldiam` | Expected cell diameter (µm) | `14` |
-| `sliceinfo.thresuse` | SNR thresholds `[detection, expansion]` | `[0.75, 0.4]` |
+| `sliceinfo.thresuse` | SBR thresholds `[primary, secondary]` | `[0.75, 0.4]` |
 | `sliceinfo.debug` | Enable detection debug plots | `false` |
 | `sliceinfo.use_gpu` | Use GPU for processing | `false` |
 | `sliceinfo.atlasaplims` | Atlas AP axis limits `[min, max]` | `[200, 400]` |
@@ -77,11 +79,11 @@ Because slices may be loaded out of order or incorrectly oriented, `SliceOrderEd
 
 ## 3. Volume Alignment
 
-`alignSliceVolume(slicevol, sliceinfo)` performs an initial rigid alignment of the slice stack to the Allen Brain Atlas:
+`alignSliceVolume(slicevol, sliceinfo)` performs an initial rigid alignment of the slice stack to the Allen Mouse Brain Atlas:
 
-* Extracts a point cloud from each slice using difference-from-background (DFF) images.
-* Loads the Allen template and annotations at the registration resolution.
-* Runs a rigid → affine registration (`alignAtlasToSample`, `refineSampleFromAtlas`).
+* Extracts a per-section 2D point cloud of high-signal pixels, spaced along the rostrocaudal axis by the physical section thickness to form a 3D sample cloud.
+* Alternates, over three passes, between a **global 3D rigid** fit of the whole cloud to the atlas (Coherent Point Drift) and **per-section in-plane 2D rigid** fits (ICP) against the atlas plane at each section position.
+* This yields both an initial placement of the stack in the atlas and a per-section correction that straightens each section within the assembled volume.
 
 **Output:** `regopts.mat` — registration parameters including the rigid transform matrix (`tformrigid_allen_to_samp_20um`) and axis permutation.
 
@@ -89,7 +91,7 @@ Because slices may be loaded out of order or incorrectly oriented, `SliceOrderEd
 
 ## 4. Cutting Angle Determination
 
-`determineCuttingAngleGUI(opts)` lets you visually match the 3D atlas cutting plane to the angle at which your tissue was sectioned.
+Serial sections are rarely cut exactly orthogonal to the rostrocaudal axis. `determineCuttingAngleGUI(opts)` lets you rotate the 3D atlas until its plane matches a given section and save that viewing direction. The saved per-section directions are averaged into a **single mean cutting normal**, which corrects the rotation of the global atlas-to-sample transform so that atlas planes are resampled at the true cutting angle — you therefore only need to do a handful of sections, not all of them.
 
 ### Controls
 
@@ -139,8 +141,8 @@ Because slices may be loaded out of order or incorrectly oriented, `SliceOrderEd
 
 `registerSlicesToAtlas(opts)` applies a two-stage registration per slice:
 
-1. **Affine stage:** Uses your control points (if ≥ 5 are available) or falls back to image-based affine fitting.
-2. **B-spline stage:** Runs an Elastix deformable registration to capture local deformations not covered by the affine.
+1. **Affine stage:** Fits a 2D affine directly from your landmark pairs when at least five are available, otherwise estimates one from image-derived point clouds.
+2. **B-spline stage:** Elastix 2D free-form deformation with the same multi-metric objective as the volume pipeline — Advanced Mattes mutual information (32 histogram bins) plus a corresponding-points term — at a 0.96 mm final control-point grid spacing.
 
 Both forward (atlas → sample) and reverse (sample → atlas) transforms are saved, as the reverse is needed for mapping cell coordinates.
 
@@ -166,15 +168,15 @@ Both forward (atlas → sample) and reverse (sample → atlas) transforms are sa
 
 ## 8. Cell Detection
 
-`extractCellsFromSliceVolume(opts, ichan)` detects cells slice by slice using a 2D SNR-based approach.
+`extractCellsFromSliceVolume(opts, ichan)` detects cells slice by slice using a 2D SBR-based approach.
 
 ### Algorithm
 
-A 2D adaptation of LightSuite's SBR detection (background → bandpass → local maxima → morphological filter); see [How it works → cell detection](how_it_works.md#cell-detection-and-artifact-classification). Slice-specific details: a difference-from-background (DFF) image supplies the local background, and candidates are filtered by circularity (< 0.7), size, and a minimum intensity set by `thresuse(2)`.
+A 2D adaptation of LightSuite's SBR detection (background → band-pass → local maxima → morphological filter); see [How it works → cell detection](how_it_works.md#cell-detection-and-artifact-classification). Slice-specific details: a difference-from-background (DFF) image supplies the local background, and candidates are filtered by circularity (< 0.7), size, and a minimum intensity set by `thresuse(2)`.
 
 ### Key Parameters
-* **`celldiam`**: Expected cell diameter in µm. This directly controls the bandpass filter kernel size — it is the most important detection parameter.
-* **`thresuse`**: Two-element SNR threshold vector.
+* **`celldiam`**: Expected cell diameter in µm. This directly controls the band-pass filter kernel size — it is the most important detection parameter.
+* **`thresuse`**: Two-element SBR threshold vector.
   * `thresuse(1)` — initial detection threshold. Lower values detect dimmer cells but increase false positives.
   * `thresuse(2)` — expansion threshold used for cell boundary growth and minimum intensity filtering.
 

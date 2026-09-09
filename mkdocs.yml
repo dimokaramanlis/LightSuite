@@ -21,8 +21,8 @@ nav:
   - Installation: installation.md
   - How it works: how_it_works.md
   - Workflows:
-      - Lightsheet brain: usage_lightsheet_brain.md
-      - Lightsheet spinal cord: usage_spinal_cord.md
+      - Light-sheet brain: usage_lightsheet_brain.md
+      - Light-sheet spinal cord: usage_spinal_cord.md
       - Slice module: usage_slice.md
-      - Functional ultrasound (fUSI): usage_fusi.md
+      - Functional ultrasound (fUS): usage_fusi.md
       - Probe & implant tracing: usage_tracing.md

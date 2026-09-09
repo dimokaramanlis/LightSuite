@@ -1,11 +1,14 @@
-# Functional Ultrasound (fUSI)
+# Functional Ultrasound (fUS)
 
-LightSuite registers **functional ultrasound imaging (fUSI)** volumes to the Allen CCF and carries functional results — activation maps, per-area timecourses, whole recordings — into atlas space. The module handles the two problems that separate fUSI from the lightsheet workflows:
+LightSuite registers **power-Doppler functional ultrasound (fUS)** volumes into the Allen CCFv3 and carries functional results — activation maps, per-area timecourses, whole recordings — into atlas space. Three things make fUS harder than fixed tissue, and the module addresses each:
 
-* **The probe moves between sessions.** A freehand-repositioned fUSI probe images a different slab every day, so a mouse has no single anatomical volume until you build one. LightSuite rigidly aligns all of a mouse's sessions to a user-picked *seed* session and averages them into an **anatomy scan** that defines a common per-mouse space.
-* **The contrast is vascular, not cytoarchitectonic.** Power-Doppler images show vessels, so registering them against the Allen average-template (a two-photon/STPT-like contrast) compares two unrelated images. LightSuite instead registers against a **vascular atlas**: the Allen CCF geometry carrying a vessel-contrast template, so image similarity is computed between vessels and vessels.
+* **The contrast is vascular, not cytoarchitectonic.** Registering power-Doppler against the Allen average template compares two unrelated images. LightSuite instead registers against a **vascular template** (Brunner et al., 2021) that has itself been registered into CCFv3 and inherited the Allen annotation, so image similarity is computed between vessels and vessels.
+* **The probe is positioned freehand.** Each session images a different slab, so a mouse has no single anatomical volume until you build one. Sessions are rigidly aligned to a within-mouse **seed** scan and averaged into an anatomy scan defining a common per-mouse space.
+* **Resolution is coarse** (typically ≥100 µm), so the non-rigid fit is constrained to a **1.5 mm isotropic** B-spline grid to prevent overfitting to vascular fluctuations, and guided by user landmarks — a median of 219 per mouse in the paper.
 
 Everything else is shared with the rest of LightSuite: the same [control-point GUI](#3-place-matched-control-points), the same [similarity → affine → B-spline transform chain](how_it_works.md#registration-from-sample-to-atlas), the same `regopts.mat` / `transform_params.mat` on disk.
+
+Against an affine baseline optimized within LightSuite on the same landmarks, the non-rigid fit suppresses activation leakage across atlas borders, raises bilateral response correlations, and raises pairwise inter-animal correlations for both vascular anatomy and activation maps.
 
 **Demo script:** `demos/ls_analyze_fusi.m` — a runnable, annotated version of everything on this page.
 
@@ -17,7 +20,7 @@ You will need:
 
 * **Elastix 5.1.0** on the system `PATH` and the MATLAB dependencies from the [installation guide](installation.md).
 * **The Allen CCF (2020)** on the MATLAB path (`annotation_10.nii.gz`, `parcellation_to_parcellation_term_membership.csv`).
-* **A vascular fUSI atlas** — a vessel-contrast template resampled onto CCF geometry, loaded by `loadAtlasInfo('allen2020fusi_50um')`. `src/fusi/prepare_fusi_atlas.m` shows how one is built: a vascular template volume is registered to the resampled Allen template with the same multi-objective machinery used for samples, and the resulting warp is applied to the annotation. Point `loadAtlasInfo` at wherever you keep the result.
+* **A vascular fUS template** — loaded by `loadAtlasInfo('allen2020fusi_50um')`. `src/fusi/prepare_fusi_atlas.m` builds one: the high-resolution power-Doppler template (50 µm isotropic) is registered into CCFv3 with the same point-cloud-initialized, multi-metric B-spline pipeline used for cleared brains, the Allen annotation is transferred onto the warped template, and the result is symmetrized across the midline to remove residual left-right asymmetry. Point `loadAtlasInfo` at wherever you keep it.
 * **(Optional, flatmaps only)** a Python environment with `allensdk` and `ccf_streamlines`, plus the Allen flatmap resources (`flatmap_butterfly.h5` / `.nrrd`, `surface_paths_10_v3.h5`, `labelDescription_ITKSNAPColor.txt`, `manifest.json`).
 
 ### Data conventions
@@ -28,7 +31,7 @@ You will need:
 | **Raw voxel size** | anisotropic, in **mm**, e.g. `[0.1971 0.15 0.15]` |
 | **Functional recording** | `[d1 d2 d3 nframes]` in the same geometry, time last |
 | **Anatomy / seed space** | isotropic at `opts.atlas_res` (50 µm), still in the **native session orientation** |
-| **Atlas space** | Allen CCF, `AP × DV × ML`, 50 µm isotropic — `[264 160 228]` |
+| **Atlas space** | CCFv3, `AP × DV × ML`, 50 µm isotropic — `[264 160 228]` |
 
 The sample→atlas axis permutation is chosen once per mouse and stored; nothing before that step is reoriented.
 
@@ -58,7 +61,7 @@ Steps 1–4 run **once per mouse** and cache their results; re-running the scrip
 
 **Function:** `buildFusiAnatomy(opts, sessionvols, voxelsize_mm, sessionnames)`
 
-Each session first has to be reduced to one 3-D volume — a robust temporal average, or *session template*. `loadFusiSessionTemplate` does this for recordings stored as a `*_FUS.mat` with an `I = [nvox × nframes]` array: it picks the best of several candidate medians by correlation with the full recording, refines it on the best-correlating 10% of frames, and caches the result next to the raw file.
+Each session first has to be reduced to one 3-D volume — a robust temporal average, or *session template*. `loadFusiSessionTemplate` does this for recordings stored as a `*_FUS.mat` with an `I = [nvox × nframes]` array: ten candidate volumes are formed, each the median of 50 frames drawn at random from the middle 80% of the recording; every frame is scored against these candidates and the template refined from the top 10% by agreement, so movement-corrupted frames are suppressed. The result is cached next to the raw file.
 
 `buildFusiAnatomy` then:
 
@@ -129,7 +132,7 @@ Each sample slice is presented **four times**, each showing about 60% of the ima
 
 Points are reloaded when you reopen the GUI on the same folder, so annotation can be spread over several sittings.
 
-**How many?** Roughly 20–40 well-spread pairs are plenty. Spreading them over the full anteroposterior extent matters far more than the count — a dense cluster in one place constrains the fit only there.
+**How many?** At least five pairs spanning all three dimensions are required. The paper used a median of 219 per mouse; spread over the full anteroposterior extent matters more than raw count, since a dense cluster constrains the fit only where it sits.
 
 ---
 
@@ -141,7 +144,7 @@ Fits an affine and then a B-spline transform, optimizing a weighted sum of **ima
 
 ```matlab
 wtpoints                   = 0.1;   % landmark weight vs image similarity
-opts.bspline_spatial_scale = 1.6;   % mm — smaller = more local deformation
+opts.bspline_spatial_scale = 1.5;   % mm — smaller = more local deformation
 opts.n_histogram_bins      = 48;    % bins for the mutual-information estimate
 multiobjRegistrationFusi(opts, wtpoints, false);
 ```
@@ -151,7 +154,7 @@ multiobjRegistrationFusi(opts, wtpoints, false);
 | `contol_pt_wt` | Weight of the landmark term | Raise (`0.1 → 1 → 2`) if the fit drifts away from your points |
 | `bspline_spatial_scale` | B-spline control-point spacing, mm | Raise if the result looks over-warped; lower for more local deformation |
 | `n_histogram_bins` | Bins for mutual information | 48 is a good default; lower for very noisy anatomies |
-| `usemultistep` | Multi-resolution B-spline schedule | `false` for most fUSI data |
+| `usemultistep` | Multi-resolution B-spline schedule | `false` for most fUS data |
 
 The function writes per-dimension overlay PNGs (`<mouse>_dim*_affine_registration.png`, `<mouse>_dim*_bspline_registration.png`) at both stages. **Look at them before trusting anything downstream** — a bad registration is not detectable from the maps themselves.
 
@@ -252,7 +255,7 @@ hold on; [yy, xx] = find(fm.boundaries.'); plot(xx, yy, '.k', 'MarkerSize', 1);
 | `regionBoundaries` | `.names` (acronyms) and `.coords` (`N×2` `[row col]`), to outline a chosen subset of areas |
 | `hemisphere`, `kind`, `inputres_um`, `maskres_um` | the settings used |
 
-**Symmetrizing first.** fUSI coverage is rarely identical on the two sides of the brain, and the flatmap is drawn per hemisphere. Mirror-averaging across the midline before projecting fills one hemisphere with whatever the other one saw:
+**Symmetrizing first.** fUS coverage is rarely identical on the two sides of the brain, and the flatmap is drawn per hemisphere. Mirror-averaging across the midline before projecting fills one hemisphere with whatever the other one saw:
 
 ```matlab
 Nmid = size(vol, 3)/2;
@@ -304,4 +307,4 @@ Skip it whenever left/right differences are part of the result. `symmetrizeVol` 
 * Atlas coordinate framework: Allen Mouse Brain Common Coordinate Framework (Wang et al., *Cell*, 2020).
 * Cortical flatmaps: [ccf_streamlines](https://github.com/AllenInstitute/ccf_streamlines) (Allen Institute).
 * `mapCorrelation` and `hemodynamicResponse` follow the fUS analysis conventions of the Urban and Macé labs (Montaldo, Macé et al.).
-* LightSuite: Karamanlis et al., *high-throughput registration and cell counting in the central nervous system* (in preparation).
+* LightSuite: Karamanlis et al., *Scalable atlas registration and cell detection across the central nervous system* (in preparation).

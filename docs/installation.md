@@ -38,7 +38,7 @@ LightSuite calls Elastix from the command line, so its executables must be globa
 
 ### 4. Download Atlas Data
 
-LightSuite uses the [2020 version](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) of the Allen Brain Atlas for brain registration. To be able to use the software you have to download all [volume files](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#image_volumes/Allen-CCF-2020/20230630/) along with all relevant [metadata](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#metadata/Allen-CCF-2020/20230630/) and make them available to the MATLAB path.
+LightSuite uses the [2020 version](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) of the Allen Mouse Brain Atlas for brain registration. To be able to use the software you have to download all [volume files](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#image_volumes/Allen-CCF-2020/20230630/) along with all relevant [metadata](https://allen-brain-cell-atlas.s3.us-west-2.amazonaws.com/index.html#metadata/Allen-CCF-2020/20230630/) and make them available to the MATLAB path.
 
 For spinal cord registration, LightSuite uses the [Fiederling et al 2021](https://www.sciencedirect.com/science/article/pii/S2667237521001260) spinal cord atlas. Download the compressed file from [here](https://data.mendeley.com/datasets/4rrggzv5d5/1), extract its contents and make them available to the MATLAB path.
 
