@@ -1,6 +1,6 @@
 # How LightSuite Works
 
-LightSuite performs **atlas registration and cell detection across the central nervous system**. Whether you start from a whole-brain light-sheet volume, a spinal cord, a series of wide-field sections, or an *in vivo* fUS recording, the backbone is the same:
+LightSuite performs **atlas registration and cell detection across the central nervous system**. Whether you start from a whole-brain volume, a spinal cord, a series of wide-field sections, or an *in vivo* fUS recording, the backbone is the same:
 
 > **downsample → register to the atlas → (optionally) detect cells → export everything in atlas space.**
 
@@ -53,14 +53,14 @@ This is what image similarity cannot supply on its own: as landmarks accumulate,
 Detection borrows from spike-sorting: extract candidates everywhere, then triage them. It runs in GPU-accelerated 3D batches, so a whole brain fits on a standard workstation without global illumination flat-fielding.
 
 1. **Band-pass filter.** A 3D Butterworth filter centered on the expected cell size isolates cell-sized features; the surrounding spatial frequencies estimate the local background.
-2. **Signal-to-background ratio (SBR).** Dividing the band-pass volume by that background converts raw intensity into an SBR, factoring out the up-to-threefold baseline differences across brain areas and the asymmetry of one-sided light-sheet illumination.
+2. **Signal-to-background ratio (SBR).** Dividing the band-pass volume by that background converts raw intensity into an SBR, factoring out the up-to-threefold baseline differences across brain areas and any illumination asymmetry, such as that of a one-sided light sheet.
 3. **Local maxima.** Maxima above the primary SBR threshold become candidate centers, grown out to a secondary threshold.
 4. **Morphological filtering.** Candidates too elongated (principal-axis ratio > 2.5), too small, or too large and bright (tissue folds, bubbles) are discarded.
 5. **CNN artifact classifier.** A lightweight network classifies each candidate from three orthogonal maximum-intensity projections (XY, XZ, YZ), avoiding the memory cost of 3D convolutions. It reaches **98.7%** validation accuracy and discards **10–20%** of candidates (median 16%) — bubble edges, tissue–solution interfaces, neurite varicosities — which are systematically dimmer, smaller and more elongated than real somata. See [CNN cell classification](usage_lightsheet_brain.md#7-cnn-cell-classification) to label, train and apply your own.
 
-The whole-brain pipeline runs this in 3D; the slice module uses a 2D adaptation. `celldiam` sets the filter scale (the single most important parameter) and the threshold pair sets sensitivity.
+The pipeline sees a stitched 3D stack rather than a microscope, so it applies to any volumetric modality — light-sheet, fMOST, serial two-photon tomography — with `celldiam` and `pxsize` as the only modality-specific settings. The whole-brain pipeline runs this in 3D; the slice module uses a 2D adaptation. `celldiam` sets the filter scale (the single most important parameter) and the threshold pair sets sensitivity.
 
-Counting cells rather than integrating intensity also removes the illumination artifact: with one-sided light sheets, regional intensities are markedly asymmetric across hemispheres while cell counts are not.
+Counting cells rather than integrating intensity also removes illumination artifacts: with one-sided light sheets, regional intensities are markedly asymmetric across hemispheres while cell counts are not.
 
 ---
 

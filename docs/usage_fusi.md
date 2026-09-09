@@ -4,7 +4,7 @@ LightSuite registers **power-Doppler functional ultrasound (fUS)** volumes into 
 
 * **The contrast is vascular, not cytoarchitectonic.** Registering power-Doppler against the Allen average template compares two unrelated images. LightSuite instead registers against a **vascular template** (Brunner et al., 2021) that has itself been registered into CCFv3 and inherited the Allen annotation, so image similarity is computed between vessels and vessels.
 * **The probe is positioned freehand.** Each session images a different slab, so a mouse has no single anatomical volume until you build one. Sessions are rigidly aligned to a within-mouse **seed** scan and averaged into an anatomy scan defining a common per-mouse space.
-* **Resolution is coarse** (typically ≥100 µm), so the non-rigid fit is constrained to a **1.5 mm isotropic** B-spline grid to prevent overfitting to vascular fluctuations, and guided by user landmarks — a median of 219 per mouse in the paper.
+* **Resolution is coarse** (typically ≥100 µm), so the non-rigid fit is constrained to a **1.6 mm isotropic** B-spline grid to prevent overfitting to vascular fluctuations, and guided by user landmarks — a median of 219 per mouse in the paper.
 
 Everything else is shared with the rest of LightSuite: the same [control-point GUI](#3-place-matched-control-points), the same [similarity → affine → B-spline transform chain](how_it_works.md#registration-from-sample-to-atlas), the same `regopts.mat` / `transform_params.mat` on disk.
 
@@ -144,7 +144,7 @@ Fits an affine and then a B-spline transform, optimizing a weighted sum of **ima
 
 ```matlab
 wtpoints                   = 0.1;   % landmark weight vs image similarity
-opts.bspline_spatial_scale = 1.5;   % mm — smaller = more local deformation
+opts.bspline_spatial_scale = 1.6;   % mm — smaller = more local deformation
 opts.n_histogram_bins      = 48;    % bins for the mutual-information estimate
 multiobjRegistrationFusi(opts, wtpoints, false);
 ```

@@ -9,10 +9,12 @@
 It combines **damage-resilient 3D point-cloud registration**, **user-steerable non-rigid registration**, and **GPU-accelerated local background normalization** for fast, illumination-invariant cell detection.
 
 LightSuite supports four data types:
-1. **Light-sheet volumes of the mouse brain**
-2. **Light-sheet volumes of the mouse spinal cord**
-3. **Wide-field coronal slices across the mouse brain**
-4. **Functional ultrasound (fUS) volumes of the mouse brain**
+1. **Whole-brain volumes** of the mouse brain
+2. **Whole-cord volumes** of the mouse spinal cord
+3. **Wide-field coronal slices** across the mouse brain
+4. **Functional ultrasound (fUS) volumes** of the mouse brain
+
+The volumetric workflows are not tied to any one microscope: LightSuite operates on a stitched 3D stack, so light-sheet, fMOST, serial two-photon tomography and comparable datasets all go through the same pipeline.
 
 ---
 
@@ -44,11 +46,11 @@ Because LightSuite relies on several toolboxes and external executables, **pleas
 
 Depending on your microscopy data, LightSuite provides distinct entry points:
 
-### 1. Light-sheet: Mouse Brain
-For 3D light-sheet brain data, start with `demos\ls_analyze_lightsheet_volume.m`. This script guides you through data loading, preprocessing, cell detection, and full brain registration.
+### 1. Whole-Brain Volumes
+For 3D brain volumes — light-sheet, fMOST, serial two-photon or similar — start with `demos\ls_analyze_lightsheet_volume.m`. This script guides you through data loading, preprocessing, cell detection, and full brain registration.
 ![Example bspline registration](./images/example_bspline.PNG)
 
-### 2. Light-sheet: Spinal Cord
+### 2. Spinal Cord Volumes
 Spinal cord volumes utilize a similar volumetric workflow but register against the Fiederling et al (2021) atlas to accommodate the specific geometry of the cord. Start with `demos\ls_analyze_spinal_cord.m`.
 ![Example spinal cord registration](./images/example_spinal_cord.PNG)
 
@@ -59,8 +61,8 @@ For slices acquired through conventional wide-field microscopy, use `demos\ls_an
 ### 4. Functional Ultrasound (fUS)
 For repeated fUS scans of one mouse, start with `demos\ls_analyze_fusi.m`. The script builds a within-mouse anatomy by rigidly aligning every session to a user-picked seed, registers that anatomy to a vascular CCFv3 template (control-point GUI + multi-metric affine/B-spline fit), and brings functional maps and timeseries into atlas space, optionally onto the Allen cortical flatmap. See the [fUS workflow documentation](https://lightsuite.readthedocs.io/en/latest/usage_fusi/).
 
-### 5. Probe & Implant Tracing (Light-sheet Brain)
-Once a light-sheet brain has been registered (entry point 1), you can trace implanted hardware on the registered volume:
+### 5. Probe & Implant Tracing
+Once a brain volume has been registered (entry point 1), you can trace implanted hardware on the registered volume:
 * **Neuropixels probes** — `demos\ls_trace_neuropixels.m` opens an annotation GUI (`annotateNeuropixelsProbes`) where you click points along each probe track, fits a straight line per probe in Allen CCF space, and exports `probe_ccf.mat` (points, insertion/tip coordinates, and the brain regions traversed) in the [AP_histology](https://github.com/petersaj/AP_histology) format.
 * **GRIN lenses / optical fibers** — `annotateGRINLens` annotates circular fiber cross-sections and reports the atlas regions under the lens at a range of depths.
 

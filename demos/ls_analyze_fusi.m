@@ -145,7 +145,7 @@ matchControlPoints_minimal(opts);
 % control points. It writes <savepath>/transform_params.mat, plus per-dimension
 % overlay PNGs to check the result.
 wtpoints                   = 0.1;  % weight of the landmark term vs image similarity
-opts.bspline_spatial_scale = 1.5;  % mm; smaller = more local deformation
+opts.bspline_spatial_scale = 1.6;  % mm; smaller = more local deformation
 opts.n_histogram_bins      = 48;   % bins for the mutual-information estimate
 multiobjRegistrationFusi(opts, wtpoints, false);
 

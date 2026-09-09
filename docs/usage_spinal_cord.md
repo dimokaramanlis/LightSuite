@@ -1,13 +1,13 @@
 # Spinal Cord Volume Registration
 
-This module registers cleared light-sheet spinal cords to the Fiederling et al. (2021) atlas. Cleared cords bend and twist in a sample-specific way that no atlas fit can absorb, so LightSuite first estimates centerline curvature and axial torsion and computationally **straightens and untwists** the volume into a canonical cylinder, then registers that.
+This module registers cleared spinal cord volumes to the Fiederling et al. (2021) atlas. Cleared cords bend and twist in a sample-specific way that no atlas fit can absorb, so LightSuite first estimates centerline curvature and axial torsion and computationally **straightens and untwists** the volume into a canonical cylinder, then registers that.
 
 > The registration backbone and control-point GUI are shared with the brain pipeline and explained in [How it works](how_it_works.md). This page focuses on the cord-specific straightening step.
 
 ## Before You Start
 
 You will need:
-* A stitched light-sheet TIFF dataset of the spinal cord.
+* A stitched TIFF volume of the spinal cord (any volumetric modality).
 * [Elastix](https://elastix.lumc.nl/) installed and on your system path.
 * The spinal cord atlas files (loaded via `loadSpinalCordAtlas()`).
 
@@ -32,7 +32,7 @@ The analysis is driven by the main script: `ls_analyze_spinal_cord`.
 
 **Functions:** `readSpinalCordSample(dpspinesample, sampleres)` → `prepareCordSampleForRegistration(cordvol, opts)`
 
-These functions load your raw TIFF data at the specified resolution and prepare a downsampled registration volume, similar to the light-sheet brain pipeline. The registration options are saved to `regopts.mat`.
+These functions load your raw TIFF data at the specified resolution and prepare a downsampled registration volume, similar to the whole-brain pipeline. The registration options are saved to `regopts.mat`.
 
 ---
 

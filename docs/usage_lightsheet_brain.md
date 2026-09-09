@@ -1,6 +1,8 @@
-# Light-sheet Whole-Brain Analysis
+# Whole-Brain Volume Analysis
 
-This module registers whole-brain light-sheet volumes to the Allen CCFv3 and detects labelled cells at native resolution. It handles 100 GB+ datasets on a single workstation, yielding ~4.5 × 10⁵ cells per brain in 3–4 h.
+This module registers whole-brain volumes to the Allen CCFv3 and detects labelled cells at native resolution. It handles 100 GB+ datasets on a single workstation, yielding ~4.5 × 10⁵ cells per brain in 3–4 h.
+
+**Any volumetric modality works.** The pipeline sees a stitched 3D stack, not a microscope: light-sheet, fMOST, serial two-photon tomography and comparable volumetric datasets all go through unchanged. Set `opts.pxsize` to your voxel size and `opts.celldiam` to your cell size; nothing else is modality-specific. Light-sheet is simply what the reference figures were acquired with.
 
 > New to LightSuite? Read [How it works](how_it_works.md) first — it explains the registration stages, control-point active learning, and SBR cell detection that this page builds on. Here we cover the brain-specific steps and parameters.
 
@@ -226,7 +228,7 @@ Quantification happens in atlas space, at the **substructure level** of the Alle
 * Regional **volume** is the annotation voxel count × voxel volume (10⁻⁶ mm³ at 10 µm); **density** is count ÷ volume.
 * Regional **intensity** is the median voxel value in the region, reported **relative to the median out-of-brain intensity** of that hemisphere. Use `'areafun'` to summarize with something other than the median.
 
-> **Soma diameter is a relative measure.** The `diameter` column comes from the SBR-dilated candidate region, so it overestimates true anatomy (~20 µm reported against 10–16 µm actual), partly through the dilation and partly through point-spread-function broadening in undeconvolved light-sheet data. Laminar and cross-region *comparisons* are faithful; absolute values are not.
+> **Soma diameter is a relative measure.** The `diameter` column comes from the SBR-dilated candidate region, so it overestimates true anatomy (~20 µm reported against 10–16 µm actual), partly through the dilation and partly through point-spread-function broadening in undeconvolved data. Laminar and cross-region *comparisons* are faithful; absolute values are not.
 
 For cohort work, note that labelling efficiency varies several-fold between animals — normalize before pooling rather than averaging raw densities.
 

@@ -1,6 +1,6 @@
 # Probe & Implant Tracing
 
-Once a light-sheet brain has been registered to the Allen CCF, LightSuite can localize implanted hardware directly in atlas space. Two complementary tools share the same registered volume and the same coordinate transform:
+Once a brain volume has been registered to the Allen CCF, LightSuite can localize implanted hardware directly in atlas space. Two complementary tools share the same registered volume and the same coordinate transform:
 
 * **Neuropixels (linear) probes** — traced as a straight line of best fit, yielding the ordered list of brain regions along the shank.
 * **Cylindrical implants (optical fibers / GRIN lenses)** — traced as a cylinder, yielding the atlas regions beneath the implant tip and the fluorescence intensity below it.
@@ -13,7 +13,7 @@ This is the implant-localization output of the LightSuite paper (Fig. 1G and Ext
 
 You will need:
 
-* **A fully registered light-sheet brain.** Run the [Light-sheet brain workflow](usage_lightsheet_brain.md) first. The `savepath` folder must contain `regopts.mat`, `transform_params.mat`, and the `chan_X_sample_register_20um.tif` registration volume.
+* **A fully registered brain volume.** Run the [whole-brain workflow](usage_lightsheet_brain.md) first. The `savepath` folder must contain `regopts.mat`, `transform_params.mat`, and the `chan_X_sample_register_20um.tif` registration volume.
 * **Allen CCF atlas resources on the MATLAB path:** `annotation_10.nii.gz` and `parcellation_to_parcellation_term_membership.csv`. The 3-D trajectory plots also require `brainGridData.npy`.
 
 | Tool | Function | Shape fit | Main output |
