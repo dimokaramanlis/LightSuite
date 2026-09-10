@@ -5,6 +5,10 @@ function backsig = loadMouseBackgroundSignal(mouseid)
 savepath  = 'D:\DATA_folder\Mice';
 toget     = dir(fullfile(savepath, mouseid, 'Anatomy', 'background_volume_areas.mat'));
 backsig   = load(fullfile(toget.folder, toget.name));
-backsig   = backsig.backvolareas;
+if isfield(backsig, 'backvolareas')
+    backsig   = backsig.backvolareas;
+else
+    backsig   = backsig.medianoverareas;
+end
 backsig(backsig<0) = nan;
 end
