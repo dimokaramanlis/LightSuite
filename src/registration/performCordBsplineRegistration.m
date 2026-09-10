@@ -1,8 +1,14 @@
 function [regimg,tform_bspline, tformpath, pathtemp] = performCordBsplineRegistration(movingvol,fixedvol,...
-    volscale, movingpts, fixedpts, cpwt, savepath)
+    volscale, movingpts, fixedpts, cpwt, savepath, gridspacing)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
+%
+%   PERFORMCORDBSPLINEREGISTRATION(..., GRIDSPACING) sets the final B-spline
+%   control point spacing in mm; it defaults to 0.96 when not given.
 %==========================================================================
+if nargin < 8 || isempty(gridspacing)
+    gridspacing = 0.96;
+end
 addElastixRepoPaths;
 params = struct();
 %==========================================================================
@@ -33,7 +39,7 @@ params.NumberOfSpatialSamples          = 5000;%[1000 1000 2000 2000];% [2000 250
 params.Metric1Weight                   = cpwt; %cpwt;%[1  0.5 0.25 0.125] * cpwt; %
 params.Metric0Weight                   = 1.0;
 params.ImagePyramidSchedule            = [8*ones(1,3) 4*ones(1,3) 2*ones(1,3) 1*ones(1,3)];
-params.FinalGridSpacingInPhysicalUnits = 0.96*ones(1,3); %0.96
+params.FinalGridSpacingInPhysicalUnits = gridspacing*ones(1,3);
 % params.SampleRegionSize                = 2*[1 1 1]; %
 
 params.SampleRegionSize                = [2*[1 1 5] 2*[1 1 4] 2*[1 1 3] 2*[1 1 2]]; %

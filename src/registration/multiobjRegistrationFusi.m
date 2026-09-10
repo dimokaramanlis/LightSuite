@@ -99,7 +99,7 @@ end
 %==========================================================================
 % here we obtain the inverse transform
 outdir     = fullfile(opts.savepath, 'elastix_inverse_temp');
-invstats   = invertElastixTransformCP( pathbspl, outdir, 1, 1, 1);
+invstats   = invertElastixTransformCP( pathbspl, outdir);
 tformpath  = fullfile(opts.savepath, 'bspline_samp_to_atlas_20um.txt');
 elastix_paramStruct2txt(tformpath, invstats.TransformParameters{1});
 rmdir(invstats.outputDir, 's'); % remove inversion directory
