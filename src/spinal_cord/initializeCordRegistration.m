@@ -1,136 +1,141 @@
-function regopts = initializeCordRegistration(regopts)
-%UNTITLED6 Summary of this function goes here
-%   Detailed explanation goes here
-samppts      = regopts.smpts;
-tvpts        = regopts.tvpts;
-Nslices      = range(regopts.ikeeprange) + 1;
-Ntargetatlas = 1e4;
-pcdownatlas  = reducePoints(tvpts, Ntargetatlas);
-%==========================================================================
-targetcent   = 0.5 * size(regopts.tv,[2 1]);
-%==========================================================================
-mancurdp            = fullfile(regopts.lsfolder, "spinal_alignment_opt.mat");
-if ~exist(mancurdp, 'file')
-    error('Alignemnt data missing. You have to align the spinal cord before you can register!')
-end
-mandpdata           = load(mancurdp);
-align_out           = mandpdata.align_out;
-tforms              = computeStraighteningTransforms(align_out, targetcent, 90);
-regopts.slicetforms = tforms;
-%==========================================================================
-% apply initial transforms
-fprintf('Applying straightening transforms... '); tic;
-sizetv      = size(regopts.tv, [1 2]);
-raout       = imref2d(sizetv);
-straightvol = tranformCordImagesSlices(regopts.regvol, tforms, raout);
-fprintf('Done! Took %2.2f s.\n', toc);
-%==========================================================================
-% clean and downsample points
-thresout    = 2;
-centers     = [align_out.fit_x align_out.fit_y];  
-ikeepori    = removeOutliers(samppts, centers(samppts(:,3),:), thresout); 
-samppts2    = tranformCordPointsSlices(samppts(ikeepori, :), tforms);
-pcdownsamp  = reducePoints(samppts2, Ntargetatlas);
-%==========================================================================
-% move atlas to sample space
-
-% 1. Define your parameters
-z_scale = Nslices*0.98/size(regopts.tv,3); % Replace 1.5 with how much you want to stretch the z-axis
-z_trans = Nslices/2 - z_scale*size(regopts.tv,3)/2; % Your original translation
-
-% 2. Build the 4x4 affine transformation matrix
-% MATLAB uses a post-multiply convention, so translation goes in the 4th row.
-T = eye(4);
-T(3,3) = z_scale; % Scaling along the 3rd axis (z)
-T(3,4) = z_trans; % Translation along the 3rd axis (z)
-
-% 3. Create the affine transformation object
-oririgid  = affinetform3d(T);
-pcatlasreg = oririgid.transformPointsForward(pcdownatlas);
-
-% oririgid   = rigidtform3d(eye(3), [0 0 Nslices/2 - size(regopts.tv,3)/2]);
-% pcatlasreg = oririgid.transformPointsForward(pcdownatlas);
-%==========================================================================
-% let's fit the initial simiarity transform
-% fprintf('Initial similarity transform... '); tic;
-% [yreg,bfit] = pcregisterBCPD(pcatlasreg, pcdownsamp, 'TransformType','Similarity',...
-%     'BCPDPath', regopts.bcpdpath, 'OutlierRatio', 0.01, ...
-%     NormalizeCommon = true, Beta = 15, Verbose = false, ConvergenceTolerance=1e-8);
-% fprintf('Done! Took %2.2f s.\n', toc);
-% transinit  = affinetform3d(oririgid.A*bfit.A);
-%==========================================================================
-%%
-transinit  = affinetform3d(oririgid.A);
-refsample  = imref3d(size(straightvol));
-refatlas   = imref3d(size(regopts.tv));
-tvtemp     = medfilt3(regopts.tv);
-atlasuse   = imwarp(tvtemp, refatlas, transinit, 'OutputView', refsample);
-%==========================================================================
-% save similarity volume for inspection
-avsim  = imwarp(regopts.av, refatlas, transinit, 'nearest', 'OutputView', refsample);
-
-volmax  = single(quantile(straightvol,0.999,'all'));
-volplot = uint8(255*single(straightvol)/volmax);
-cf      = plotCordAnnotation(volplot, avsim);
-print(cf, fullfile( regopts.lsfolder, 'registration_initial_similarity'), '-dpng')
-close(cf);
-%==========================================================================
-% perform affine registration using image information
+function opts = initializeCordRegistration(inputpath, varargin)
+%INITIALIZECORDREGISTRATION Second half of the spinal cord initialisation.
 %
-[~, ~, tformpath, ~] = performElastixAffineRegistration(atlasuse,straightvol, 1, regopts.lsfolder);
-newtrans = affinetform3d(parse_elastix_tform(tformpath));
+%   OPTS = INITIALIZECORDREGISTRATION(INPUTPATH) straightens the cord using the
+%   centre line agreed on in SPINAL_CORD_ALIGNER and brings the atlas onto it
+%   with an affine transform, which is the state the control point GUI and the
+%   B-spline step expect. INPUTPATH is the folder holding regopts.mat.
+%
+%   The counterpart for a brain is INITIALIZEREGISTRATION. It only has to find
+%   the orientation of the sample and a similarity transform, because a brain
+%   does not change shape. A cord does, so this runs in two stages:
+%
+%     1. Straightening. Every slice is translated and rotated so the section
+%        centre sits at the middle of the atlas frame and the dorsoventral axis
+%        points the same way throughout. What comes out is a cord with the same
+%        cross-sectional frame as the atlas, still at its own length.
+%     2. Atlas fitting. The atlas is stretched along the long axis to cover the
+%        straightened sample, then refined with an image-based affine
+%        registration (elastix).
+%
+%   Both stages are written to disk: the straightened volume as
+%   'cord_straight_register_<res>um.tif' (OPTS.straightvolpath), the transforms
+%   into regopts.mat, and two annotated PNGs showing the atlas on the sample
+%   before and after the affine refinement.
+%
+%   Optional name-value arguments
+%     'zcoverage'        - fraction of the straightened sample the atlas is
+%                          stretched to cover initially (default 0.98).
+%     'orientationdeg'   - orientation the dorsoventral axis is rotated to
+%                          (default 90, anterior towards the top of the image).
+%     'skipaffine'       - keep the initial stretch and skip the elastix affine
+%                          refinement (default false).
+%
+%   See also PREPARECORDSAMPLEFORREGISTRATION, SPINAL_CORD_ALIGNER,
+%   MATCHCONTROLPOINTS_UNIFIED, MULTIOBJCORDREGISTRATION.
 
-transaff = affinetform3d(transinit.A*newtrans.A);
-avshow   = imwarp(regopts.av, refatlas, transaff, 'nearest', 'OutputView', refsample);
-cf       = plotCordAnnotation(volplot, avshow);
-print(cf, fullfile( regopts.lsfolder, 'registration_initial_affine'), '-dpng')
+%==========================================================================
+p = inputParser;
+addRequired(p,  'inputpath', @(x) ischar(x) || isstring(x) || isstruct(x));
+addParameter(p, 'zcoverage',      0.98, @(x) isscalar(x) && x > 0 && x <= 1);
+addParameter(p, 'orientationdeg',   90, @isscalar);
+addParameter(p, 'skipaffine',    false, @(x) islogical(x) || isscalar(x));
+parse(p, inputpath, varargin{:});
+params = p.Results;
+%==========================================================================
+opts = loadRegOpts(inputpath);
+assert(isfield(opts, 'cordvolpath'), 'initializeCordRegistration:notPrepared', ...
+    'Run prepareCordSampleForRegistration before initializeCordRegistration.');
+%==========================================================================
+% the centre line the user signed off on
+alignpath = fullfile(opts.savepath, 'spinal_alignment_opt.mat');
+if ~exist(alignpath, 'file')
+    error('initializeCordRegistration:noAlignment', ...
+        ['No alignment found in %s. Run spinal_cord_aligner and press ''s'' to ' ...
+         'save before initialising the registration.'], opts.savepath);
+end
+aligndata = load(alignpath);
+align_out = aligndata.align_out;
+%==========================================================================
+fprintf('Loading the cord atlas at %d um... ', opts.registres); tic;
+[tv, av, atlasinfo] = loadCordAtlasVolumes(opts);
+fprintf('Done! Took %2.2f s.\n', toc);
+opts.atlasres        = atlasinfo.atlasres;
+opts.atlassize       = atlasinfo.regsize;
+opts.atlassizenative = atlasinfo.nativesize;
+%==========================================================================
+% 1. straighten the sample
+targetcent    = 0.5 * atlasinfo.regsize([2 1]);   % [x y] centre of the atlas frame
+opts.straighten = cordStraightenParams(align_out, targetcent, params.orientationdeg);
+tforms          = computeStraighteningTransforms(opts.straighten);
+opts.slicetforms = tforms;
+
+cordvol = readDownStack(opts.cordvolpath);
+Nslices = size(cordvol, 3);
+assert(Nslices == opts.straighten.Nslices, ...
+    'initializeCordRegistration:sliceMismatch', ...
+    ['The alignment covers %d slices but %s has %d. Re-run spinal_cord_aligner ' ...
+     'on the current volume.'], opts.straighten.Nslices, opts.cordvolpath, Nslices);
+
+fprintf('Applying straightening transforms... '); tic;
+raout       = imref2d(atlasinfo.regsize([1 2]));
+straightvol = transformCordImageSlices(cordvol, tforms, raout);
+fprintf('Done! Took %2.2f s.\n', toc);
+clear cordvol;
+%==========================================================================
+% 2. bring the atlas onto the straightened sample
+% first the obvious part: the atlas is a whole cord, the sample is a piece of
+% one, so scale and shift along the long axis to cover it
+z_scale = Nslices * params.zcoverage / atlasinfo.regsize(3);
+z_trans = Nslices/2 - z_scale * atlasinfo.regsize(3)/2;
+
+T      = eye(4);
+T(3,3) = z_scale;
+T(3,4) = z_trans;
+transinit = affinetform3d(T);
+
+refsample = imref3d(size(straightvol));
+refatlas  = imref3d(atlasinfo.regsize);
+
+volmax  = single(quantile(straightvol, 0.999, 'all'));
+volplot = uint8(255 * single(straightvol) / volmax);
+
+avsim = imwarp(av, refatlas, transinit, 'nearest', 'OutputView', refsample);
+cf    = plotCordAnnotation(volplot, avsim);
+print(cf, fullfile(opts.savepath, 'registration_initial_similarity'), '-dpng');
 close(cf);
-%%
 %==========================================================================
-regopts.affine_atlas_to_samp = transaff;
-regopts.straightvol          = straightvol;
-regopts.refatlas             = refatlas;
+% then refine it with the images themselves
+transaff = transinit;
+if ~params.skipaffine
+    tvtemp   = medfilt3(tv);
+    atlasuse = imwarp(tvtemp, refatlas, transinit, 'OutputView', refsample);
 
-% save registration
-save(fullfile(regopts.lsfolder, 'regopts.mat'), '-struct', 'regopts')
+    [~, ~, tformpath, ~] = performElastixAffineRegistration(...
+        atlasuse, straightvol, 1, opts.savepath);
+    newtrans = affinetform3d(parse_elastix_tform(tformpath));
+    transaff = affinetform3d(transinit.A * newtrans.A);
 
+    avshow = imwarp(av, refatlas, transaff, 'nearest', 'OutputView', refsample);
+    cf     = plotCordAnnotation(volplot, avshow);
+    print(cf, fullfile(opts.savepath, 'registration_initial_affine'), '-dpng');
+    close(cf);
+end
 %==========================================================================
+% save the straightened volume next to the other volumes
+opts.straightvolpath = fullfile(opts.savepath, ...
+    sprintf('cord_straight_register_%dum.tif', opts.registres));
+saveopts = struct('compress', 'lzw', 'message', false);
+if exist(opts.straightvolpath, 'file')
+    delete(opts.straightvolpath);
 end
+saveastiff(straightvol, opts.straightvolpath, saveopts);
 
-function ptsout = reducePoints(pts, Ntarget)
-Nlevels = max(pts(:,3));
-downfac = Ntarget/Nlevels;
-ptsout  = cell(Nlevels, 1);
-for ii = 1:Nlevels
-    icurr      = pts(:, 3) == ii;
-    Ndownatlas = double(max(6, floor(nnz(icurr)/downfac)));
-    ptscurr    = pcdownsample(pointCloud(pts(icurr,:)), 'nonuniformGrid', Ndownatlas);
-    ptsout{ii}  = ptscurr.Location;
-end
-ptsout = cat(1, ptsout{:});
-
-% Ndownatlas   = max(6, floor(size(pts,1)/Ntarget));
-% ptsout       = pcdownsample(pointCloud(pts), 'nonuniformGrid', Ndownatlas);
-% ptsout       = ptsout.Location;
-end
-
-function ikeep = removeOutliers(pts, centerval, thresuse)
-
-ikeep       = true(size(pts,1), 1);
-allds       = sqrt(sum((pts(:, [1 2]) - centerval).^2,2));
-Nmax        = max(pts(:, 3));
-dsperslice  = accumarray(pts(:, 3), allds, [Nmax 1], @robustStd);
-medperslice = accumarray(pts(:, 3), allds, [Nmax 1], @median);
-medperslice = movmedian(medperslice, 50);
-dsperslice  = movmedian(dsperslice,  50);
-inoise      = find((allds-medperslice(pts(:,3)))./dsperslice(pts(:,3)) > thresuse);
-
-
-% [~,isort]         = sort(pts(:, 3));
-% inoise            = find(allds(isort)./movmedian(allds(isort), Nsmooth) > 2);
-% inoise            = isort(inoise);
-if numel(inoise) > 0
-    fprintf('Found %d outliers around the cord\n', numel(inoise));
-    ikeep             = ~ismember(1:size(pts,1), inoise)';
-end
+opts.affine_atlas_to_samp = transaff;
+opts.straightvolsize      = size(straightvol);
+%==========================================================================
+saveRegOpts(opts);
+fprintf(['Registration initialised. Add control points with ' ...
+    'matchControlPoints_unified, then run multiobjCordRegistration.\n']);
+%==========================================================================
 end

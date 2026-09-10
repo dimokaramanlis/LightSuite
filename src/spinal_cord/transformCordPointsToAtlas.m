@@ -123,8 +123,12 @@ makeNewDir(registerpath);
 % 3. Atlas and its region/segment lookups, loaded once
 %--------------------------------------------------------------------------
 fprintf('Loading the spinal cord atlas...\n');
-[~, av, ~, segmentinfo, atlasres] = loadSpinalCordAtlas();
+[~, av, parcelinfo, segmentinfo, atlasres] = loadSpinalCordAtlas();
 grouping = cordAtlasGrouping(av, segmentinfo);
+
+% names of every region at all three levels, so the counts identify a region the
+% way the brain ones do rather than by atlas id alone
+areahierarchy = cordAreaHierarchy(parcelinfo, grouping.avinds);
 
 % the displacement field is the expensive part of the transform, so read it
 % once and hand it to every point set
@@ -215,7 +219,8 @@ for ii = 1:numel(datasets)
         writematrix(atlasptcoords, fullfile(registerpath, strrep(outname, '.mat', '.csv')));
     end
 
-    saveCordCellStats(registerpath, ichan, areacounts, areavols, grouping, writetocsv);
+    saveCordCellStats(registerpath, ichan, areacounts, areavols, grouping, ...
+        areahierarchy, writetocsv);
 
     all_final_pts{ii} = atlasptcoords;
     if isempty(classres)
@@ -272,24 +277,19 @@ end
 end
 
 %--------------------------------------------------------------------------
-function saveCordCellStats(registerpath, ichan, areacounts, areavols, grouping, writetocsv)
+function saveCordCellStats(registerpath, ichan, areacounts, areavols, grouping, ...
+    areahierarchy, writetocsv)
 %SAVECORDCELLSTATS Per-region, per-segment counts, mirroring the brain outputs.
 
 areaidx     = grouping.avinds;
 segmentname = grouping.segnames;
 
 fmatname = fullfile(registerpath, sprintf('chan%02d_cellcounts.mat', ichan));
-save(fmatname, 'areacounts', 'areaidx', 'areavols', 'segmentname');
+save(fmatname, 'areacounts', 'areaidx', 'areavols', 'segmentname', 'areahierarchy');
 
 if writetocsv
-    Nareas    = numel(areaidx);
-    Nsegments = numel(segmentname);
-    [iarea, iseg] = ndgrid(1:Nareas, 1:Nsegments);
-
-    currtable = table(double(areaidx(iarea(:))), segmentname(iseg(:)), ...
-        double(areacounts(:)), double(areavols(:)), ...
-        'VariableNames', {'atlas_id', 'segment', 'Count', 'Volume_mm3'});
-
+    currtable = cordAreaTable(areahierarchy, segmentname, ...
+        struct('Count', areacounts, 'Volume_mm3', areavols));
     writetable(currtable, fullfile(registerpath, sprintf('chan%02d_cellcounts.csv', ichan)));
 end
 

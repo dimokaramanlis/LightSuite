@@ -1,185 +1,211 @@
-function resout = reorganizeSpinalCordAreas(signals, volumes, parcelinfo, avinds, aggtype)
-% REORGANIZESPINALCORDAREAS Aggregates spinal cord data to higher anatomical levels.
+function resout = reorganizeSpinalCordAreas(counts, signals, volumes, parcelinfo, avinds, aggtype)
+%REORGANIZESPINALCORDAREAS Aggregate cord data to a coarser anatomical level.
 %
-%   resout = reorganizeSpinalCordAreas(signals, volumes, parcelinfo, avinds, aggtype)
+%   RESOUT = REORGANIZESPINALCORDAREAS(COUNTS, SIGNALS, VOLUMES, PARCELINFO,
+%   AVINDS, AGGTYPE) rolls per-region cord statistics up to the level AGGTYPE,
+%   which is one of
 %
-%   INPUTS:
-%       signals    : Matrix of (Nareas x Nsegments x Nmice) containing intensity data.
-%       volumes    : Matrix of (Nareas x Nsegments x Nmice) containing voxel counts.
-%                    (If volumes is (Nareas x Nsegments), it broadcasts across mice).
-%       parcelinfo : Table containing the Atlas_Regions.csv data.
-%       avinds     : Vector of size (Nareas x 1) containing the Atlas IDs 
-%                    corresponding to the rows of signals/volumes.
-%       aggtype    : String, either 'division' (GM/WM) or 'structure' (Laminas+Funiculi).
+%     'substructure' the labelled regions themselves, renamed but not merged
+%     'structure'    laminae I-X, and the df, lf and vf funiculi
+%     'division'     gray matter and white matter
 %
-%   OUTPUTS:
-%       resout     : Struct containing .counts, .signal, .names, .indices
+%   the same three levels the Allen brain parcellation uses, so cord results can
+%   be read next to brain ones (see REORGANIZEAREAS). CORDAREAHIERARCHY does the
+%   anatomy; this function does the arithmetic.
 %
-%   Dependencies: 
-%       Requires parcelinfo to have columns: 'id', 'parent_ID', 'acronym', 'name'.
+%   INPUTS
+%     counts     Nareas x Nsegments x Nmice cell counts, or [] when only
+%                intensities are being aggregated.
+%     signals    Nareas x Nsegments x Nmice intensities, or [] when only counts
+%                are being aggregated.
+%     volumes    Nareas x Nsegments x Nmice region volumes in mm^3. A
+%                Nareas x Nsegments array is taken to hold for every mouse,
+%                which is what the atlas volumes are.
+%     parcelinfo Atlas_Regions.csv as a table, from LOADSPINALCORDATLASTABLES.
+%     avinds     Nareas x 1 atlas ids labelling the rows of the arrays above.
+%     aggtype    the level to aggregate to.
+%
+%   Every level is aggregated the way the quantity itself demands: counts and
+%   volumes are summed over the regions that make up a target, while signals are
+%   averaged over them weighted by volume, so a large region is not outvoted by
+%   a sliver of a neighbour. The rostrocaudal axis is left alone throughout -
+%   segments stay separate columns, because a cord region runs the whole length
+%   of the cord and one number for it would hide the axis that matters. The
+%   segment count never enters the arithmetic, so an atlas with 34 segments and
+%   one with any other number both work unchanged.
+%
+%   OUTPUT
+%     RESOUT with fields
+%       counts   Ntargets x Nsegments x Nmice, summed  (NaN if COUNTS was [])
+%       signal   Ntargets x Nsegments x Nmice, volume-weighted mean
+%       volumes  Ntargets x Nsegments x Nmice, summed
+%       names    Ntargets x 3 cellstr: name, acronym, division it belongs to
+%       indices  Ntargets x 1 atlas ids of the targets
+%       level    the AGGTYPE that produced this
+%     Targets come in anatomical order - laminae I-X, then df, lf, vf; GM, then
+%     WM - and a target no region in AVINDS reaches is dropped.
+%
+%   Example
+%     [parcelinfo, segments] = loadSpinalCordAtlasTables();
+%     s = load('chan01_cellcounts.mat');   % areacounts, areavols, areaidx
+%     res = reorganizeSpinalCordAreas(s.areacounts, [], s.areavols, ...
+%         parcelinfo, s.areaidx, 'structure');
+%
+%   See also CORDAREAHIERARCHY, REORGANIZEAREAS, LOADSPINALCORDATLASTABLES,
+%   CORDATLASGROUPING.
 
-    %----------------------------------------------------------------------
-    % 1. Handle Input Dimensions
-    %----------------------------------------------------------------------
-    [~, Nsegs, Nmice] = size(signals);
-    
-    % Handle case where volume is not per-mouse (common atlas volume)
-    if ndims(volumes) == 2
-        volumes = repmat(volumes, 1, 1, Nmice);
-    end
+%--------------------------------------------------------------------------
+% 1. sizes, from whichever quantity was actually supplied
+%--------------------------------------------------------------------------
+Nareas = numel(avinds);
 
-    %----------------------------------------------------------------------
-    % 2. Define Aggregation Targets based on Type
-    %----------------------------------------------------------------------
-    switch lower(aggtype)
-        case 'division'
-            % Targets: Gray Matter (GM), White Matter (WM)
-            targetAcronyms = {'GM', 'WM'};
-            
-        case 'structure'
-            % Targets: Laminas I-X Combined (201-210) + df, lf, vf
-            % We search for specific IDs for Laminas and Acronyms for Funiculi
-            
-            % Laminas 1-10 Combined usually have IDs 201-210 in this specific atlas
-            laminaIDs = 201:210; 
-            % Funiculi Acronyms (Dorsal, Lateral, Ventral)
-            funiculiAcronyms = {'df', 'lf', 'vf'};
-            targetAcronyms = [arrayfun(@num2str, laminaIDs, 'UniformOutput', false), funiculiAcronyms];
-        otherwise
-            error('aggtype must be either "division" or "structure"');
-    end
+reference = counts;
+if isempty(reference); reference = signals; end
+if isempty(reference); reference = volumes; end
+if isempty(reference)
+    error('reorganizeSpinalCordAreas:noData', ...
+        'At least one of counts, signals or volumes must be non-empty.');
+end
 
-    %----------------------------------------------------------------------
-    % 3. Initialize Outputs
-    %----------------------------------------------------------------------
-    Ntargets = numel(targetAcronyms);
-    
-    sigout   = nan(Ntargets, Nsegs, Nmice);
-    volout   = nan(Ntargets, Nsegs, Nmice);
-    nameout  = cell(Ntargets, 3); % Name, Acronym, Parent(placeholder)
-    indsout  = nan(Ntargets, 1);
+Nsegs = size(reference, 2);
+Nmice = size(reference, 3);
 
-    %----------------------------------------------------------------------
-    % 4. Main Aggregation Loop
-    %----------------------------------------------------------------------
-    for ii = 1:Ntargets
-        currTarget = targetAcronyms{ii};
-        
-        % A. Find the ID of the target area in parcelinfo
-        if all(isstrprop(currTarget, 'digit')) 
-            % It's a numeric ID (like '201')
-            targetID = str2double(currTarget);
-            rowIdx   = find(parcelinfo.id == targetID, 1);
-        else
-            % It's an acronym (like 'GM' or 'df')
-            rowIdx = find(strcmp(parcelinfo.acronym, currTarget), 1);
-            if isempty(rowIdx) && strcmp(currTarget, 'lf')
-                 % Fallback: sometimes 'lfc' (Lateral Funiculus Complete) is used if 'lf' missing
-                 rowIdx = find(strcmp(parcelinfo.acronym, 'lfc'), 1);
-            end
-            if ~isempty(rowIdx)
-                targetID = parcelinfo.id(rowIdx);
-            else
-                warning('Target %s not found in parcelinfo', currTarget);
-                continue;
-            end
-        end
-        
-        if isempty(rowIdx)
-            continue; 
-        end
-        
-        % Store Metadata
-        nameout(ii, :) = {parcelinfo.name{rowIdx}, parcelinfo.acronym{rowIdx}, aggtype};
-        indsout(ii)    = targetID;
+hascounts  = ~isempty(counts);
+hassignals = ~isempty(signals);
 
-        % B. Find all raw Atlas IDs (avinds) that belong to this Target
-        % This involves finding children, grandchildren, etc.
-        relevantIDs = getDescendants(targetID, parcelinfo);
-        
-        % Include the target itself if it exists in the data
-        relevantIDs = [relevantIDs; targetID]; 
-        
-        % Find which rows in our input matrices correspond to these IDs
-        dataRows = find(ismember(avinds, relevantIDs));
-        
-        if isempty(dataRows)
-            continue; % No data for this region
-        end
+counts  = expandToMice(counts,  Nareas, Nsegs, Nmice, 'counts');
+signals = expandToMice(signals, Nareas, Nsegs, Nmice, 'signals');
+volumes = expandToMice(volumes, Nareas, Nsegs, Nmice, 'volumes');
 
-        % C. Aggregate Volumes (Sum)
-        % volumes(dataRows, :, :) -> Sum across rows
-        vol_subset = volumes(dataRows, :, :);
-        currVol    = sum(vol_subset, 1, 'omitmissing'); 
-        volout(ii, :, :) = currVol;
+%--------------------------------------------------------------------------
+% 2. which target every row belongs to
+%--------------------------------------------------------------------------
+[hier, levels] = cordAreaHierarchy(parcelinfo, avinds);
 
-        % D. Aggregate Signals (Weighted Average by Volume)
-        % Weights = Volume of area / Total Volume of target
-        % Note: We calculate weights per segment/mouse to handle missing data correctly
-        
-        sig_subset = signals(dataRows, :, :);
-        
-        % Avoid division by zero
-        safeVol = currVol;
-        safeVol(safeVol == 0) = 1; 
-        
-        % Weight calculation
-        weights = vol_subset ./ safeVol;
-        
-        % Weighted sum
-        weightedSig = sum(sig_subset .* weights, 1, 'omitmissing');
-        sigout(ii, :, :) = weightedSig;
-        
-    end
-
-    %----------------------------------------------------------------------
-    % 5. Format Output
-    %----------------------------------------------------------------------
-    % Remove empty rows if any targets were totally missing from atlas definition
-    keepIdx = ~cellfun('isempty', nameout(:,1));
-    
-    resout.counts   = volout(keepIdx, :, :); % "counts" in your original code referred to volume/cells
-    resout.volumes  = volout(keepIdx, :, :);
-    resout.signal   = sigout(keepIdx, :, :);
-    resout.names    = nameout(keepIdx, :);
-    resout.indices  = indsout(keepIdx);
+switch lower(char(aggtype))
+    case 'substructure'
+        % the finest grain is already the answer; only regions that sit inside
+        % the hierarchy are kept, so the levels stay nested
+        inside  = ~isnan(hier.division_index);
+        targets = table(hier.parcellation_index(inside), hier.acronym(inside), ...
+            hier.name(inside), 'VariableNames', {'index', 'acronym', 'name'});
+        rowlevel = hier.parcellation_index;
+    case 'structure'
+        targets  = levels.structure;
+        rowlevel = hier.structure_index;
+    case 'division'
+        targets  = levels.division;
+        rowlevel = hier.division_index;
+    otherwise
+        error('reorganizeSpinalCordAreas:badAggType', ...
+            'aggtype must be ''substructure'', ''structure'' or ''division'', not ''%s''.', ...
+            char(aggtype));
 end
 
 %--------------------------------------------------------------------------
-% Helper: Recursive Descendant Finder
+% 3. aggregate
 %--------------------------------------------------------------------------
-function allChildren = getDescendants(parentID, parcelinfo)
-    % Finds all IDs that are children (direct or indirect) of parentID
-    
-    % 1. Find direct children based on parent_ID column
-    directChildrenIdx = find(parcelinfo.parent_ID == parentID);
-    directChildrenIDs = parcelinfo.id(directChildrenIdx);
-    
-    % 2. Special Case for "Combined" layers (200 series) in this specific atlas
-    % These often list their constituent IDs in 'children_IDs' column if available,
-    % or we infer them. If the CSV has 'children_IDs' as a string:
-    if ismember('children_IDs', parcelinfo.Properties.VariableNames)
-        pIdx = find(parcelinfo.id == parentID, 1);
-        if ~isempty(pIdx)
-            childStr = parcelinfo.children_IDs{pIdx};
-            if ~isempty(childStr) && ischar(childStr)
-                % Parse string "1, 2, 3" or "1Sp, 1"
-                % Simple regex to grab digits
-                parsedIDs = str2double(regexp(childStr, '\d+', 'match'));
-                directChildrenIDs = unique([directChildrenIDs; parsedIDs(:)]);
-            elseif isnumeric(childStr)
-                 directChildrenIDs = unique([directChildrenIDs; childStr(:)]);
-            end
-        end
+Ntargets = height(targets);
+
+cout    = nan(Ntargets, Nsegs, Nmice);
+sigout  = nan(Ntargets, Nsegs, Nmice);
+volout  = nan(Ntargets, Nsegs, Nmice);
+nameout = cell(Ntargets, 3);
+indsout = nan(Ntargets, 1);
+
+for ii = 1:Ntargets
+    rows = find(rowlevel == targets.index(ii));
+    if isempty(rows)
+        continue
     end
-    
-    % 3. Recurse
-    allChildren = directChildrenIDs;
-    if ~isempty(directChildrenIDs)
-        for k = 1:length(directChildrenIDs)
-            grandChildren = getDescendants(directChildrenIDs(k), parcelinfo);
-            allChildren = [allChildren; grandChildren]; %#ok<AGROW>
-        end
-    end
-    allChildren = unique(allChildren);
+
+    volblock = volumes(rows, :, :);
+    totalvol = sum(volblock, 1, 'omitnan');
+
+    cout(ii, :, :)   = sum(counts(rows, :, :), 1, 'omitnan');
+    volout(ii, :, :) = totalvol;
+
+    % volume-weighted mean, computed per segment and per mouse so that a region
+    % missing from one segment does not skew the others
+    sigblock = signals(rows, :, :);
+    hassig   = ~isnan(sigblock);
+    weights  = volblock;
+    weights(~hassig | isnan(weights)) = 0;
+
+    % a region with a signal but no volume to weight it by still counts, it just
+    % counts equally: without this a caller who has no volumes gets nothing back
+    novolume = sum(weights, 1) == 0 & any(hassig, 1);
+    weights(repmat(novolume, numel(rows), 1, 1) & hassig) = 1;
+
+    % renormalise over the regions that actually carry a signal here; where none
+    % does, the target has no signal in that segment rather than a signal of 0
+    wtotal = sum(weights, 1);
+    nosig  = wtotal == 0;
+    wtotal(nosig) = 1;
+
+    weighted = sum(sigblock .* (weights ./ wtotal), 1, 'omitnan');
+    weighted(nosig) = NaN;
+    sigout(ii, :, :) = weighted;
+
+    indsout(ii)    = targets.index(ii);
+    nameout(ii, :) = {targets.name{ii}, targets.acronym{ii}, ...
+        divisionOfTarget(hier, rows)};
+end
+
+%--------------------------------------------------------------------------
+% 4. drop targets no region reached
+%--------------------------------------------------------------------------
+keep = ~isnan(indsout);
+
+% a quantity that was never supplied stays missing rather than summing to zero
+if ~hascounts;  cout   = nan(size(cout));   end
+if ~hassignals; sigout = nan(size(sigout)); end
+
+resout.counts  = cout(keep, :, :);
+resout.signal  = sigout(keep, :, :);
+resout.volumes = volout(keep, :, :);
+resout.names   = nameout(keep, :);
+resout.indices = indsout(keep);
+resout.level   = lower(char(aggtype));
+
+end
+
+%==========================================================================
+% Local helpers
+%==========================================================================
+function out = expandToMice(in, Nareas, Nsegs, Nmice, label)
+%EXPANDTOMICE Bring one quantity to Nareas x Nsegments x Nmice.
+%   An empty input becomes all-NaN, so a caller with only intensities or only
+%   counts does not have to fabricate the other.
+
+if isempty(in)
+    out = nan(Nareas, Nsegs, Nmice);
+    return
+end
+
+out = double(in);
+if size(out, 1) ~= Nareas
+    error('reorganizeSpinalCordAreas:sizeMismatch', ...
+        '%s has %d rows but avinds lists %d areas.', label, size(out, 1), Nareas);
+end
+if size(out, 2) ~= Nsegs
+    error('reorganizeSpinalCordAreas:segmentMismatch', ...
+        '%s has %d segments, the other inputs have %d.', label, size(out, 2), Nsegs);
+end
+if size(out, 3) == 1 && Nmice > 1
+    out = repmat(out, 1, 1, Nmice);   % one atlas volume, shared by every mouse
+end
+end
+
+%--------------------------------------------------------------------------
+function name = divisionOfTarget(hier, rows)
+%DIVISIONOFTARGET The division a target sits in, for the third name column.
+%   Mirrors REORGANIZEAREAS, whose third column is the coarsest level at every
+%   aggregation depth.
+name = '';
+divnames = hier.division(rows);
+divnames = divnames(~cellfun('isempty', divnames));
+if ~isempty(divnames)
+    name = divnames{1};
+end
 end

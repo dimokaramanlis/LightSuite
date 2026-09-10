@@ -146,16 +146,27 @@ Warps all channels into atlas space and computes regional statistics per anatomi
 
 ### Atlas Regions
 
-The spinal cord atlas is organized into two levels:
+The cord is organized into the same three levels as the Allen brain parcellation, so cord and brain results can be read side by side:
 
+* **Substructure level:** the regions the annotation actually labels, e.g. lamina 4 of the dorsal horn — the finest grain available.
+* **Structure level:** Laminas I–X, each combining its parts, and the dorsal (`df`), lateral (`lf`) and ventral (`vf`) funiculi.
 * **Division level:** Gray Matter (GM) and White Matter (WM).
-* **Structure level:** Laminas I–X and the dorsal (`df`), lateral (`lf`), and ventral (`vf`) funiculi.
 
-Statistics are aggregated along the rostrocaudal axis in anatomically defined segments.
+`cordAreaHierarchy()` builds this hierarchy from `Atlas_Regions.csv`. It is an assignment rather than a set of overlapping queries — every region belongs to exactly one structure and one division — so aggregating to a level can never count a region twice. Regions the atlas leaves outside gray and white matter (the central canal, and id `0` for everything outside the cord) are named but dropped when a level is aggregated.
+
+The hierarchy says nothing about position along the cord. A spinal segment is a range of planes, not a label in the annotation, so region and segment are independent coordinates of the same measurement and statistics are always reported per region **and** per segment. Nothing here depends on how many segments the atlas defines (34 in the current one).
 
 **Output files** (in `volume_registered/`):
-* `chan0X_intensities.mat` — median signal intensity and volume per region and segment
+* `chan0X_intensities.mat` — median signal intensity and volume per region and segment, plus `areahierarchy`, the three-level names of every region
+* `chan0X_intensities.csv` — the same in long format, one row per region and segment
 * Registered volume slices
+
+The CSVs carry the same identifying columns as the brain ones — `name`, `acronym`, `structure`, `division`, `parcellation_index` — so a region can be found by name rather than by looking its id up in the atlas. Where the brain splits its measurements into a left and a right column, the cord has a whole rostrocaudal axis to carry, so the table is long instead of wide, with a `segment` column:
+
+```
+name,acronym,structure,division,parcellation_index,segment,Intensity,Volume_mm3
+lamina 1,1Sp,Lamina I Combined,Gray matter,1,C1,412.5,0.0031
+```
 
 ---
 
@@ -164,14 +175,19 @@ Statistics are aggregated along the rostrocaudal axis in anatomically defined se
 After registration, use `reorganizeSpinalCordAreas()` to aggregate the regional data to your desired anatomical level:
 
 ```matlab
-% Aggregate to Gray Matter / White Matter level
-resout = reorganizeSpinalCordAreas(signals, volumes, parcelinfo, avinds, 'division');
+% Aggregate cell counts and intensities to Gray Matter / White Matter level
+resout = reorganizeSpinalCordAreas(counts, signals, volumes, parcelinfo, avinds, 'division');
 
 % Aggregate to Lamina / Funiculus level
-resout = reorganizeSpinalCordAreas(signals, volumes, parcelinfo, avinds, 'structure');
+resout = reorganizeSpinalCordAreas(counts, signals, volumes, parcelinfo, avinds, 'structure');
+
+% Only intensities to hand? Pass counts empty (and vice versa)
+resout = reorganizeSpinalCordAreas([], signals, volumes, parcelinfo, avinds, 'structure');
 ```
 
-The `resout` struct contains `counts`, `volumes`, `signal`, `names`, and `indices` fields for downstream plotting and statistics. See `demos/example_analysis_spinal_cord.m` for a complete worked example including heatmaps and intensity profile plots.
+Each quantity is aggregated the way it demands: **counts and volumes are summed** over the regions making up a target, while **signals are averaged weighted by volume**, so a large region is not outvoted by a sliver of a neighbour.
+
+The `resout` struct contains `counts`, `volumes`, `signal`, `names`, `indices` and `level` fields for downstream plotting and statistics; `names` has one row per target with its name, acronym and division. See `demos/example_analysis_spinal_cord.m` for a complete worked example including heatmaps and intensity profile plots.
 
 ---
 
@@ -187,5 +203,8 @@ The `resout` struct contains `counts`, `volumes`, `signal`, `names`, and `indice
 ├── elastix_reverse/                   # Reverse B-spline transforms
 └── volume_registered/
     ├── chan0X_intensities.mat         # Regional intensity and volume stats
+    ├── chan0X_intensities.csv         # The same, named, one row per region+segment
+    ├── chan0X_cellcounts.mat          # Cell counts per region and segment
+    ├── chan0X_cellcounts.csv          # The same, named, one row per region+segment
     └── [registered volume slices]
 ```
