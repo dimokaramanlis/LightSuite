@@ -15,13 +15,16 @@ gui_data = struct;
 % 1. Mode Detection & Data Loading
 %==========================================================================
 
-if isfield(opts, 'straightvol')
+iscord = strcmpi(getOr(opts, 'samplekind', ''), 'cord') || ...
+    isfield(opts, 'straightvol') || isfield(opts, 'straightvolpath');
+
+if iscord
     mode = 'spine';
     gui_data.mode = 'spine';
-    gui_data.save_path = opts.lsfolder;
+    gui_data.save_path = getOr(opts, {'savepath', 'lsfolder'}, '');
     gui_data.save_filename = 'corresponding_points.mat';
     disp('Starting Control Point Matching in SPINE Mode...');
-    
+
 elseif isfield(opts, 'savepath')
     mode = 'brain';
     gui_data.mode = 'brain';
@@ -39,29 +42,43 @@ end
 switch mode
     case 'spine'
         % --- Spine Pipeline ---
-        
+
+        % Atlas and straightened sample live on disk, not inside opts, so that
+        % regopts.mat stays small; only the legacy layout carries them inline.
+        if isfield(opts, 'tv') && ~isempty(opts.tv)
+            tvload = opts.tv;
+            avload = opts.av;
+        else
+            [tvload, avload] = loadCordAtlasVolumes(opts);
+        end
+        if isfield(opts, 'straightvol') && ~isempty(opts.straightvol)
+            straightvol = opts.straightvol;
+        else
+            straightvol = readDownStack(opts.straightvolpath);
+        end
+
         % Filter and normalize template
-        gui_data.tv = medfilt3(opts.tv, [3 3 3]);
+        gui_data.tv = medfilt3(tvload, [3 3 3]);
         factv = 255/single(max(gui_data.tv,[],"all"));
         gui_data.tv = uint8(single(gui_data.tv)*factv);
-        gui_data.av = opts.av;
-        
-        Rvolume = imref3d(size(opts.straightvol));
+        gui_data.av = avload;
+
+        Rvolume = imref3d(size(straightvol));
         gui_data.Rvolume = Rvolume;
         Ratlas  = imref3d(size(gui_data.tv));
-        
+
         % Warp initial volumes to alignment space (Atlas -> Sample)
         gui_data.tv = imwarp(gui_data.tv, Ratlas, opts.affine_atlas_to_samp, 'OutputView',Rvolume);
         gui_data.av = imwarp(gui_data.av, Ratlas, opts.affine_atlas_to_samp, 'OutputView',Rvolume);
         gui_data.Rmoving = imref3d(size(gui_data.av));
-        
+
         % Prepare Sample Volume
-        gui_data.volume = opts.straightvol;
+        gui_data.volume = straightvol;
         factv = 255/single(quantile(gui_data.volume,0.999,"all"));
         gui_data.volume = uint8(single(gui_data.volume)*factv);
-        
+
         % Generate Slice List (Spine specific randomized selection)
-        slicescheck = round(linspace(1, size(opts.straightvol, 3), 100))';
+        slicescheck = round(linspace(1, size(straightvol, 3), 100))';
         chooselist  = [slicescheck 3*ones(size(slicescheck)) ones(size(slicescheck)) ones(size(slicescheck))];
         rng(1);
         gui_data.chooselist = chooselist(randperm(numel(slicescheck)), :);

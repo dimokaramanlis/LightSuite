@@ -247,7 +247,7 @@ for i = 1:numel(datasets)
 
     % 1. Optional CNN classification: keep only the candidates it calls cells
     if useclassif
-        [inputpts, classres] = applyClassifier(inputpts, ds, net, netinfo, ...
+        [inputpts, classres] = applyCellClassifierCached(inputpts, ds, net, netinfo, ...
             savepath, p.Results.reclassify);
     end
 
@@ -345,57 +345,6 @@ for k = 1:numel(uc)
 end
 end
 
-%--------------------------------------------------------------------------
-function [keptpts, classres] = applyClassifier(inputpts, ds, net, netinfo, ...
-    savepath, reclassify)
-%APPLYCLASSIFIER Keep only the candidates the CNN accepts as real cells.
-%   The result is cached next to the registration folder, so the network runs
-%   once per point file and later runs reuse it.
-
-classres = [];
-keptpts  = inputpts;
-
-if isempty(ds.cell_images)
-    warning('transformPointsToAtlas:noCellImages', ...
-        ['%s carries no cell images, so the classifier cannot be run on it; ' ...
-         'its points are transformed unfiltered. Cell images are only written ' ...
-         'for .mat detections saved with opts.savecellimages = true.'], ds.label);
-    return;
-end
-
-cachefile = fullfile(savepath, sprintf('%s_classification.mat', ds.outbase));
-ncells    = size(inputpts, 1);
-
-if exist(cachefile, 'file') && ~reclassify
-    cached = load(cachefile);
-    if isfield(cached, 'isgood') && numel(cached.isgood) == ncells
-        fprintf('  Reusing cached classification (%s).\n', cachefile);
-        classres = cached;
-        keptpts  = inputpts(cached.isgood, :);
-        return;
-    end
-    warning('transformPointsToAtlas:staleClassification', ...
-        ['Cached classification %s covers %d candidates but %s now has %d; ' ...
-         're-running the network.'], cachefile, ...
-        numel(getOr(cached, 'isgood', [])), ds.label, ncells);
-end
-
-fprintf('  Classifying %d candidates with %s...\n', ncells, netinfo.name);
-res = classifyDetectedCells(net, ds.cell_images, ds.imwindow);
-
-classres            = res;
-classres.netname    = netinfo.name;
-classres.netpath    = netinfo.path;
-classres.netaccuracy = netinfo.accuracy;
-classres.sourcefile = ds.sourcefile;
-classres.created    = datetime('now');
-
-save(cachefile, '-struct', 'classres');
-fprintf('  Saved classification to %s\n', cachefile);
-
-keptpts = inputpts(res.isgood, :);
-
-end
 
 %--------------------------------------------------------------------------
 function finalpts = coreTransform(inputpts, trstruct)
