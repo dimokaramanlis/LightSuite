@@ -2,7 +2,8 @@ function visualizeCellDetections(inputpath,varargin)
 %VISUALIZECELLDETECTIONS Plot the cell detections of every channel in 3D.
 %
 %   VISUALIZECELLDETECTIONS(SAVEPATH) plots the detections in the LightSuite
-%   folder SAVEPATH in sample space, one panel per channel.
+%   folder SAVEPATH in sample space, one panel per channel. SAVEPATH can also
+%   be the procpath of a slice volume.
 %
 %   VISUALIZECELLDETECTIONS(SAVEPATH, 'Space', 'atlas') plots the atlas-space
 %   detections instead, on the outline of the atlas: PLOTBRAINGRID for points
@@ -30,7 +31,14 @@ switch params.Space
         lastbit = "*_locations_sample.mat";
         issamp  = true;
         opts    = loadRegOpts(inputpath);
-        pxsize  = opts.pxsize;
+        if isfield(opts, 'pxsize')
+            pxsize = opts.pxsize;
+        else
+            % slice data: points are in processing pixels in-plane and slice
+            % indices along the third column
+            pxsize = [opts.processres opts.processres ...
+                opts.pxsizes(1)*opts.registres];
+        end
         txtuse  = 'Sample space';
     case 'atlas'
         lastbit = "*_locations_atlas.mat";

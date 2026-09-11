@@ -1,11 +1,11 @@
 
 % folder which contains mouse subfolders
-datafolderpath = 'D:\Histology\';
-mousename      = 'AM130';
+datafolderpath = 'D:\DATA';
+mousename      = 'DK001';
 
-dp = fullfile(datafolderpath, sprintf('*%s*', mousename));
-dp = dir(dp);
-dp = fullfile(dp.folder, dp.name);
+dp        = fullfile(datafolderpath, sprintf('*%s*', mousename));
+dp        = dir(dp);
+dp        = fullfile(dp.folder, dp.name);
 sliceinfo = parseSettingsFile(fullfile(dp, 'local_settings.txt'));
 
 sliceinfo.mousename = mousename;
@@ -37,7 +37,7 @@ sliceinfo           = getSliceInfo(sliceinfo);
 %% (auto) we first generate the slice volume
 slicevol = generateSliceVolume(sliceinfo, sliceinfo.regchan);
 
-%% (manual) reorder, flip and discard slices if needed
+%% (manual) reorder, flip, center and discard slices if needed
 SliceOrderEditor(sliceinfo.volorder)
 generateReordedVolume(sliceinfo);
 
@@ -59,6 +59,7 @@ opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
 matchControlPointsInSlices(opts)
 %% (auto) refine registation with control points and elastix
 opts            = load(fullfile(sliceinfo.procpath, "regopts.mat"));
+opts.cpwt       = 0.4;
 transformparams = registerSlicesToAtlas(opts);
 
 %% (auto) apply registration to all color channels to generate registered volumes
@@ -68,25 +69,41 @@ sliceinfo          = sliceinfo.sliceinfo;
 generateRegisteredSliceVolume(sliceinfo, transformparams);
 
 %% (auto) detect cells in slices
+% Set ichan to a scalar or vector of channel indices to detect in.
+% Any number of channels can be processed; results are saved per channel.
 sliceinfo  = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
 sliceinfo  = sliceinfo.sliceinfo;
-ichan      = find(contains(sliceinfo.channames, 'Cy3')); % We use the tdTomato channel!
-sliceinfo.debug    = true; % toggle plotting (takes longer) for detections
-sliceinfo.celldiam = 14; % expected cell diameter in um
-sliceinfo.thresuse = single([0.75 0.4]); % thresholds in SBR units (first for detection and then for expansion)
-celllocs = extractCellsFromSliceVolume(sliceinfo, ichan);
+ichans     = [2 3]; % e.g. [2] or [2 3] for multiple channels
+sliceinfo.debug    = true;  % toggle plotting (takes longer) for detections
+sliceinfo.celldiam = 14;    % expected cell diameter in um
+sliceinfo.thresuse = single([0.75 0.4]); % thresholds in SBR (detection, expansion)
+extractCellsFromSliceVolume(sliceinfo, ichans);
+
+% you can use visualizeCellDetections to plot all the detections in sample
+% space like this:
+visualizeCellDetections(sliceinfo.procpath, Space = 'sample');
 
 %% (auto) move cell detections in atlas space
-cellsout         = load(fullfile(sliceinfo.procpath,'cell_locations_sample.mat'));
-cellsout         = cellsout.cell_locations;
-transformparams  = load(fullfile(sliceinfo.procpath, "transform_params.mat"));
-atlasptcoords    = slicePointsToAtlas(cellsout, transformparams);
-fsavename        = fullfile(sliceinfo.procpath, 'cell_locations_atlas.mat');
-save(fsavename, 'atlasptcoords')
+% Results are saved as chan<NN>_cell_locations_atlas.mat in procpath.
+transformparams = load(fullfile(sliceinfo.procpath, "transform_params.mat"));
+for ci = 1:numel(ichans)
+    curr_ichan = ichans(ci);
+    celllocs   = load(fullfile(sliceinfo.procpath, ...
+        sprintf('chan%02d_cell_locations_sample.mat', curr_ichan)));
+    atlasptcoords = slicePointsToAtlas(celllocs.cell_locations, transformparams);
+    fsavename = fullfile(sliceinfo.procpath, ...
+        sprintf('chan%02d_cell_locations_atlas.mat', curr_ichan));
+    save(fsavename, 'atlasptcoords')
+end
 
-% we can plot the cells in atlas space
-nrand = min(size(atlasptcoords,1), 1e5);
-iplot = randperm(size(atlasptcoords,1),nrand);
-close all;
-plotBrainGrid; hold on;
-scatter3(atlasptcoords(iplot,2),atlasptcoords(iplot,3),atlasptcoords(iplot,1),2,'filled','MarkerFaceAlpha',0.5)
+% you can use visualizeCellDetections to plot all the detections in atlas
+% space like this:
+visualizeCellDetections(sliceinfo.procpath, Space = 'atlas');
+
+%% (auto) write intensities per brain region to CSV
+sliceinfo = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
+sliceinfo = sliceinfo.sliceinfo;
+generateSliceIntensitiesCSV(sliceinfo, 'writetocsv', true);
+
+%% (auto) write cell counts per brain region to CSV
+sliceCellCountsToCSV(sliceinfo.procpath, 'writetocsv', true);
