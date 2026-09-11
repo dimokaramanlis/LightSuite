@@ -5,7 +5,7 @@ opts = struct();
 % for naming
 opts.mousename  = 'test';
 % change for the folder that contains the stitched tiff files
-opts.datafolder = 'F:\DATAcord';
+opts.datafolder = 'F:\scdata';
 opts.fproc      = fullfile('C:\DATA_sorted'); % where the processed volume is saved as a binary (fast SSD),
 % will be deleted
 % path to save results
@@ -20,7 +20,7 @@ opts.usegpu             = true; % activate if you have a GPU, used for cell dete
 opts.debug              = true; % toggle plotting (takes longer) for cell detections
 opts.savecellimages     = true; % toggle saving of individual cell images
 opts.celldiam           = 10; % approximate cell size in um
-opts.thres_cell_detect  = [0.5 0.3]; % thresholds for detecting cells relative to background, first should be bigger than second
+opts.thres_cell_detect  = [0.4 0.2]; % thresholds for detecting cells relative to background, first should be bigger than second
 opts.channelforcells    = []; % channel to use for cell detection, leave empty ([]) for none
 opts.writetocsv         = true; % write results to csv files
 %  registration
@@ -90,6 +90,10 @@ transform_params = multiobjCordRegistration(opts.savepath, opts.weight_usr_pts, 
 % with reorganizeSpinalCordAreas(counts, [], volumes, parcelinfo, areaidx,
 % 'structure') - or 'division', or 'substructure'.
 transformCordPointsToAtlas(opts.savepath, 'writetocsv', true);
+
+% you can use visualizeCellDetections to plot all the detections in atlas
+% space, on an outline of the cord atlas (see plotSpinalCordGrid), like this:
+visualizeCellDetections(opts.savepath, Space = 'atlas');
 
 % Points counted outside LightSuite go through the same transform, as long as
 % they name their channel:

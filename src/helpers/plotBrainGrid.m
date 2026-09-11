@@ -6,6 +6,8 @@ function [f, h] = plotBrainGrid(brainGridData, ax, brain_figure, black_brain)
 if nargin<1 || isempty(brainGridData)
     mf = which('brainGridData.mat');
     brainGridData = load(mf);
+    fn = fieldnames(brainGridData); % load returns a struct, the grid is its (only) field
+    brainGridData = brainGridData.(fn{1});
 end
 
 bp = double(brainGridData); 
