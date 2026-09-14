@@ -52,12 +52,12 @@ nsigma         = sum(prod(2*6*sigmause(nchoosek(1:3,2))+1,2));
 if opts.savecellimages
     cell_images    = nan(1e6, nsigma, 'single');
 end
-% pback = 0.1;
-% if isfield(opts, 'Tglobal')
-%     Tglobal = opts.Tglobal;
-% else
-%     Tglobal = 1;
-% end
+
+% we also triage cells based on their proximity to edges to get rid of
+% cells outside the tissue
+mind    = getOr(opts, 'minedgedist', 50);
+sizevol = [opts.Nx, opts.Ny, opts.Nz].*opts.pxsize;
+
 msg = []; tic;
 
 for ibatchz = 1:NbatchesZ
@@ -116,12 +116,24 @@ for ibatchz = 1:NbatchesZ
             bufferzone   = [startbuffx endbuffx; startbuffy endbuffy; startbuffz endbuffz];
             [cinfo, cim, ampmax, imgout] = cellDetectorNew(datgpu, cellradius, ...
                 sigmause, anisotropy, thresuse, bufferzone, opts.savecellimages);
-            if ~isempty(cinfo)
+            if ~isempty(cinfo) % we first check locations
                 ccents = cinfo.WeightedCentroid;
                 %----------------------------------------------------------
                 ccents(:,3) = interp1(1:numel(iloadz), iloadz, ccents(:,3));
                 ccents(:,2) = interp1(1:numel(iloady), iloady, ccents(:,2));
                 ccents(:,1) = interp1(1:numel(iloadx), iloadx, ccents(:,1));
+                %----------------------------------------------------------
+                % adding triage for volume edges
+                locsum  = ccents.*opts.pxsize;
+                iedge   = any(locsum< mind,2) | any(locsum > (sizevol-mind), 2);
+                ccents  = ccents(~iedge, :);
+                cinfo   = cinfo(~iedge,  :);
+                if opts.savecellimages
+                    cim = cim(~iedge, :);
+                end
+                %----------------------------------------------------------
+            end
+            if ~isempty(cinfo) % we then package everything
                 %----------------------------------------------------------
                 eqdiam    = cinfo.EquivDiameter * voxelvolume^(1/3);
                 intmean   = cinfo.MeanIntensity;
@@ -173,19 +185,13 @@ fclose(fid);
 cell_locations = cell_locations(1:i0, :);
 
 % we finally remove weird entries
-
-% we also triage cells based on their very absolute intensity to get rid of
-% cells outside the tissue
-
-
-
-irem = any(isnan(cell_locations) | isinf(cell_locations), 2);
+irem                    = any(isnan(cell_locations) | isinf(cell_locations), 2);
 cell_locations(irem, :) = [];
+
 if opts.savecellimages
     cell_images    = cell_images(1:i0, :);
     cell_images(irem, :)    = [];
 end
-
 %--------------------------------------------------------------------------
 % after we are done, save cells
 if isfield(opts, 'savepath')
