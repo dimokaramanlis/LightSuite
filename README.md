@@ -16,6 +16,10 @@ LightSuite supports four data types:
 
 The volumetric workflows are not tied to any one microscope: LightSuite operates on a stitched 3D stack, so light-sheet, fMOST, serial two-photon tomography and comparable datasets all go through the same pipeline.
 
+> **Looking for Python?** A Python version of LightSuite is being developed at
+> [**PyLightSuite**](https://github.com/Wyss-Microscopy/PyLightSuite/tree/main).
+> This repository remains the reference MATLAB implementation.
+
 ---
 
 ## 🌟 Key Features
