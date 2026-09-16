@@ -114,7 +114,7 @@ for ichan = 1:Nchans
         currtable = addvars(currtable, namessub(ib), namesstruct(ibstr), namesdiv(ibdiv), ...
             'NewVariableNames', {'name','structure','division'}, 'Before', 'parcellation_index');
         fsavename = fullfile(registerpath, sprintf('chan%02d_intensities.csv', ichan));
-        writetable(currtable, fsavename);
+        writetable(currtable, fsavename, 'Delimiter', ';');
     end
 
     fprintf('Channel %d/%d done. Time %2.2f s.\n', ichan, Nchans, toc(proctic));

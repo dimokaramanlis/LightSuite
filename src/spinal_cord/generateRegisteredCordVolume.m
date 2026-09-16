@@ -165,7 +165,7 @@ for ichan = 1:Nchannels
         currtable = cordAreaTable(areahierarchy, segmentname, ...
             struct('Intensity', medianoverareas, 'Volume_mm3', volumeoverareas));
         writetable(currtable, ...
-            fullfile(registerpath, sprintf('chan%02d_intensities.csv', ichan)));
+            fullfile(registerpath, sprintf('chan%02d_intensities.csv', ichan)), 'Delimiter', ';');
     end
     fprintf('Channel %d/%d done. Time %2.2f s. \n', ichan, Nchannels, toc(proctic));
 end

@@ -205,7 +205,7 @@ if isfield(opts, 'savepath')
         end
         if writetocsv
             csvfilename = fullfile(opts.savepath, sprintf('%scell_locations_sample.csv', opts.prefix));
-            writematrix(cell_locations, csvfilename);
+            writematrix(cell_locations, csvfilename, 'Delimiter', ';');
         end
     end
 end

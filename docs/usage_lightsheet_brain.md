@@ -239,7 +239,7 @@ Cells counted outside LightSuite can go through the same transform. Three format
 | Format | Contents | Cell images? |
 | :--- | :--- | :--- |
 | `.mat` | a `cell_locations` array `[N × M]`, `M ≥ 3`, columns `[x y z, descriptors…]` | yes, if saved |
-| `.csv` | the same array as text — what `writematrix(cell_locations, …)` writes. A header line is allowed and skipped | no |
+| `.csv` | the same array as text — what `writematrix(cell_locations, …)` writes. Semicolon-delimited; a header line is allowed and skipped, and comma-delimited files still read | no |
 | `.xml` | an ImageJ / Fiji **Cell Counter** marker file; each `<Marker_Type>` block becomes one point set | no |
 
 ```matlab

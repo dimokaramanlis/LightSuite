@@ -216,7 +216,7 @@ for ii = 1:numel(datasets)
     end
 
     if writetocsv
-        writematrix(atlasptcoords, fullfile(registerpath, strrep(outname, '.mat', '.csv')));
+        writematrix(atlasptcoords, fullfile(registerpath, strrep(outname, '.mat', '.csv')), 'Delimiter', ';');
     end
 
     saveCordCellStats(registerpath, ichan, areacounts, areavols, grouping, ...
@@ -290,7 +290,7 @@ save(fmatname, 'areacounts', 'areaidx', 'areavols', 'segmentname', 'areahierarch
 if writetocsv
     currtable = cordAreaTable(areahierarchy, segmentname, ...
         struct('Count', areacounts, 'Volume_mm3', areavols));
-    writetable(currtable, fullfile(registerpath, sprintf('chan%02d_cellcounts.csv', ichan)));
+    writetable(currtable, fullfile(registerpath, sprintf('chan%02d_cellcounts.csv', ichan)), 'Delimiter', ';');
 end
 
 end

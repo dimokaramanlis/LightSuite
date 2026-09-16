@@ -15,9 +15,11 @@ function datasets = readCellLocationsFile(filepath, opts)
 %         artifact classifier can be run on them later.
 %
 %   .csv  The same array written as text, i.e. what
-%         writematrix(cell_locations, ...) produces. A header line is allowed
-%         and skipped; columns must still be [x y z, descriptors...]. CSV
-%         files carry no cell images, so they cannot be classified.
+%         writematrix(cell_locations, ..., 'Delimiter', ';') produces
+%         (comma-delimited files from earlier versions still read). A header
+%         line is allowed and skipped; columns must still be
+%         [x y z, descriptors...]. CSV files carry no cell images, so they
+%         cannot be classified.
 %
 %   .xml  An ImageJ / Fiji "Cell Counter" marker file (readCellCounterXML).
 %         Each <Marker_Type> block becomes one dataset with columns [x y z].
@@ -187,7 +189,8 @@ end
 %--------------------------------------------------------------------------
 function ds = readCsvFile(filepath, fname, verbose)
 
-M = readmatrix(filepath);                 % skips a text header if present
+% ";" is what we write now; "," keeps files from earlier versions readable
+M = readmatrix(filepath, 'Delimiter', {';', ','});  % skips a text header if present
 M = M(~all(isnan(M), 2), :);              % drop blank lines
 
 if isempty(M)

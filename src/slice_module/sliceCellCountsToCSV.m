@@ -87,7 +87,7 @@ for i = 1:numel(files)
         currtable = addvars(currtable, namessub(ib), namesstruct(ibstr), namesdiv(ibdiv), ...
             'NewVariableNames', {'name','structure','division'}, 'Before', 'parcellation_index');
         fsavename = fullfile(registerpath, sprintf('chan%02d_cellcounts.csv', ichan));
-        writetable(currtable, fsavename);
+        writetable(currtable, fsavename, 'Delimiter', ';');
     end
 
     fprintf('Done! Took %2.2f s.\n', toc(savetic));

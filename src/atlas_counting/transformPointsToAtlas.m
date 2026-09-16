@@ -24,7 +24,7 @@ function varargout = transformPointsToAtlas(input_data, varargin)
 %           'cell_images' (written when opts.savecellimages is on) the CNN
 %           artifact classifier can be run on it, see 'network' below.
 %     .csv  the same array as text, i.e. what writematrix(cell_locations, ...)
-%           writes. A header line is allowed and skipped.
+%           writes (semicolon-delimited). A header line is allowed and skipped.
 %     .xml  an ImageJ / Fiji "Cell Counter" marker file. Every <Marker_Type>
 %           block becomes one point set of [x y z] columns.
 %
@@ -282,7 +282,7 @@ for i = 1:numel(datasets)
 
     if writetocsv
         loc_csvname = strrep(outname, '.mat', '.csv');
-        writematrix(atlasptcoords, fullfile(registerpath, loc_csvname));
+        writematrix(atlasptcoords, fullfile(registerpath, loc_csvname), 'Delimiter', ';');
     end
 
     % 6. Save statistics
@@ -433,6 +433,6 @@ function saveCellStats(registerpath, ichan, areacounts, areavols, atlasData, wri
             'NewVariableNames', {'name', 'structure', 'division'}, 'Before', 'parcellation_index');
 
         fsavename = fullfile(registerpath, sprintf('chan%02d_cellcounts.csv', ichan));
-        writetable(currtable, fsavename);
+        writetable(currtable, fsavename, 'Delimiter', ';');
     end
 end
