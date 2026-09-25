@@ -110,6 +110,7 @@ end
 optsreg.usemultistep          = usemultistep;
 optsreg.cpwt                  = contol_point_wt;
 optsreg.bspline_spatial_scale = getOr(opts, 'bspline_spatial_scale', 0.64);
+optsreg.n_histogram_bins      = getOr(opts, 'n_histogram_bins', 48);
 
 [reg, ~, bspltformpath, pathbspl] = performMultObjBsplineRegistration(tvaffine, volume, opts.registres*1e-3, ...
     cpaffine, cptshistology, regopts.savepath, optsreg);
