@@ -115,6 +115,8 @@ for ichan = 1:opts.Nchans
     %--------------------------------------------------------------------------
     % load and transform background volume
     volpath    = dir(fullfile(savepath, sprintf('chan_%d_*register*.tif', ichan)));
+    isannot    = contains({volpath(:).name}, 'annotation');
+    volpath(isannot) = [];
     currfname  = fullfile(volpath.folder, volpath.name);
     fprintf('Registering %s\n', currfname)
     %--------------------------------------------------------------------------
