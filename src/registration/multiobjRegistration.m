@@ -129,7 +129,7 @@ end
 dpannotout               = fullfile(fpath, sprintf('%s_annotation%s',volname, volext));
 saveopts.compress  = 'lzw';
 saveopts.message   = false;
-saveastiff(avreg, dpannotout, saveopts);
+saveastiff(unpermuteBrainVolume(avreg,regopts.permute_sample_to_atlas), dpannotout, saveopts);
 %==========================================================================
 % here we obtain the inverse transform
 outdir     = fullfile(regopts.savepath, 'elastix_inverse_temp');
