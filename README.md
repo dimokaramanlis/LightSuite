@@ -50,6 +50,8 @@ Because LightSuite relies on several toolboxes and external executables, **pleas
 
 Depending on your microscopy data, LightSuite provides distinct entry points:
 
+> **Example data** to try the pipelines is available on Zenodo: [doi:10.5281/zenodo.21338217](https://doi.org/10.5281/zenodo.21338217).
+
 ### 1. Whole-Brain Volumes
 For 3D brain volumes — light-sheet, fMOST, serial two-photon or similar — start with `demos\ls_analyze_lightsheet_volume.m`. This script guides you through data loading, preprocessing, cell detection, and full brain registration.
 ![Example bspline registration](./images/example_bspline.PNG)
@@ -87,4 +89,4 @@ We welcome feedback, bug reports, and feature requests!
 
 LightSuite is distributed under the **GPL-3.0 License**. See the `LICENSE` file for more details.
 
-**Citation:** Karamanlis D, Xie Y, Foucher CG, Alappat M, Masood A, Dimitropoulou I, Pivron LAF, Martínez de Paz JM, Macé E, Gaspari S, El-Boustani S. *LightSuite: scalable atlas registration and cell detection across the central nervous system* (in preparation). Until it appears, please link back to this repository.
+**Citation:** Karamanlis D, Xie Y, Foucher CG, Alappat M, Masood A, Dimitropoulou I, Pivron LAF, Martínez de Paz JM, Macé E, Gaspari S, El-Boustani S. *LightSuite: scalable atlas registration and cell detection across the central nervous system*. bioRxiv (2026). [doi:10.64898/2026.10.13.757638](https://www.biorxiv.org/content/10.64898/2026.10.13.757638)
