@@ -36,7 +36,7 @@ for islice = 1:Nslices
     %----------------------------------------------------------------------
     % apply inverse bspline and inverse affine
     for ichan = 1:Nchannels
-        testim  = transformix(histim(:,:,ichan), temppath, 'movingscale',movscale, 'verbose', 0);
+        testim  = transformix(histim(:,:,ichan), temppath, 'movingscale',movscale, 'verbose', false);
         testim  = uint16(abs(testim));
         testim  = imwarp(testim, rahist, slicetforms(islice).invert, 'OutputView',rahist);
         finvol(atlasinds(islice), :, :, ichan) = testim;
