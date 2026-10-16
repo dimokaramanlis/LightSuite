@@ -27,6 +27,8 @@ function [intensity_results, channames] = extractGRINIntensitySlices(savepath, a
 %   INTENSITY_RESULTS – 1×Nfibers cell array; each element is a struct:
 %       .slices_int   – 1×Ndepths cell array; each is [Ngrid×Ngrid×Nchan]
 %                       single-precision intensity array.
+%       .median_intensity, .mean_intensity – [Ndepths×Nchan] statistics
+%                       inside the implant disc.
 %       .rvec_arr     – 1×Ndepths cell array of rvec coordinate vectors.
 %       .depths_um    – 1×Ndepths depth vector in µm.
 %       .radius_vox   – fiber radius in 10 µm atlas voxels.
@@ -198,6 +200,7 @@ function [intensity_results, channames] = extractGRINIntensitySlices(savepath, a
 
         slices_int       = cell(1, Ndepths);
         median_intensity = nan(Ndepths, Nchannels);  % [Ndepths × Nchannels]
+        mean_intensity   = nan(Ndepths, Nchannels);
 
         for id = 1:Ndepths
             pts    = pts_store{ifiber}{id};   % (Ngrid²) × 3  in volume coords
@@ -221,17 +224,19 @@ function [intensity_results, channames] = extractGRINIntensitySlices(savepath, a
             end
             slices_int{id} = slice_int;
 
-            % Median inside the fiber circle (pixels where r ≤ radius_vox)
+            % Median and mean inside the fiber circle (pixels where r ≤ radius_vox)
             [G1, G2]  = meshgrid(rvec, rvec);
             in_circle = (G1.^2 + G2.^2) <= radius^2;
             for ichan = 1:Nchannels
                 v = slice_int(:,:,ichan);
                 median_intensity(id, ichan) = median(v(in_circle), 'omitnan');
+                mean_intensity(id, ichan)   = mean(v(in_circle), 'omitnan');
             end
         end
 
         res_int.slices_int       = slices_int;
         res_int.median_intensity = median_intensity;   % [Ndepths × Nchannels]
+        res_int.mean_intensity   = mean_intensity;     % [Ndepths × Nchannels]
         res_int.rvec_arr         = rvec_arr;
         res_int.depths_um        = depths_um;
         res_int.radius_vox       = radius;

@@ -1,4 +1,4 @@
-function [slice_av, rvec] = extractAnnotationCircularSlice(av, center, normal, radius_vox, depth_offset_vox)
+function [slice_av, rvec] = extractAnnotationCircularSlice(av, center, normal, radius_vox, depth_offset_vox, step_vox)
 % EXTRACTANNOTATIONCIRCULARSLICE  Sample a circular cross-section from a 3-D
 %   annotation volume (nearest-neighbour, suitable for integer atlas IDs).
 %
@@ -14,11 +14,18 @@ function [slice_av, rvec] = extractAnnotationCircularSlice(av, center, normal, r
 %                      positive = deeper into the brain).
 %
 %   SLICE_AV – square 2-D array of parcellation IDs sampled on a regular
-%              grid covering the disk (plus a small margin).
+%              grid of side 6 × RADIUS_VOX centred on the axis.
 %   RVEC     – coordinate vector [vox] for both image axes, centred on 0.
 %
-%   The sampling resolution is 1 atlas voxel (= 10 µm) by default, with
-%   a 5-voxel margin added beyond RADIUS_VOX on each side.
+%   STEP_VOX         – (optional) grid spacing in atlas voxels, default 1
+%                      (= 10 µm). Smaller values sample the same plane on a
+%                      finer grid, matching the full-resolution intensity.
+%
+%   The grid (extent ±3 radii, i.e. a square of side 6 × radius) comes from
+%   grinSliceGrid, shared with the intensity sampling.
+
+    if nargin < 6; step_vox = 1; end
+    normal = normal(:)' / norm(normal);
 
     % Shift centre along fibre axis to the requested depth
     center_d = center + depth_offset_vox * normal;
@@ -36,9 +43,8 @@ function [slice_av, rvec] = extractAnnotationCircularSlice(av, center, normal, r
     %------------------------------------------------------------------
     % Sampling grid in the plane
     %------------------------------------------------------------------
-    rspan = radius_vox * 2;
-    Ngrid = 2 * ceil(rspan) + 1;
-    rvec  = linspace(-rspan, rspan, Ngrid);
+    rvec  = grinSliceGrid(radius_vox, step_vox);
+    Ngrid = numel(rvec);
 
     [G1, G2] = meshgrid(rvec, rvec);                   % each Ngrid × Ngrid
 

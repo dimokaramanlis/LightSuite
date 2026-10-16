@@ -9,9 +9,9 @@ function [cf, pp] = plotGRINIntensityImages(all_results, intensity_results, chan
 %       Panels (82%) – one row per channel, one column per depth.
 %                      Each panel shows the grayscale intensity cross-section
 %                      with atlas region boundaries overlaid in white.
-%                      The within-circle median intensity is printed in the
+%                      The within-circle mean intensity is printed in the
 %                      bottom-left corner of each panel.
-%       Profile (18%) – line plot of median intensity vs depth for every
+%       Profile (18%) – line plot of mean intensity vs depth for every
 %                       channel of that fiber.
 %
 %   Contrast limits are shared across all fibers for the same channel
@@ -114,8 +114,10 @@ function [cf, pp] = plotGRINIntensityImages(all_results, intensity_results, chan
         u  = cross(w, tmp); u  = u  / norm(u);
         vv = cross(w, u);   vv = vv / norm(vv);
 
-        proj  = (ptsshow - center) * w';
-        min_p = -(max(proj) + 100);
+        % atlas_pts columns are [DV AP ML] while center/normal are [AP DV ML],
+        % so the points must be reordered before projecting onto the axis.
+        proj  = (ptsshow(:, [2 1 3]) - center) * w';   % <= 0: clicks sit above the tip
+        min_p = min(min(proj), 0) - 100;
 
         n_cyl  = 30;
         theta  = linspace(0, 2*pi, n_cyl);
@@ -145,8 +147,8 @@ function [cf, pp] = plotGRINIntensityImages(all_results, intensity_results, chan
     maxint = 0;
     for ifiber = 1:Nfibers
         int_res    = intensity_results{ifiber};
-        currmin = min(int_res.median_intensity,[],'all');
-        currmax = max(int_res.median_intensity,[],'all');
+        currmin = min(int_res.mean_intensity,[],'all');
+        currmax = max(int_res.mean_intensity,[],'all');
         maxint = max(maxint,currmax);
         minint = min(minint,currmin);
     end
@@ -157,7 +159,7 @@ function [cf, pp] = plotGRINIntensityImages(all_results, intensity_results, chan
         int_res    = intensity_results{ifiber};
         depths_um  = int_res.depths_um;
         radius_vox = int_res.radius_vox;
-        med_int    = int_res.median_intensity;   % [Ndepths × Nchannels]
+        mean_int   = int_res.mean_intensity;     % [Ndepths × Nchannels]
         cx = radius_vox * cos(t_circ);
         cy = radius_vox * sin(t_circ);
 
@@ -186,22 +188,30 @@ function [cf, pp] = plotGRINIntensityImages(all_results, intensity_results, chan
                 end
 
                 % Atlas region boundary overlay
-                ann = double(all_results{ifiber}.slices_av{id});
+                % Prefer the annotation sampled on the intensity grid itself
+                % (full resolution); else the 10 µm atlas slice.
+                if isfield(int_res, 'slices_av') && numel(int_res.slices_av) == Ndepths
+                    ann     = double(int_res.slices_av{id});
+                    rvec_av = rvec;
+                else
+                    ann     = double(all_results{ifiber}.slices_av{id});
+                    rvec_av = all_results{ifiber}.rvec_arr{id};
+                end
                 bnd = false(size(ann));
                 bnd(1:end-1, :) = bnd(1:end-1,:) | (ann(1:end-1,:) ~= ann(2:end,:));
                 bnd(2:end,   :) = bnd(2:end,:)   | (ann(1:end-1,:) ~= ann(2:end,:));
                 bnd(:, 1:end-1) = bnd(:,1:end-1) | (ann(:,1:end-1) ~= ann(:,2:end));
                 bnd(:, 2:end  ) = bnd(:,2:end)   | (ann(:,1:end-1) ~= ann(:,2:end));
                 bnd = bnd & (ann > 0);
-                h_bnd = imagesc(ax, rvec, rvec, ones([size(bnd), 3]));
+                h_bnd = imagesc(ax, rvec_av, rvec_av, ones([size(bnd), 3]));
                 h_bnd.AlphaData = double(bnd) * 0.55;
 
                 % Fiber boundary circle
                 line(ax, cx, cy, 'Color', fiber_cmap(ifiber,:), ...
                     'LineWidth', 1.5, 'LineStyle', '--');
 
-                % Median intensity annotation (bottom-left corner)
-                text(ax, 0.05, 0.05, sprintf('%.0f', med_int(id, ichan)), ...
+                % Mean intensity annotation (bottom-left corner)
+                text(ax, 0.05, 0.05, sprintf('%.0f', mean_int(id, ichan)), ...
                     'Units', 'normalized', 'FontSize', 7, 'Color', 'w', ...
                     'FontWeight', 'bold', 'VerticalAlignment', 'bottom');
 
@@ -221,7 +231,7 @@ function [cf, pp] = plotGRINIntensityImages(all_results, intensity_results, chan
         hold(ax_p, 'on');
         for ichan = 1:Nchannels
             col = chan_colors(mod(ichan - 1, size(chan_colors,1)) + 1, :);
-            plot(ax_p, med_int(:, ichan), depths_um, ...
+            plot(ax_p, mean_int(:, ichan), depths_um, ...
                 '-o', 'Color', col, 'LineWidth', 1.5, 'MarkerSize', 4, ...
                 'DisplayName', channames{ichan});
         end
@@ -229,7 +239,7 @@ function [cf, pp] = plotGRINIntensityImages(all_results, intensity_results, chan
         ax_p.YLim    = [depths_um(1) - 10, depths_um(end) + 10];
         ax_p.XLim    =[minint maxint];
         ax_p.FontSize = 7;
-        xlabel(ax_p, 'Median', 'FontSize', 7);
+        xlabel(ax_p, 'Mean', 'FontSize', 7);
         ylabel(ax_p, 'Depth (µm)', 'FontSize', 7);
         title(ax_p, sprintf('Fiber %d', ifiber), 'FontSize', 8);
         box(ax_p, 'off');

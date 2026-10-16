@@ -145,9 +145,18 @@ This tool localizes a cylindrical implant and reports the atlas regions beneath 
 | `grin_fiber_points.mat` | Raw clicked points per fiber (`all_points`) |
 | `grin_fiber<N>_atlas.mat` | Per-fiber fit: `center_vox`, `normal_vox`, `radius_vox`, `atlas_pts`, `depths_um`, `slices_av`, `rvec_arr`, `fit_info` |
 
-**Depth range.** Parcellation labels and fluorescence are sampled on square segments perpendicular to the axis, twice the nominal implant radius across, at `depths_um = -400:100:400` µm (`grinTracingDepths`). 0 is the lens bottom face and positive goes deeper; the **negative** offsets run back up the track toward the entry, a check that the fitted axis follows the visible fiber. Figures draw only the non-negative depths; the negative ones are stored.
+**Depth range.** Parcellation labels and fluorescence are sampled on square segments perpendicular to the axis, six times the nominal implant radius across (±3 radii, `grinSliceGrid`), at `depths_um = -400:100:400` µm (`grinTracingDepths`). 0 is the lens bottom face and positive goes deeper; the **negative** offsets run back up the track toward the entry, a check that the fitted axis follows the visible fiber. Figures draw only the non-negative depths; the negative ones are stored.
 
-Regenerate the figures from disk with `plotGRINTracingResults(savepath)`. The companion intensity figure is produced automatically when a `volume_registered/` folder is present.
+Regenerate the figures from disk with `plotGRINTracingResults(savepath)`. The companion intensity figure samples the **raw, full-resolution data** by default (grid spacing = raw pixel size), so single cells are visible when you zoom into a panel. Each grid point is mapped atlas → raw pixel through the exact inverse of the cell transform (`atlasPointsToSample`, b-spline included), and the raw stack is streamed once per fiber, reading only the crop of each plane that is needed. The parcellation is sampled on the same fine grid, so both figures (atlas regions and intensity boundaries) are at that resolution; the labels themselves are still the 10 µm atlas. The slices are stored in the fiber files and reused on later calls, so the raw data is read once.
+
+```matlab
+plotGRINTracingResults(savepath)                              % full resolution (default)
+plotGRINTracingResults(savepath, 'PixelSize', 2, 'Channels', 2)
+plotGRINTracingResults(savepath, 'DataFolder', 'E:\moved\raw') % raw data moved
+plotGRINTracingResults(savepath, 'Resolution', 'registered')  % 20 µm volume_registered/
+```
+
+If the raw data cannot be found, or with `'Resolution','registered'`, the slices come from `volume_registered/` (20 µm data on the 10 µm atlas grid), as before.
 
 That call also **writes the sampled cross-sections back into each `grin_fiber<N>_atlas.mat`**, so they live alongside the fit they came from:
 
@@ -156,7 +165,11 @@ That call also **writes the sampled cross-sections back into each `grin_fiber<N>
 | `depths_um`, `slices_av`, `rvec_arr` | Atlas cross-sections at the full depth range, re-sampled if the file was saved at a narrower one |
 | `slices_int` | 1×Ndepths cell, each `[Ngrid × Ngrid × Nchan]` single — the fluorescence disc at that depth |
 | `median_intensity` | `[Ndepths × Nchan]` median inside the implant disc |
+| `mean_intensity` | `[Ndepths × Nchan]` mean inside the implant disc (plotted in the intensity figure) |
+| `rvec_int` | 1×Ndepths cell, grid of `slices_int` in 10 µm atlas voxels (finer than `rvec_arr` at full resolution) |
+| `slices_av_int` | 1×Ndepths cell, parcellation on the `slices_int` grid (full resolution only) |
 | `chan_names` | 1×Nchan channel names, labelling the third dimension of `slices_int` |
+| `int_meta` | What `slices_int` was sampled from (source, pixel size, channels, fit); the cache key |
 
 The file is rewritten in place, atomically: fit fields are never touched and other variables survive. A file is rewritten only when its depths were re-sampled or intensity was added, so files from an older `annotateGRINLens` (5 depths, no intensity) are upgraded the first time `plotGRINTracingResults` runs on the folder.
 ### How the axis is fitted

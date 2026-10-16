@@ -10,7 +10,7 @@ function results = grinKeepDepths(results, keepfun)
 %
 %   Every field indexed by depth is subset to the kept depths: the cell arrays
 %   slices_av, rvec_arr and slices_int, and the rows of the [Ndepths×Nchan]
-%   matrix median_intensity.  All other fields (the fit, atlas_pts, ...) are
+%   matrices median_intensity and mean_intensity.  All other fields (the fit, atlas_pts, ...) are
 %   passed through untouched.  Used by the plotting functions to show only the
 %   depths that should appear in the figures while the saved files keep the
 %   full range.
@@ -28,8 +28,10 @@ function results = grinKeepDepths(results, keepfun)
                 r.(f{1}) = r.(f{1})(keep);
             end
         end
-        if isfield(r, 'median_intensity') && size(r.median_intensity, 1) == nd
-            r.median_intensity = r.median_intensity(keep, :);
+        for f = {'median_intensity', 'mean_intensity'}
+            if isfield(r, f{1}) && size(r.(f{1}), 1) == nd
+                r.(f{1}) = r.(f{1})(keep, :);
+            end
         end
 
         results{k} = r;
