@@ -44,9 +44,6 @@ avdown  = imresize3(av, downfac_reg, "Method", "nearest");
 
 Ratlas  = imref3d(size(tvdown));
 Rvolume = imref3d(size(volume), 1, regopts.pxsizes(1), 1);
-yworld  = [Rvolume.YWorldLimits(1)-regopts.pxsizes(1)*nfac, Rvolume.YWorldLimits(2)+nfac*regopts.pxsizes(1)];
-ypix    = ceil(range(yworld));
-Rout    = imref3d([ypix, size(tvdown, [2 3])], Rvolume.XWorldLimits, yworld,Rvolume.ZWorldLimits);
 %--------------------------------------------------------------------------
 % Check if the cutting angle data file exists
 tformuse        = regopts.tformrigid_allen_to_samp_20um;
@@ -59,6 +56,8 @@ if exist(angle_data_path, 'file')
     cutting_angle_data = data.cutting_angle_data;
     tformuse = applyAngleToTransform(tformuse, Ratlas, cutting_angle_data);
 end
+% same output view as matchControlPointsInSlices (covers the whole atlas in AP)
+[Rout, yworld, ypix, nlow] = getSliceAtlasOutputRef(Rvolume, Ratlas, tformuse, nfac, regopts.pxsizes(1));
 %--------------------------------------------------------------------------
 
 [tvnew, rnew]  = imwarp(tvdown, Ratlas, tformuse, 'linear',  'OutputView', Rout);
@@ -74,7 +73,7 @@ ysamplevals      = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
 %=========================================================================
 % deal with missing control points
 hascp            = ~cellfun(@isempty,   atlas_cpoints);
-useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
+useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp)) + nlow; % saved in legacy AP range
 if nnz(hascp) > 3
     % refine remaining
     % pfit      = polyfit(atlasinds(hascp), useratlasinds, 1);
@@ -83,6 +82,7 @@ if nnz(hascp) > 3
     atlasinds = round(ivals);
 end
 atlasinds(hascp) = useratlasinds;
+atlasinds        = min(max(round(atlasinds), 1), ypix);
 %=========================================================================
 % for every slice, we fit an affine transform from atlas to the slice
 % if no control points are available, we use only image info

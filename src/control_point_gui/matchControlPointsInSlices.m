@@ -42,9 +42,6 @@ nfac    = ceil(opts.extentfactor * 7.5/opts.pxsizes(1));
 % --- Setup spatial referencing ---
 Ratlas  = imref3d(size(gui_data.tv));
 Rvolume = imref3d(size(gui_data.volume, 1:3), 1, opts.pxsizes(1), 1);
-yworld  = [Rvolume.YWorldLimits(1)-opts.pxsizes(1)*nfac, Rvolume.YWorldLimits(2)+nfac*opts.pxsizes(1)];
-ypix    = ceil(range(yworld));
-Rout    = imref3d([ypix, size(gui_data.tv, [2 3])], Rvolume.XWorldLimits, yworld,Rvolume.ZWorldLimits);
 tformuse =  opts.tformrigid_allen_to_samp_20um;
 %-------------------------------------------------------------------------
 % Define path to the saved cutting angle data
@@ -64,6 +61,8 @@ if exist(angle_data_path, 'file')
     cutting_angle_data = data.cutting_angle_data;
     tformuse = applyAngleToTransform(tformuse, Ratlas, cutting_angle_data);
 end
+% output view covers the whole atlas in AP, so wrong AP placement can be fixed
+[Rout, yworld, ypix, gui_data.nlow] = getSliceAtlasOutputRef(Rvolume, Ratlas, tformuse, nfac, opts.pxsizes(1));
 gui_data.tv = imwarp(gui_data.tv, Ratlas, tformuse, 'linear',  'OutputView', Rout);
 gui_data.av = imwarp(gui_data.av, Ratlas, tformuse, 'nearest', 'OutputView', Rout);
 %-------------------------------------------------------------------------
@@ -100,6 +99,8 @@ if exist(auto_ccf_alignment_fn,'file')
     oldtform = load(auto_ccf_alignment_fn);
     gui_data.histology_control_points = pad_to_4col(oldtform.histology_control_points);
     gui_data.atlas_control_points     = pad_to_4col(oldtform.atlas_control_points);
+    % saved atlas slice indices use the legacy AP range, shift to current
+    gui_data.atlas_control_points     = shift_atlas_slice(gui_data.atlas_control_points, gui_data.nlow);
 else
     % Initialize alignment control points: [slice, row, col, timestamp]
     gui_data.histology_control_points = repmat({zeros(0,4)}, gui_data.Nslices, 1);
@@ -154,7 +155,7 @@ gui_data.atlas_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth'
 set(gui_data.atlas_grid,'Visible','off')
 
 title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
-        gui_data.atlas_slice/gui_data.slicewidth));
+        (gui_data.atlas_slice - gui_data.nlow)/gui_data.slicewidth));
 
 gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,...
     'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'g');
@@ -188,6 +189,7 @@ msgbox( ...
     'space: toggle alignment overlay visibility', ...
     'g: toggle alignment grid', ...
     'c: clear reference points', ...
+    'scroll (shift: x10): move atlas slice in AP', ...
     '1-3 or 0: toggle channels (0 for all)',...
     's: save'}, ...
     'Controls',CreateStruct);
@@ -264,7 +266,7 @@ switch eventdata.Key
     % s: save
     case 's'
         histology_control_points = gui_data.histology_control_points;
-        atlas_control_points     = gui_data.atlas_control_points;
+        atlas_control_points     = shift_atlas_slice(gui_data.atlas_control_points, -gui_data.nlow);
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
         save(save_fn,'atlas_control_points', 'histology_control_points');
         disp(['Saved ' save_fn]);
@@ -514,9 +516,13 @@ function scroll_atlas_slice(gui_fig,eventdata)
 % Get guidata
 gui_data = guidata(gui_fig);
 
-% Move slice point
+% Move slice point (hold shift for coarse steps through the full AP range)
+scrollstep = 1;
+if any(strcmp(get(gui_fig, 'CurrentModifier'), 'shift'))
+    scrollstep = 10;
+end
 gui_data.atlas_slice = ...
-    gui_data.atlas_slice + eventdata.VerticalScrollCount;
+    gui_data.atlas_slice + scrollstep*eventdata.VerticalScrollCount;
 
 gui_data.atlas_slice = max(gui_data.atlas_slice, 1);
 gui_data.atlas_slice = min(gui_data.atlas_slice, size(gui_data.tv, 1));
@@ -543,7 +549,7 @@ switch user_confirm
         atlas2histology_tform = ...
             gui_data.histology_ccf_manual_alignment;
         histology_control_points = gui_data.histology_control_points;
-        atlas_control_points     = gui_data.atlas_control_points;
+        atlas_control_points     = shift_atlas_slice(gui_data.atlas_control_points, -gui_data.nlow);
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
 
         save(save_fn,'atlas2histology_tform', 'atlas_control_points', 'histology_control_points');
@@ -575,7 +581,7 @@ curr_atlas = adapthisteq(curr_atlas);
 set(gui_data.atlas_im_h,'CData', curr_atlas);
 
 title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
-        sluse/gui_data.slicewidth));
+        (sluse - gui_data.nlow)/gui_data.slicewidth));
 
 % Upload gui_data then refresh markers
 guidata(gui_fig, gui_data);
@@ -590,6 +596,16 @@ function pts_cell = pad_to_4col(pts_cell)
 for i = 1:numel(pts_cell)
     if size(pts_cell{i}, 2) == 3
         pts_cell{i} = [pts_cell{i}, nan(size(pts_cell{i},1), 1)];
+    end
+end
+end
+
+
+function pts_cell = shift_atlas_slice(pts_cell, shiftval)
+% Shift the atlas slice index (first column) of all control points.
+for i = 1:numel(pts_cell)
+    if ~isempty(pts_cell{i})
+        pts_cell{i}(:, 1) = pts_cell{i}(:, 1) + shiftval;
     end
 end
 end
