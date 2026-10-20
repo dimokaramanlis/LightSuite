@@ -42,6 +42,8 @@ volload          = 255 * (volload - minvals)./(maxvals - minvals);
 gui_data.volume  = uint8(volload);
 gui_data.num_user_slices = size(gui_data.volume, 1);
 gui_data.colsuse = 1:size(gui_data.volume, 4);
+% Slice centers predicted by the automated alignment (GUI coords: AP, ML, DV)
+gui_data.pred_slice_points = predict_slice_points(opts, size(gui_data.volume, 1:3));
 % --- 2. GUI Setup ---
 screen_size_px = get(0,'screensize');
 gui_aspect_ratio = 1.7;
@@ -229,6 +231,71 @@ function mean_view = get_mean_view(gui_data)
 end
 %% MODIFICATION END
 
+function pts = predict_slice_points(opts, volsize)
+% Centers of sample slices mapped to the atlas with the automated rigid
+% alignment. Returns [] if the alignment is not available.
+pts = [];
+if ~isfield(opts, 'tformrigid_allen_to_samp_20um') || ~isfield(opts, 'pxsizes')
+    return;
+end
+Nslices    = volsize(1);
+Rvolume    = imref3d(volsize, 1, opts.pxsizes(1), 1);
+ysamp      = Rvolume.YWorldLimits(1) + ((1:Nslices)' - 0.5) * opts.pxsizes(1);
+sampcoords = [repmat(mean(Rvolume.XWorldLimits), Nslices, 1), ysamp, ...
+    repmat(mean(Rvolume.ZWorldLimits), Nslices, 1)];
+atlcoords  = opts.tformrigid_allen_to_samp_20um.transformPointsInverse(sampcoords);
+% atlas world (x: DV, y: AP, z: ML) -> GUI (AP, ML, DV)
+pts        = atlcoords(:, [2 3 1]);
+end
+
+function pt = predict_slice_point(gui_data, slice_idx)
+% Suggest the plane position of an unsaved slice, as in
+% matchControlPointsInSlices: shift (1 saved), linear fit (2-3 saved) or
+% interpolation (>3 saved) of the saved positions along the current normal,
+% using the automated alignment as the baseline.
+cam_vector = get_camera_vector(gui_data);
+is_saved   = all(~isnan(gui_data.saved_slice_points), 2);
+has_pred   = ~isempty(gui_data.pred_slice_points);
+nsaved     = nnz(is_saved);
+
+if has_pred
+    base_pts = gui_data.pred_slice_points;
+else
+    base_pts = repmat(gui_data.atlas_slice_point, gui_data.num_user_slices, 1);
+end
+pt = base_pts(slice_idx, :);
+if nsaved == 0
+    if ~has_pred
+        pt = gui_data.atlas_slice_point;
+    end
+    return;
+end
+
+dbase  = base_pts * cam_vector';
+dsaved = gui_data.saved_slice_points(is_saved, :) * cam_vector';
+isaved = find(is_saved);
+
+if nsaved == 1
+    if has_pred
+        dnew = dbase(slice_idx) - dbase(isaved) + dsaved;
+    else
+        dnew = dsaved;
+    end
+elseif nsaved <= 3
+    if has_pred
+        pfit = polyfit(dbase(isaved), dsaved, 1);
+        dnew = polyval(pfit, dbase(slice_idx));
+    else
+        pfit = polyfit(isaved, dsaved, 1);
+        dnew = polyval(pfit, slice_idx);
+    end
+else
+    dnew = interp1(isaved, dsaved, slice_idx, 'linear', 'extrap');
+end
+% move the base point along the normal so that it lies on the new plane
+pt = pt + (dnew - pt * cam_vector') * cam_vector;
+end
+
 function update_stats_display(gui_fig)
     gui_data = guidata(gui_fig);
     is_saved = ~cellfun(@(v) all(isnan(v)), gui_data.saved_views);
@@ -275,7 +342,11 @@ function update_user_slice_view(gui_fig)
         
         % Set the atlas view to the predicted mean angle
         view(gui_data.atlas_ax, mean_view);
-        
+
+        % Suggest the slice plane position from saved slices / alignment
+        gui_data.atlas_slice_point = predict_slice_point(gui_data, slice_idx);
+        guidata(gui_fig, gui_data);
+
         % Update title to show "Unsaved"
         gui_data.user_slice_title.String = sprintf('Unsaved Slice %d', slice_idx);
         gui_data.user_slice_title.Color = 'k';
