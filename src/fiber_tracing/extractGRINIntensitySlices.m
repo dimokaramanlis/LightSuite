@@ -61,7 +61,7 @@ function [intensity_results, channames] = extractGRINIntensitySlices(savepath, a
     channames = cell(1, Nchannels);
     for k = 1:Nchannels
         tok = regexp(flist(k).name, '^chan\d+_(.+)\.tiff?$', 'tokens', 'once');
-        channames{k} = getOr(tok, 1, sprintf('ch%d', k));
+        if isempty(tok); channames{k} = sprintf('ch%d', k); else; channames{k} = tok{1}; end
     end
 
     % Volume shape from first channel
@@ -79,7 +79,8 @@ function [intensity_results, channames] = extractGRINIntensitySlices(savepath, a
     tparams_file = fullfile(savepath, 'transform_params.mat');
 
     if exist(regopts_file, 'file')
-        ro = load(regopts_file, 'opts');
+        ro = load(regopts_file);    % slice-module regopts are saved unwrapped
+        if isfield(ro, 'atlasaplims'); ro.opts = ro; end
         if isfield(ro, 'opts') && isfield(ro.opts, 'atlasaplims')
             ap_offset = ro.opts.atlasaplims(1) - 1;
         end

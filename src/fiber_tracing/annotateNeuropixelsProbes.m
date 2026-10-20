@@ -53,30 +53,14 @@ GROUP_COLORS = [ ...
 %----------------------------------------------------------------------
 % 1. Load registration data
 %----------------------------------------------------------------------
-optsfile = fullfile(savepath, 'regopts.mat');
-trfile   = fullfile(savepath, 'transform_params.mat');
-if ~exist(optsfile, 'file') || ~exist(trfile, 'file')
-    error('annotateNeuropixelsProbes: regopts.mat or transform_params.mat not found in %s', savepath);
-end
-
-opts_data = load(optsfile);
-regopts   = opts_data.opts;
-trstruct  = load(trfile);
-
 % Locate the volume to trace on. Defaults to the registration channel, but
 % the 'Channel' / 'VolumePath' options let you annotate on a different channel
 % (the implant may be labelled outside the registration channel). All channels
 % share the same 20 µm registration grid, so the atlas transform is unchanged.
-regvolpath = resolveTracingVolumePath(savepath, regopts, ...
+% Works for light-sheet and slice-module brains (loadTracingRegistration).
+[volperm, trstruct, regopts, regvolname] = loadTracingRegistration(savepath, ...
     p.Results.Channel, p.Results.VolumePath);
-[~, rvname, rvext] = fileparts(regvolpath);
-
-fprintf('Loading volume from %s ...\n', regvolpath);
-volraw = readDownStack(regvolpath);
-
-% Permute to atlas orientation (same convention as the registration pipeline)
-how_to_perm = trstruct.how_to_perm;
-volperm     = permuteBrainVolume(volraw, how_to_perm);
+how_to_perm = getOr(trstruct, 'how_to_perm', [1 2 3]);
 
 % Normalise to uint8 for display
 irand   = randperm(numel(volperm), min(numel(volperm), 1e5));
@@ -85,8 +69,6 @@ voldisp  = uint8(255*(single(volperm) - limsuse(1))/range(limsuse));
 
 % factv   = 255 / single(quantile(single(volperm(irand)), 0.999));
 % voldisp = uint8(min(single(volperm) * factv, 255));
-
-fprintf('Volume size (permuted): %d x %d x %d\n', size(voldisp,1), size(voldisp,2), size(voldisp,3));
 
 %----------------------------------------------------------------------
 % 2. Initialise GUI state
@@ -99,10 +81,10 @@ gui_data.savepath      = savepath;
 gui_data.trstruct      = trstruct;
 gui_data.regopts       = regopts;
 gui_data.vol           = voldisp;
-gui_data.regvolname    = [rvname rvext];
+gui_data.regvolname    = regvolname;
 gui_data.how_to_perm   = how_to_perm;
 gui_data.registres     = regopts.registres;
-gui_data.ori_pxsize    = trstruct.ori_pxsize;
+gui_data.ori_pxsize    = getOr(trstruct, 'ori_pxsize', []);
 gui_data.slice_dim     = SLICE_DIM;
 gui_data.curr_slice    = round(size(voldisp, SLICE_DIM) / 2);
 gui_data.active_group  = 1;
@@ -415,7 +397,7 @@ function fit_and_show_probes(gui_fig)
 
     fprintf('Transforming %d points to atlas space...\n', size(all_pts, 1));
     atlas_all = registrationPointsToAtlas(all_pts, gui_data.trstruct, ...
-        gui_data.registres, gui_data.savepath);
+        gui_data.registres, gui_data.savepath, size(gui_data.vol));
 
     ends   = cumsum(counts(:)');
     starts = [1, ends(1:end-1) + 1];

@@ -194,19 +194,32 @@ function [cf, cf_intensity, pp, resout] = plotGRINTracingResults(savepath, varar
     intensity_added    = false(1, numel(all_results));
     int_source         = '';
 
+    int_label          = '';
+
     if strcmpi(opt.Resolution, 'full')
-        % pixel size / channels the raw sampler would use, for the cache key
-        ro   = load(fullfile(savepath, 'regopts.mat'), 'opts');
-        tp   = load(fullfile(savepath, 'transform_params.mat'), 'ori_pxsize');
-        pxum = opt.PixelSize;
-        if isempty(pxum); pxum = min(tp.ori_pxsize); end
-        chans = opt.Channels;
-        if isempty(chans); chans = 1:getOr(ro.opts, 'Nchans', 1); end
+        % pixel size / channels the full-res sampler would use, for the cache
+        % key. Slice-module brains are sampled from their aligned sections
+        % (volume_aligned/, px_process) instead of a raw light-sheet stack.
+        tp       = load(fullfile(savepath, 'transform_params.mat'));
+        is_slice = isSliceRegistration(tp);
+        pxum     = opt.PixelSize;
+        chans    = opt.Channels;
+        if is_slice
+            si = load(fullfile(savepath, 'sliceinfo.mat'), 'sliceinfo');
+            if isempty(pxum); pxum = si.sliceinfo.px_process; end
+            if isempty(chans); chans = 1:numel(si.sliceinfo.channames); end
+            src = 'sections';
+        else
+            ro = load(fullfile(savepath, 'regopts.mat'), 'opts');
+            if isempty(pxum); pxum = min(tp.ori_pxsize); end
+            if isempty(chans); chans = 1:getOr(ro.opts, 'Nchans', 1); end
+            src = 'raw';
+        end
 
         metas = cell(1, numel(all_results));
         for k = 1:numel(all_results)
             r = all_results{k};
-            metas{k} = struct('source', 'raw', 'pxsize_um', pxum, ...
+            metas{k} = struct('source', src, 'pxsize_um', pxum, ...
                 'channels', chans(:)', 'center_vox', r.center_vox(:)', ...
                 'normal_vox', r.normal_vox(:)', 'radius_vox', r.radius_vox, ...
                 'depths_um', r.depths_um(:)', 'grid', grinSliceGrid(r.radius_vox, pxum / 10));
@@ -228,17 +241,25 @@ function [cf, cf_intensity, pp, resout] = plotGRINTracingResults(savepath, varar
             end
             channames_int = all_results{1}.chan_names;
             int_source    = 'raw';
+            int_label     = src;
         else
-            fprintf('Extracting full-resolution intensity slices from the raw data ...\n');
+            fprintf('Extracting full-resolution intensity slices from the %s data ...\n', src);
             try
                 if isempty(av)   % annotation on the same fine grid needs the volume
                     fprintf('Loading annotation volume ...\n');
                     av = niftiread(av_file);
                 end
-                [intensity_results, channames_int] = extractGRINRawIntensitySlices( ...
-                    savepath, all_results, 'PixelSize', pxum, 'Channels', chans, ...
-                    'DataFolder', opt.DataFolder, 'Annotation', av);
+                if is_slice
+                    [intensity_results, channames_int] = extractGRINSliceIntensitySlices( ...
+                        savepath, all_results, 'PixelSize', pxum, 'Channels', chans, ...
+                        'Annotation', av);
+                else
+                    [intensity_results, channames_int] = extractGRINRawIntensitySlices( ...
+                        savepath, all_results, 'PixelSize', pxum, 'Channels', chans, ...
+                        'DataFolder', opt.DataFolder, 'Annotation', av);
+                end
                 int_source      = 'raw';
+                int_label       = src;
                 intensity_added = true(1, numel(all_results));
                 for k = 1:numel(all_results)
                     all_results{k}.int_meta = metas{k};
@@ -258,6 +279,7 @@ function [cf, cf_intensity, pp, resout] = plotGRINTracingResults(savepath, varar
                 [intensity_results, channames_int] = ...
                     extractGRINIntensitySlices(savepath, all_results);
                 int_source      = 'registered';
+                int_label       = 'registered';
                 intensity_added = true(1, numel(all_results));
                 for k = 1:numel(all_results)
                     all_results{k}.int_meta = struct('source', 'registered');
@@ -310,7 +332,7 @@ function [cf, cf_intensity, pp, resout] = plotGRINTracingResults(savepath, varar
             plot_results, intensity_results, channames_int);
         if ~isempty(cf_intensity)
             cf_intensity.Name = sprintf('GRIN Intensity Profiles (%s) – %s', ...
-                int_source, savepath);
+                int_label, savepath);
         end
     end
 

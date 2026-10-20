@@ -31,6 +31,20 @@ function atlas_pts = registrationPointsToAtlas(pts_disp, trstruct, registres, sa
 %               returns. ATLAS_PTS(:, [2 1 3]) gives [AP DV ML] voxel
 %               coordinates suitable for indexing annotation_10.nii.gz.
 
+    %------------------------------------------------------------------
+    % Slice-module brains: the display volume is volume_registered/ (atlas
+    % space, AP cropped at atlasaplims) block-averaged by ds, with dims
+    % [AP DV ML] (see loadTracingRegistration). Display voxel i spans
+    % registered voxels (i-1)*ds+1 .. i*ds, centred at (i-0.5)*ds + 0.5.
+    %------------------------------------------------------------------
+    if isSliceRegistration(trstruct)
+        ds  = registres / trstruct.atlasres;
+        reg = (pts_disp - 0.5) * ds + 0.5;                 % [AP DV ML], cropped
+        reg(:, 1) = reg(:, 1) + trstruct.atlasaplims(1) - 1;
+        atlas_pts = reg(:, [2 1 3]);                       % coreTransform order
+        return;
+    end
+
     htp     = trstruct.how_to_perm;
     absperm = abs(htp);
 
