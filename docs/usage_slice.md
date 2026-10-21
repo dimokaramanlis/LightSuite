@@ -70,10 +70,11 @@ Because slices may be loaded out of order or incorrectly oriented, `SliceOrderEd
 | **f** | Flip current slice horizontally |
 | **o** | Toggle slice as excluded (removes from final stack) |
 | **Enter** | Move current slice to a new position (prompts for index) |
+| **m** | Show / hide the montage of all slices (click a tile to show it, drag it onto another tile to move the slice) |
 | **s** | Save ordering decisions |
 | **Escape** | Close the GUI |
 
-**Output:** `volume_for_ordering_processing_decisions.txt` — a table recording the new order, flip state, and exclusion flags for each slice.
+**Output:** `volume_for_ordering_processing_decisions.txt` — a table recording the new order, flip state, and exclusion flags for each slice. With the montage open, saving also writes a picture of it, `slice_order_montage.png`.
 
 ---
 

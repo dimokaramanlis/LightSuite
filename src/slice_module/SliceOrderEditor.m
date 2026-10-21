@@ -7,8 +7,12 @@ function SliceOrderEditor(optionalVolumePath)
 %   f              flip current slice left-right
 %   o              exclude / restore current slice
 %   c              edit the centering crop rectangle (if available)
+%   m              show / hide the montage of all slices
 %   s              save decisions to file
 %   Esc            prompt to save and close
+%
+% In the montage, click a tile to show that slice, or drag it onto another
+% tile to move the slice there.
 
     % --- Initial Setup ---
     inputFileFullPath = '';
@@ -74,6 +78,20 @@ function SliceOrderEditor(optionalVolumePath)
     gui_data.hasCropSugg                      = false;
     gui_data.rectHandle                       = [];
     gui_data.inCropEdit                       = false;
+    % montage window (its code is at the end of this file)
+    gui_data.showMontage                      = true;   % open the montage at start
+    gui_data.montageColumns                   = 8;
+    gui_data.montageThumbWidth                = 150;    % tile width in pixels
+    gui_data.montageFig                       = [];
+    gui_data.montageAxes                      = [];
+    gui_data.montageImage                     = [];
+    gui_data.montageHighlight                 = [];
+    gui_data.montageTarget                    = [];     % drop target while dragging
+    gui_data.montageLabels                    = [];
+    gui_data.montageCrops                     = [];     % crop rectangle on each tile
+    gui_data.montageMarks                     = [];     % red crosses on excluded slices
+    gui_data.montageThumbs                    = {};
+    gui_data.dragFromPosition                 = [];
 
     load_processing_decisions();
 
@@ -89,6 +107,7 @@ function SliceOrderEditor(optionalVolumePath)
 
     guidata(gui_fig, gui_data);
     display_current_slice(gui_fig);
+    build_montage_window(gui_fig);   % montage
     if gui_data.numSlices > 0
         uiwait(gui_fig);
     elseif ishandle(gui_fig)
@@ -208,15 +227,16 @@ function display_current_slice(fig)
         'String', orderNumStr);
 
     if gui_data.hasCropSugg
-        key_hint = 'Keys: Nav = Left/Right | Reorder = Enter | Crop = c | Save = s';
+        key_hint = 'Keys: Nav = Left/Right | Reorder = Enter | Crop = c | Montage = m | Save = s';
     else
-        key_hint = 'Keys: Nav = Left/Right | Reorder = Enter | Save = s';
+        key_hint = 'Keys: Nav = Left/Right | Reorder = Enter | Montage = m | Save = s';
     end
     title_str = {sprintf('Slice at Order Position: %d/%d (Original Index: %d) - %s', ...
                          gui_data.currentDisplayPosition, gui_data.numSlices, ...
                          originalSliceIdx, status_str), key_hint};
     set(gui_data.titleHandle, 'String', title_str);
     guidata(fig, gui_data);
+    update_montage_highlight(fig);   % montage
 end
 
 % ======================================================================= %
@@ -227,6 +247,7 @@ function callback_keypress(fig, eventdata)
     if gui_data.inCropEdit; return; end  % block navigation while editing a rectangle
 
     originalSliceIdx = gui_data.displaySequenceOriginalIndices(gui_data.currentDisplayPosition);
+    refresh_tiles = false;   % montage: f and o change the tile
     switch eventdata.Key
         case 'leftarrow'
             gui_data.currentDisplayPosition = max(1, gui_data.currentDisplayPosition - 1);
@@ -236,12 +257,16 @@ function callback_keypress(fig, eventdata)
             if gui_data.flipState(originalSliceIdx) ~= -1
                 gui_data.flipState(originalSliceIdx) = ~gui_data.flipState(originalSliceIdx);
             end
+            refresh_tiles = true;
         case 'o'
             if gui_data.flipState(originalSliceIdx) == -1
                 gui_data.flipState(originalSliceIdx) = 0;
             else
                 gui_data.flipState(originalSliceIdx) = -1;
             end
+            refresh_tiles = true;
+        case 'm'
+            toggle_montage_window(fig); return;   % montage
         case 'c'
             if gui_data.hasCropSugg && ~isempty(gui_data.cropSugg)
                 guidata(fig, gui_data);
@@ -259,6 +284,7 @@ function callback_keypress(fig, eventdata)
     end
     guidata(fig, gui_data);
     display_current_slice(fig);
+    if refresh_tiles, refresh_montage(fig); end   % montage
 end
 
 % ======================================================================= %
@@ -349,6 +375,7 @@ function edit_crop_rectangle(fig)
     gui_data.inCropEdit = false;
     guidata(fig, gui_data);
     display_current_slice(fig);
+    refresh_montage(fig);   % montage
 end
 
 % ======================================================================= %
@@ -377,6 +404,7 @@ function reorder_slice_callback(fig)
 
     guidata(fig, gui_data);
     display_current_slice(fig);
+    refresh_montage(fig);   % montage
 end
 
 function new_order_vec = perform_move_to_position(order_vec, slice_to_move_idx, new_pos)
@@ -397,7 +425,9 @@ function callback_close_gui_request(fig)
     choice = questdlg('Save changes before closing?', 'Confirm Close', ...
         'Save & Close', 'Discard & Close', 'Cancel', 'Save & Close');
     if strcmp(choice, 'Save & Close'),  save_and_close_confirmed(fig);
-    elseif strcmp(choice, 'Discard & Close'), if ishandle(fig); delete(fig); end
+    elseif strcmp(choice, 'Discard & Close')
+        close_montage_window(fig);   % montage
+        if ishandle(fig); delete(fig); end
     end
 end
 
@@ -410,6 +440,7 @@ function save_and_close_confirmed(fig)
         errordlg(['Error saving decisions: ', ME.message], 'Save Error');
         return;
     end
+    close_montage_window(fig);   % montage
     if ishandle(fig); delete(fig); end
 end
 
@@ -433,5 +464,344 @@ function save_processing_decisions(gui_data)
         disp(['Processing decisions saved to: ', gui_data.processingDecisionsFilename]);
     catch ME_write
         rethrow(ME_write);
+    end
+    save_montage_snapshot(gui_data);   % montage
+end
+
+% ======================================================================= %
+%  Montage window: all slices in the current order, one tile each
+% ======================================================================= %
+
+function build_montage_window(fig)
+    gui_data = guidata(fig);
+    if ~gui_data.showMontage || gui_data.numSlices == 0, return; end
+
+    % thumbnails are made once and kept when the window is reopened
+    if isempty(gui_data.montageThumbs)
+        gui_data.montageThumbs = make_thumbnails(gui_data.originalSliceImages, gui_data.montageThumbWidth);
+    end
+
+    [th, tw, ~] = size(gui_data.montageThumbs{1});
+    n_cols = gui_data.montageColumns;
+    n_rows = ceil(gui_data.numSlices / n_cols);
+
+    % size the window to the montage, but keep it on screen
+    screen = get(0, 'ScreenSize');
+    win_w  = min(n_cols * tw + 40, screen(3) * 0.9);
+    win_h  = min(n_rows * th + 60, screen(4) * 0.85);
+
+    gui_data.montageFig = figure( ...
+        'Name', 'Slice Order Editor - Montage', 'NumberTitle', 'off', ...
+        'Toolbar', 'none', 'Menubar', 'none', 'Color', 'k', 'Units', 'pixels', ...
+        'Position', [40, max(60, screen(4) - win_h - 100), win_w, win_h], ...
+        'CloseRequestFcn', @(src, evt) montage_close_request(src), ...
+        'KeyPressFcn', @(src, evt) forward_key_to_main(fig, evt), ...
+        'WindowButtonDownFcn', @(src, evt) montage_button_down(fig));
+
+    gui_data.montageAxes = axes('Parent', gui_data.montageFig, ...
+        'Units', 'normalized', 'Position', [0 0 1 1], 'Color', 'k');
+    gui_data.montageImage = image(gui_data.montageAxes, zeros(n_rows*th, n_cols*tw, 3, 'uint8'));
+    axis(gui_data.montageAxes, 'image', 'off');
+    hold(gui_data.montageAxes, 'on');
+
+    % frame on the slice shown in the main window
+    gui_data.montageHighlight = rectangle('Parent', gui_data.montageAxes, ...
+        'Position', [0.5 0.5 tw th], 'EdgeColor', [1 1 0], 'LineWidth', 3);
+
+    % drop target, shown only while dragging
+    gui_data.montageTarget = rectangle('Parent', gui_data.montageAxes, ...
+        'Position', [0.5 0.5 tw th], 'EdgeColor', [0 1 1], 'LineWidth', 2, ...
+        'LineStyle', '--', 'Visible', 'off');
+
+    % one label and one crop rectangle per tile, filled in by refresh_montage
+    gui_data.montageLabels = gobjects(gui_data.numSlices, 1);
+    gui_data.montageCrops  = gobjects(gui_data.numSlices, 1);
+    for k = 1:gui_data.numSlices
+        [x0, y0] = tile_corner(k, n_cols, th, tw);
+        gui_data.montageCrops(k) = rectangle('Parent', gui_data.montageAxes, ...
+            'Position', [x0 y0 1 1], 'EdgeColor', 'y', 'LineWidth', 1, ...
+            'LineStyle', '--', 'Visible', 'off', 'HitTest', 'off');
+        gui_data.montageLabels(k) = text(gui_data.montageAxes, x0 + 4, y0 + 10, '', ...
+            'Color', [1 1 0], 'FontSize', 9, 'FontWeight', 'bold', ...
+            'BackgroundColor', [0 0 0 0.5], ...   % readable over the crop line
+            'VerticalAlignment', 'top', 'Interpreter', 'none', 'HitTest', 'off');
+    end
+
+    guidata(fig, gui_data);
+    refresh_montage(fig);
+
+    % give the keyboard back to the main window
+    if ishandle(fig), figure(fig); end
+end
+
+% ======================================================================= %
+
+function refresh_montage(fig)
+% Redraw all tiles from the current order, flips, exclusions and crops.
+    gui_data = guidata(fig);
+    if ~gui_data.showMontage || isempty(gui_data.montageFig) || ~ishandle(gui_data.montageFig)
+        return;
+    end
+
+    [th, tw, ~] = size(gui_data.montageThumbs{1});
+    n_cols = gui_data.montageColumns;
+    n_rows = ceil(gui_data.numSlices / n_cols);
+
+    canvas = zeros(n_rows * th, n_cols * tw, 3, 'uint8');
+
+    % clear the previous red crosses
+    delete(gui_data.montageMarks(ishandle(gui_data.montageMarks)));
+    gui_data.montageMarks = gobjects(0);
+
+    for pos = 1:gui_data.numSlices
+        orig_idx = gui_data.displaySequenceOriginalIndices(pos);
+        thumb    = gui_data.montageThumbs{orig_idx};
+        state    = gui_data.flipState(orig_idx);
+
+        if state == 1
+            thumb = fliplr(thumb);
+        elseif state == -1
+            thumb = uint8(single(thumb) * 0.35);   % dim excluded slices
+        end
+
+        [x0, y0] = tile_corner(pos, n_cols, th, tw);
+        canvas(y0:(y0+th-1), x0:(x0+tw-1), :) = thumb;
+
+        if state == -1
+            gui_data.montageMarks(end+1) = text(gui_data.montageAxes, ...
+                x0 + tw/2, y0 + th/2, 'X', 'Color', [1 0.2 0.2], 'FontSize', 22, ...
+                'FontWeight', 'bold', 'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'middle', 'HitTest', 'off'); %#ok<AGROW>
+        end
+
+        label = sprintf('%d [%d]', pos, orig_idx);
+        if state == 1, label = [label ' F']; end
+        set(gui_data.montageLabels(pos), 'String', label);
+
+        % the slice's crop, as in the main window (none on excluded slices)
+        rect = [];
+        if gui_data.hasCropSugg && ~isempty(gui_data.cropSugg) && state ~= -1
+            rect = tile_crop_rectangle(gui_data, orig_idx, x0, y0);
+        end
+        if isempty(rect)
+            set(gui_data.montageCrops(pos), 'Visible', 'off');
+        else
+            set(gui_data.montageCrops(pos), 'Position', rect, 'Visible', 'on');
+        end
+    end
+
+    set(gui_data.montageImage, 'CData', canvas);
+    guidata(fig, gui_data);
+    update_montage_highlight(fig);
+end
+
+% ======================================================================= %
+
+function update_montage_highlight(fig)
+% Move the yellow frame to the slice shown in the main window.
+    gui_data = guidata(fig);
+    if ~gui_data.showMontage || isempty(gui_data.montageHighlight) || ~ishandle(gui_data.montageHighlight)
+        return;
+    end
+
+    [th, tw, ~] = size(gui_data.montageThumbs{1});
+    [x0, y0] = tile_corner(gui_data.currentDisplayPosition, gui_data.montageColumns, th, tw);
+    set(gui_data.montageHighlight, 'Position', [x0 - 0.5, y0 - 0.5, tw, th]);
+end
+
+% ======================================================================= %
+
+function montage_button_down(fig)
+% A press starts a drag; montage_release decides if it was a click or a move.
+    gui_data = guidata(fig);
+    if gui_data.numSlices == 0, return; end
+    if gui_data.inCropEdit, return; end   % not while a crop is being edited
+
+    pos = position_under_cursor(gui_data);
+    if isempty(pos), return; end
+
+    gui_data.dragFromPosition = pos;
+    guidata(fig, gui_data);
+
+    set(gui_data.montageFig, ...
+        'WindowButtonMotionFcn', @(src, evt) montage_drag(fig), ...
+        'WindowButtonUpFcn',     @(src, evt) montage_release(fig));
+end
+
+function montage_drag(fig)
+    gui_data = guidata(fig);
+    if isempty(gui_data.dragFromPosition), return; end
+
+    pos = position_under_cursor(gui_data);
+    if isempty(pos) || pos == gui_data.dragFromPosition
+        set(gui_data.montageTarget, 'Visible', 'off');
+        return;
+    end
+
+    [th, tw, ~] = size(gui_data.montageThumbs{1});
+    [x0, y0] = tile_corner(pos, gui_data.montageColumns, th, tw);
+    set(gui_data.montageTarget, 'Position', [x0 - 0.5, y0 - 0.5, tw, th], 'Visible', 'on');
+end
+
+function montage_release(fig)
+    gui_data = guidata(fig);
+    from_pos = gui_data.dragFromPosition;
+    if isempty(from_pos), return; end
+
+    set(gui_data.montageFig, 'WindowButtonMotionFcn', '', 'WindowButtonUpFcn', '');
+    set(gui_data.montageTarget, 'Visible', 'off');
+    gui_data.dragFromPosition = [];
+    guidata(fig, gui_data);
+
+    to_pos = position_under_cursor(gui_data);
+
+    if isempty(to_pos) || to_pos == from_pos
+        % released on the same tile: a click, show that slice
+        gui_data.currentDisplayPosition = from_pos;
+        guidata(fig, gui_data);
+        display_current_slice(fig);
+        return;
+    end
+
+    % released on another tile: move the slice there
+    slice_to_move = gui_data.displaySequenceOriginalIndices(from_pos);
+    gui_data.displaySequenceOriginalIndices = ...
+        perform_move_to_position(gui_data.displaySequenceOriginalIndices, slice_to_move, to_pos);
+    gui_data.currentDisplayPosition = to_pos;
+    guidata(fig, gui_data);
+
+    display_current_slice(fig);
+    refresh_montage(fig);
+end
+
+% ======================================================================= %
+
+function pos = position_under_cursor(gui_data)
+% Order position under the mouse, empty if it is off the grid.
+    pos = [];
+    if isempty(gui_data.montageAxes) || ~ishandle(gui_data.montageAxes), return; end
+
+    cp = get(gui_data.montageAxes, 'CurrentPoint');
+    x  = cp(1, 1);
+    y  = cp(1, 2);
+
+    [th, tw, ~] = size(gui_data.montageThumbs{1});
+    col = floor((x - 0.5) / tw);
+    row = floor((y - 0.5) / th);
+    if col < 0 || col >= gui_data.montageColumns || row < 0, return; end
+
+    candidate = row * gui_data.montageColumns + col + 1;
+    if candidate >= 1 && candidate <= gui_data.numSlices
+        pos = candidate;
+    end
+end
+
+function [x0, y0] = tile_corner(pos, n_cols, th, tw)
+% Top-left pixel of the tile at order position pos.
+    row = floor((pos - 1) / n_cols);
+    col = mod(pos - 1, n_cols);
+    x0  = col * tw + 1;
+    y0  = row * th + 1;
+end
+
+function rect = tile_crop_rectangle(gui_data, orig_idx, x0, y0)
+% The slice's crop scaled to its tile, mirrored if the slice is flipped (as in
+% display_current_slice). Empty if the crop has no area.
+    [imgH, imgW, ~] = size(gui_data.originalSliceImages{orig_idx});
+    xmin_c = gui_data.cropSugg(orig_idx, 1);
+    xmax_c = gui_data.cropSugg(orig_idx, 2);
+    ymin_c = gui_data.cropSugg(orig_idx, 3);
+    ymax_c = gui_data.cropSugg(orig_idx, 4);
+    if gui_data.flipState(orig_idx) == 1
+        tmp    = imgW - xmax_c + 1;
+        xmax_c = imgW - xmin_c + 1;
+        xmin_c = tmp;
+    end
+    xmin_c = max(1, min(imgW, xmin_c));
+    xmax_c = max(1, min(imgW, xmax_c));
+    ymin_c = max(1, min(imgH, ymin_c));
+    ymax_c = max(1, min(imgH, ymax_c));
+
+    rect = [];
+    if xmax_c <= xmin_c || ymax_c <= ymin_c, return; end
+
+    scale = gui_data.montageThumbWidth / imgW;   % as in make_thumbnails
+    rect  = [x0 - 0.5 + (xmin_c - 0.5) * scale, y0 - 0.5 + (ymin_c - 0.5) * scale, ...
+             (xmax_c - xmin_c) * scale, (ymax_c - ymin_c) * scale];
+end
+
+function thumbs = make_thumbnails(images, target_width)
+% Resize every slice to the same width and pad them to the same height.
+    n      = numel(images);
+    scaled = cell(n, 1);
+    for k = 1:n
+        img = images{k};
+        if size(img, 3) == 1
+            img = repmat(img, 1, 1, 3);   % grayscale stacks
+        end
+        scale = target_width / size(img, 2);
+        scaled{k} = imresize(img, scale);
+    end
+
+    max_h  = max(cellfun(@(x) size(x, 1), scaled));
+    thumbs = cell(n, 1);
+    for k = 1:n
+        pad       = max_h - size(scaled{k}, 1);
+        thumbs{k} = padarray(scaled{k}, [pad 0 0], 0, 'post');
+    end
+end
+
+% ======================================================================= %
+
+function forward_key_to_main(fig, evt)
+% Keys pressed in the montage go to the main window's handler.
+    if ishandle(fig)
+        callback_keypress(fig, evt);
+    end
+end
+
+function montage_close_request(montage_fig)
+% Closing the montage leaves the editor open; m reopens it.
+    if ishandle(montage_fig), delete(montage_fig); end
+end
+
+function save_montage_snapshot(gui_data)
+% Save a picture of the montage next to the decisions file.
+    if ~isfield(gui_data, 'montageFig') || isempty(gui_data.montageFig) || ~ishandle(gui_data.montageFig)
+        disp('Montage window is closed, snapshot not saved (press m to reopen it).');
+        return;
+    end
+
+    out_dir       = fileparts(gui_data.processingDecisionsFilename);
+    snapshot_file = fullfile(out_dir, 'slice_order_montage.png');
+    try
+        exportgraphics(gui_data.montageFig, snapshot_file, ...
+            'Resolution', 120, 'BackgroundColor', 'k');
+        disp(['Montage snapshot saved to: ', snapshot_file]);
+    catch ME_snap
+        % the decisions are already saved, so only warn
+        warning('Could not save montage snapshot: %s', ME_snap.message);
+    end
+end
+
+function toggle_montage_window(fig)
+% m: close the montage if it is open, open it otherwise.
+    gui_data = guidata(fig);
+    if ~isempty(gui_data.montageFig) && ishandle(gui_data.montageFig)
+        delete(gui_data.montageFig);
+        gui_data.montageFig = [];
+        guidata(fig, gui_data);
+    else
+        gui_data.showMontage = true;   % also when it was off at start
+        guidata(fig, gui_data);
+        build_montage_window(fig);
+    end
+end
+
+function close_montage_window(fig)
+    if ~ishandle(fig), return; end
+    gui_data = guidata(fig);
+    if isfield(gui_data, 'montageFig') && ~isempty(gui_data.montageFig) && ishandle(gui_data.montageFig)
+        delete(gui_data.montageFig);
     end
 end
