@@ -38,6 +38,10 @@ function [registeredMoving, tform] = pcregisterBCPD(moving, fixed, varargin)
 %   - 'MaxIterations': Maximum number of iterations, n.
 %     Default: 100
 %
+%   - 'KernelRank': Rank of the low-rank kernel approximation (bcpd -K),
+%     used only for non-rigid types. Required by bcpd >= 0.99.
+%     Default: 100
+%
 %   - 'BCPDPath': Full path to the BCPD executable. If empty, it assumes
 %     the executable is in the current directory or system path.
 %     Default: ''
@@ -85,6 +89,7 @@ addParameter(p, 'Gamma', 10.0, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'ConvergenceTolerance', 1e-4, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'MaxIterations', 500, @(x) isnumeric(x) && isscalar(x) && x > 0 && floor(x)==x);
 addParameter(p, 'NormalizeCommon', false, @islogical);
+addParameter(p, 'KernelRank', 100, @(x) isnumeric(x) && isscalar(x) && x > 0 && floor(x)==x);
 addParameter(p, 'BCPDPath', '', @ischar);
 addParameter(p, 'Verbose', false, @islogical);
 
@@ -147,7 +152,13 @@ switch params.TransformType
         saveFlags = [saveFlags, 'Tv'];
 end
 % cmd = [cmd, '-r1 -p -f0.2 -J300 -Db,5000,0.05 -s', saveFlags];
-cmd = [cmd, '-r1 -p -Db,5000,0.05 -s', saveFlags];
+% Leading space matters: bcpd >= 0.99 rejects a fused '-Tsr-r1' argument
+cmd = [cmd, ' -r1 -p -Db,5000,0.05 -s', saveFlags];
+% bcpd >= 0.99 needs a kernel rank (-K) to interpolate a non-rigid field
+% from the downsampled points (-D) back to all points
+if contains(lower(params.TransformType), 'nonrigid')
+    cmd = [cmd, sprintf(' -K%d', params.KernelRank)];
+end
 
 % Add other parameters
 cmd = [cmd, sprintf(' -w%g -b%g -l%g -g%g', params.OutlierRatio, params.Beta, params.Lambda, params.Gamma)];
