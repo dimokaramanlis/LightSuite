@@ -74,24 +74,14 @@ q = q - [trstruct.samp_ikeepx(1) trstruct.samp_ikeepy(1) trstruct.samp_ikeeplong
 % 4. the per-slice straightening
 q = cordStraightenPoints(q, trstruct.straighten);
 %==========================================================================
-% 5. the B-spline, as a displacement field in registration voxels
+% 5. the B-spline: the FORWARD file moves sample points onto the atlas,
+%    q' = q + D(q), with q 1-based registration voxels (see READBSPLINEFIELD)
 if ~params.skipbspline
-    regsize_mm = registres * 1e-3;
-    Dfield     = params.Dfield;
+    Dfield = params.Dfield;
     if isempty(Dfield)
-        Dfield = transformix([], trstruct.tform_bspline_samp20um_to_atlas_20um_px);
-        Dfield = permute(Dfield, [2 3 4 1]) / regsize_mm;
+        Dfield = readBsplineField(trstruct, registres * 1e-3);
     end
-    [Sx, Sy, Sz, ~] = size(Dfield);
-
-    dx = interpn(1:Sx, 1:Sy, 1:Sz, Dfield(:,:,:,1), q(:,1), q(:,2), q(:,3), 'linear');
-    dy = interpn(1:Sx, 1:Sy, 1:Sz, Dfield(:,:,:,2), q(:,1), q(:,2), q(:,3), 'linear');
-    dz = interpn(1:Sx, 1:Sy, 1:Sz, Dfield(:,:,:,3), q(:,1), q(:,2), q(:,3), 'linear');
-
-    % negative sign is extremely important: the field on file runs the other way
-    disp_int = -[dx, dy, dz];
-    disp_int(isnan(disp_int)) = 0;
-    q = q + disp_int;
+    q = applyBsplineField(Dfield, q, 'forward');
 end
 %==========================================================================
 % 6. the affine onto the atlas

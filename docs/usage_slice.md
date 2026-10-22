@@ -145,7 +145,7 @@ Serial sections are rarely cut exactly orthogonal to the rostrocaudal axis. `det
 1. **Affine stage:** Fits a 2D affine directly from your landmark pairs when at least five are available, otherwise estimates one from image-derived point clouds.
 2. **B-spline stage:** Elastix 2D free-form deformation with the same multi-metric objective as the volume pipeline — Advanced Mattes mutual information (32 histogram bins) plus a corresponding-points term — at a 0.96 mm final control-point grid spacing.
 
-Both forward (atlas → sample) and reverse (sample → atlas) transforms are saved, as the reverse is needed for mapping cell coordinates.
+Both forward and reverse transforms are saved. Elastix moves points and images in opposite directions: the forward files map cell coordinates onto the atlas (`slicePointsToAtlas`), and the reverse files warp section images into atlas space.
 
 **Outputs:**
 * `transform_params.mat` — complete per-slice registration parameters.

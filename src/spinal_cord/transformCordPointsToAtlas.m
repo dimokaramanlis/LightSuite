@@ -132,8 +132,7 @@ areahierarchy = cordAreaHierarchy(parcelinfo, grouping.avinds);
 
 % the displacement field is the expensive part of the transform, so read it
 % once and hand it to every point set
-Dfield = transformix([], trstruct.tform_bspline_samp20um_to_atlas_20um_px);
-Dfield = permute(Dfield, [2 3 4 1]) / (trstruct.registrationres(1) * 1e-3);
+Dfield = readBsplineField(trstruct, trstruct.registrationres(1) * 1e-3, savepath);
 
 %--------------------------------------------------------------------------
 % 4. Read every point file into channel-tagged datasets

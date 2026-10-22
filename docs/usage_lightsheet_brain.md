@@ -158,12 +158,14 @@ This stage refines the alignment further using your control points and a deforma
 
 1. **Affine step:** Fits a global affine transform by least squares from your control points plus the auto-detected correspondences. Automatic points within 1 mm of a user point are dropped so they cannot dilute yours.
 2. **B-spline step:** Elastix computes a free-form deformation on a 0.64 mm control-point grid, optimizing Advanced Mattes mutual information (48 histogram bins, weight 1.0) *plus* a corresponding-points distance term (weight `opts.weight_usr_pts`, default 0.2), over four resolution levels with adaptive stochastic gradient descent. The coarse grid is what prevents overfitting — it matches the several-hundred-µm scale at which fixation and clearing actually deform tissue.
-3. **Inverse transform:** Computes the reverse mapping (sample → atlas), needed for cell coordinate mapping.
+3. **Inverse transform:** Computes the reverse B-spline, used to warp sample *volumes* into atlas space.
 
-**Outputs:**
+Elastix moves points and images in opposite directions, so cell coordinates use the **forward** file: a cell at sample position *p* lands at *p* + D(*p*) before the affine. The whole point chain (raw pixels → 20 µm registration grid → B-spline → affine → 10 µm atlas, and its exact inverse) lives in one function, `brainPointTransform`; `transformPointsToAtlas`, `atlasPointsToSample` and the tracing tools all call it.
+
+**Outputs** (in `opts.savepath`):
 * `transform_params.mat` — the complete registration parameters
-* `elastix_forward/bspline_atlas_to_samp_20um.txt`
-* `elastix_reverse/bspline_samp_to_atlas_20um.txt`
+* `bspline_atlas_to_samp_20um.txt` — forward B-spline (moves sample points to the atlas)
+* `bspline_samp_to_atlas_20um.txt` — inverse B-spline (moves sample images to the atlas)
 * `*_affine_registration.png` / `*_bspline_registration.png` — diagnostic images
 
 ---
