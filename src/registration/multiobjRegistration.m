@@ -17,7 +17,8 @@ regopts  = regopts.opts;
 regvolsize = size(volume);
 
 % we permute the volume to match atlas
-volume  = permuteBrainVolume(volume, regopts.permute_sample_to_atlas);
+permvec = getOr(regopts, 'permute_sample_to_atlas', [1 3 2]);
+volume  = permuteBrainVolume(volume, permvec);
 fprintf('Done! Took %2.2f s\n', toc);
 %==========================================================================
 % we load automated control points
@@ -129,11 +130,11 @@ end
 dpannotout               = fullfile(fpath, sprintf('%s_annotation%s',volname, volext));
 saveopts.compress  = 'lzw';
 saveopts.message   = false;
-saveastiff(unpermuteBrainVolume(avreg,regopts.permute_sample_to_atlas), dpannotout, saveopts);
+saveastiff(unpermuteBrainVolume(avreg, permvec), dpannotout, saveopts);
 %==========================================================================
 % here we obtain the inverse transform
 outdir     = fullfile(regopts.savepath, 'elastix_inverse_temp');
-invstats   = invertElastixTransformCP( pathbspl, outdir);
+invstats   = invertElastixTransformCP( pathbspl, outdir, 2);
 tformpath  = fullfile(regopts.savepath, 'bspline_samp_to_atlas_20um.txt');
 elastix_paramStruct2txt(tformpath, invstats.TransformParameters{1});
 rmdir(invstats.outputDir, 's'); % remove inversion directory
@@ -145,7 +146,7 @@ params_pts_to_atlas.regvolsize       = regvolsize;
 params_pts_to_atlas.atlassize        = size(tv);
 params_pts_to_atlas.ori_pxsize       = regopts.pxsize;
 params_pts_to_atlas.ori_size         = [regopts.Ny regopts.Nx regopts.Nz];
-params_pts_to_atlas.how_to_perm      = regopts.permute_sample_to_atlas;
+params_pts_to_atlas.how_to_perm      = permvec;
 params_pts_to_atlas.elastix_um_to_mm = 1e-3;
 
 params_pts_to_atlas.tform_bspline_samp20um_to_atlas_20um_px = tformpath;
