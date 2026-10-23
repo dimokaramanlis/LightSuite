@@ -95,8 +95,10 @@ function varargout = transformPointsToAtlas(input_data, varargin)
 %                              cell array of them when several point sets were
 %                              processed. Returned if an output is requested.
 %
-%   See also READCELLLOCATIONSFILE, READCELLCOUNTERXML, CLASSIFYDETECTEDCELLS,
-%   GENERATEREGISTEREDBRAINVOLUMES.
+%   The coordinate transform itself lives in BRAINPOINTTRANSFORM.
+%
+%   See also BRAINPOINTTRANSFORM, READCELLLOCATIONSFILE, READCELLCOUNTERXML,
+%   CLASSIFYDETECTEDCELLS, GENERATEREGISTEREDBRAINVOLUMES.
 %--------------------------------------------------------------------------
 
 %--------------------------------------------------------------------------
@@ -120,7 +122,7 @@ if isnumeric(input_data)
     if isempty(trstruct)
         error('''transform_params'' structure must be provided when passing points directly.');
     end
-    finalpts = coreTransform(input_data, trstruct);
+    finalpts = brainPointTransform(input_data, trstruct, 'raw2atlas');
     if nargout > 0
         varargout{1} = finalpts;
     end
@@ -236,6 +238,7 @@ checkChannelClashes(datasets);
 % 4. Process each dataset
 %--------------------------------------------------------------------------
 all_final_pts = cell(numel(datasets), 1);
+Dfield        = [];   % B-spline field, read on first use and shared by all sets
 for i = 1:numel(datasets)
     ds    = datasets(i);
     ichan = ds.channel;
@@ -258,7 +261,8 @@ for i = 1:numel(datasets)
     end
 
     % 2. Transform Points
-    atlasptcoords = coreTransform(inputpts, trstruct);
+    [atlasptcoords, Dfield] = brainPointTransform(inputpts, trstruct, 'raw2atlas', ...
+        'Dfield', Dfield, 'savepath', savepath);
 
     % 3. Sanitize and remove invalid points
     [cleanatlaspts, badpts] = sanitizeCellCoords(atlasptcoords, atlasData.av);
@@ -347,48 +351,6 @@ end
 
 
 %--------------------------------------------------------------------------
-function finalpts = coreTransform(inputpts, trstruct)
-    regsize_mm = trstruct.atlasres * 2 * 1e-3;
-
-    pts = (inputpts(:, 1:3) - 1) .* trstruct.ori_pxsize * 1e-3;
-    pts = pts(:, [2 1 3]);
-
-    if isfield(trstruct, 'ori_size')
-        phys_size_yxz = (trstruct.ori_size - 1) .* trstruct.ori_pxsize([2 1 3]) * 1e-3;
-    else
-        error('trstruct must contain ''ori_size'' for axis flips.');
-    end
-
-    perm_order   = abs(trstruct.how_to_perm);
-    pts_permuted = zeros(size(pts), 'like', pts);
-
-    for dim = 1:3
-        orig_dim = perm_order(dim);
-        pts_permuted(:, dim) = pts(:, orig_dim);
-        if trstruct.how_to_perm(dim) < 0
-            dim_max_size = phys_size_yxz(orig_dim);
-            pts_permuted(:, dim) = dim_max_size - pts_permuted(:, dim);
-        end
-    end
-
-    pts = pts_permuted(:, [2 1 3]) / regsize_mm;
-
-    Dfield = transformix([], trstruct.tform_bspline_samp20um_to_atlas_20um_px);
-    Dfield = permute(Dfield, [2 3 4 1]) / regsize_mm;
-    [Sx, Sy, Sz, ~] = size(Dfield);
-
-    Xgv = 1:Sx; Ygv = 1:Sy; Zgv = 1:Sz;
-    dx = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,1), pts(:,1), pts(:,2), pts(:,3), 'linear');
-    dy = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,2), pts(:,1), pts(:,2), pts(:,3), 'linear');
-    dz = interpn(Xgv, Ygv, Zgv, Dfield(:,:,:,3), pts(:,1), pts(:,2), pts(:,3), 'linear');
-
-    interpolated_displacements = -[dx, dy, dz];
-    interpolated_displacements(isnan(interpolated_displacements)) = 0;
-
-    finalpts = trstruct.tform_affine_samp20um_to_atlas_10um_px.transformPointsForward(pts + interpolated_displacements);
-    finalpts = [finalpts, inputpts(:, 4:end)];
-end
-
 function atlasData = loadAtlasData()
     % Loads the annotation volume and parcellation CSV info
     allen_atlas_path        = fileparts(which('annotation_10.nii.gz'));
