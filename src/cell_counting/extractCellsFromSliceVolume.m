@@ -15,6 +15,13 @@ function cell_locations_all = extractCellsFromSliceVolume(opts, ichan)
 isMultiChan = numel(ichan) > 1;
 cell_locations_all = cell(numel(ichan), 1);
 
+% GPU only if requested and available (default: CPU)
+usegpu = logical(getOr(opts, 'use_gpu', false));
+if usegpu && ~canUseGPU
+    warning('use_gpu is true but no supported GPU was found. Running on the CPU.');
+    usegpu = false;
+end
+
 if opts.debug
     folderdebug = fullfile(opts.procpath, 'cell_detections');
     makeNewDir(folderdebug)
@@ -45,7 +52,7 @@ for ci = 1:numel(ichan)
     for islice = 1:Nslices
         currslice = slicevol(:, :, islice);
         backim    = single(ordfilt2(currslice, Nmed, matuse));
-        dffim     = gpuArray((single(currslice) - backim) ./ backim);
+        dffim     = maybe_gpu(usegpu, (single(currslice) - backim) ./ backim);
         dffim(isnan(dffim) | isinf(dffim)) = 0;
         %------------------------------------------------------------------
         [ccents, pdiscard, imgout] = cellDetector2D(dffim, cellradius, sigmause, opts.thresuse);

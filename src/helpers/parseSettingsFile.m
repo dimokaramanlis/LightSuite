@@ -10,8 +10,9 @@ function settings = parseSettingsFile(filePath)
 %
 %   - Lines starting with '%' or '#' are treated as comments and ignored.
 %   - Empty lines are ignored.
-%   - If the file does not exist, or a setting is not specified in the
-%     file, a default value is used.
+%   - If a setting is not specified in the file, a default value is used.
+%   - If the file does not exist, it is created with all default values so
+%     the user can edit it, and the defaults are returned.
 %   - Values are evaluated as MATLAB expressions, allowing for numbers,
 %     strings (in single quotes), logicals (true/false), and arrays.
 %
@@ -35,12 +36,20 @@ function settings = parseSettingsFile(filePath)
     settings.atlasaplims = [180 1079];
     settings.regchan = 'dapi';
     settings.medianfiltreg = false;
-    settings.use_gpu = false;             % Another example
+    settings.use_gpu = false;
 
 
     % --- 2. Check if the settings file exists ---
+    % If not, write the defaults there so the user has a file to edit.
     if ~exist(filePath, 'file')
-        warning('Settings file not found: %s. Using all default values.', filePath);
+        try
+            writeSettingsFile(filePath, settings);
+            warning(['Settings file not found. Created %s with default values.\n' ...
+                'Edit it to match your data and re-run.'], filePath);
+        catch ME
+            warning('Settings file not found: %s and could not be created (%s). Using default values.', ...
+                filePath, ME.message);
+        end
         return; % Exit the function, returning the default struct
     end
     
@@ -97,5 +106,27 @@ function settings = parseSettingsFile(filePath)
     end
     
     disp('Finished parsing settings file.');
-    
+
+end
+
+function writeSettingsFile(filePath, settings)
+% Write SETTINGS as 'key = value' lines that parseSettingsFile can read back.
+    fileID = fopen(filePath, 'w');
+    if fileID == -1
+        error('Could not open %s for writing.', filePath);
+    end
+    cleanupObj = onCleanup(@() fclose(fileID));
+
+    fprintf(fileID, '%% Local Settings File - %s\n', char(datetime('now')));
+    fprintf(fileID, '%% Edit the values below. Lines starting with %% or # are comments.\n');
+    fprintf(fileID, '%% Settings not found in this file will use internal defaults.\n\n');
+    for fn = fieldnames(settings)'
+        val = settings.(fn{1});
+        if ischar(val) || isstring(val)
+            valstr = ['''' strrep(char(val), '''', '''''') ''''];
+        else
+            valstr = mat2str(val);
+        end
+        fprintf(fileID, '%s = %s\n', fn{1}, valstr);
+    end
 end

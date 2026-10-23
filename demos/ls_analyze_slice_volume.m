@@ -3,10 +3,12 @@
 datafolderpath = 'D:\DATA';
 mousename      = 'DK001';
 
-dp        = fullfile(datafolderpath, sprintf('*%s*', mousename));
-dp        = dir(dp);
-dp        = fullfile(dp.folder, dp.name);
-sliceinfo = parseSettingsFile(fullfile(dp, 'local_settings.txt'));
+% datafolderpath can also be the folder with the images itself
+dp        = resolveSampleFolder(datafolderpath, mousename);
+% settings are read from <dp>\local_settings.txt. If the file is missing, it
+% is created with the default values -- edit it and re-run this section.
+settings  = parseSettingsFile(fullfile(dp, 'local_settings.txt'));
+sliceinfo = settings;
 
 sliceinfo.mousename = mousename;
 
@@ -44,6 +46,8 @@ generateReordedVolume(sliceinfo);
 %% (auto) we align slices and initialize registration
 sliceinfo          = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
 sliceinfo          = sliceinfo.sliceinfo;
+% re-read local_settings.txt (next to the lightsuite folder) to pick up edits
+settings           = parseSettingsFile(fullfile(fileparts(sliceinfo.procpath), 'local_settings.txt'));
 sliceinfo          = copyStructBtoA(sliceinfo, settings);
 alignedvol         = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 %% (manual) determine cutting angle gui if you are not happy with the original estimation
