@@ -1,5 +1,6 @@
 function tform = parse_elastix_tform_all(filename)
-% PARSE_ELASTIX_TFORM  Convert any *linear* Elastix transform to affinetform3d.
+% PARSE_ELASTIX_TFORM  Convert any *linear* Elastix transform to affinetform3d
+%   (or affinetform2d for 2D transforms, read from FixedImageDimension).
 %
 %   tform = parse_elastix_tform('TransformParameters.0.txt')
 %
@@ -8,6 +9,7 @@ function tform = parse_elastix_tform_all(filename)
 %       EulerTransform        (6 params)  - rigid
 %       SimilarityTransform   (7 params)  - rigid + isotropic scale
 %       AffineTransform       (12 params)
+%   and their 2D versions (2 / 3 / 4 / 6 params).
 %   Non-linear transforms (BSpline, spline-kernel, ...) cannot be represented
 %   as an affinetform3d and raise an error.
 %
@@ -37,42 +39,86 @@ function tform = parse_elastix_tform_all(filename)
     txt = fileread(filename);
 
     % --- 1. Read fields (with sensible defaults for optional ones) ----------
+    nd         = get_vec_or(txt, 'FixedImageDimension', 3); % 2 or 3
     ttype      = get_str(txt, 'Transform');                 % e.g. 'EulerTransform'
     p          = get_vec(txt, 'TransformParameters');       % all optimisable params
-    C          = get_vec_or(txt, 'CenterOfRotationPoint', [0;0;0]);
-    spacing    = get_vec_or(txt, 'Spacing',   [1;1;1]);
-    origin     = get_vec_or(txt, 'Origin',    [0;0;0]);
-    dirFlat    = get_vec_or(txt, 'Direction', [1;0;0;0;1;0;0;0;1]);
-    Direction  = reshape(dirFlat, [3,3])';                  % row-major -> matrix
+    C          = get_vec_or(txt, 'CenterOfRotationPoint', zeros(nd,1));
+    spacing    = get_vec_or(txt, 'Spacing',   ones(nd,1));
+    origin     = get_vec_or(txt, 'Origin',    zeros(nd,1));
+    dirFlat    = get_vec_or(txt, 'Direction', reshape(eye(nd), [], 1));
+    Direction  = reshape(dirFlat, [nd,nd])';                % row-major -> matrix
     computeZYX = strcmpi(get_str_or(txt, 'ComputeZYX', 'false'), 'true');
 
-    % --- 2. Build the 3x3 linear part A and translation T (physical space) --
-    [A, T] = build_linear(ttype, p, computeZYX);
+    % --- 2. Build the linear part A and translation T (physical space) -----
+    if nd == 2
+        [A, T] = build_linear_2d(ttype, p);
+    else
+        [A, T] = build_linear(ttype, p, computeZYX);
+    end
 
     % --- 3. Elastix forward map: FIXED(phys) -> MOVING(phys) ---------------
     %     y = A*(x - C) + T + C  =>  T_eff = T + C - A*C
     T_eff             = T + C - A*C;
-    M_fixed_to_moving = [A, T_eff; 0 0 0 1];
+    M_fixed_to_moving = [A, T_eff; zeros(1,nd) 1];
 
     % --- 4. Invert: imwarp needs MOVING(phys) -> FIXED(phys) ---------------
-    M_moving_to_fixed = M_fixed_to_moving \ eye(4);   % == inv(M_fixed_to_moving)
+    M_moving_to_fixed = M_fixed_to_moving \ eye(nd+1); % == inv(M_fixed_to_moving)
 
     % --- 5. Physical <-> pixel conversion ---------------------------------
     %   ITK/Elastix:  phys = Origin + Direction*diag(Spacing) * index0based
     %   MATLAB intrinsic is 1-based, so subtract 1 to reach the 0-based index.
-    S = eye(4);
-    S(1:3,1:3) = Direction * diag(spacing);   % (moving grid, assumed == fixed grid)
-    S(1:3,4)   = origin;
+    S = eye(nd+1);
+    S(1:nd,1:nd) = Direction * diag(spacing); % (moving grid, assumed == fixed grid)
+    S(1:nd,end)  = origin;
 
-    shift_to_zero = eye(4);  shift_to_zero(1:3,4) = [-1; -1; -1];  % 1-based -> 0-based
-    shift_to_one  = eye(4);  shift_to_one(1:3,4)  = [ 1;  1;  1];  % 0-based -> 1-based
+    shift_to_zero = eye(nd+1);  shift_to_zero(1:nd,end) = -1;  % 1-based -> 0-based
+    shift_to_one  = eye(nd+1);  shift_to_one(1:nd,end)  =  1;  % 0-based -> 1-based
 
     % intrinsic(moving) -> 0idx -> phys -> transform -> phys -> 0idx -> intrinsic(fixed)
     M_final = shift_to_one / S * M_moving_to_fixed * S * shift_to_zero;
 
     % --- 6. affinetform3d uses the premultiply convention  y = M*[x;y;z;1] --
     %     so M_final is passed directly (no transpose).
-    tform = affinetform3d(M_final);
+    if nd == 2
+        tform = affinetform2d(M_final);
+    else
+        tform = affinetform3d(M_final);
+    end
+end
+
+% =======================================================================
+function [A, T] = build_linear_2d(ttype, p)
+% 2D linear transforms: A is 2x2, T is 2x1.
+    t = lower(ttype);
+    if contains(t,'spline') || contains(t,'kernel') || contains(t,'weightedcombination')
+        error('parse_elastix_tform:nonlinear', ...
+            'Transform "%s" is non-linear and cannot be an affinetform2d.', ttype);
+
+    elseif contains(t,'translation')               % [tx ty]
+        need(p, 2, ttype);
+        A = eye(2);
+        T = p(1:2);
+
+    elseif contains(t,'euler')                     % [angle tx ty]
+        need(p, 3, ttype);
+        A = [cos(p(1)) -sin(p(1)); sin(p(1)) cos(p(1))];
+        T = p(2:3);
+
+    elseif contains(t,'similarity')                % [scale angle tx ty]
+        need(p, 4, ttype);
+        A = p(1) * [cos(p(2)) -sin(p(2)); sin(p(2)) cos(p(2))];
+        T = p(3:4);
+
+    elseif contains(t,'affine')                    % [a11 a12 a21 a22 tx ty]
+        need(p, 6, ttype);
+        A = reshape(p(1:4), [2,2])';               % row-major -> matrix
+        T = p(5:6);
+
+    else
+        error('parse_elastix_tform:unknown', ...
+            'Unrecognised transform type "%s".', ttype);
+    end
+    T = T(:);
 end
 
 % =======================================================================

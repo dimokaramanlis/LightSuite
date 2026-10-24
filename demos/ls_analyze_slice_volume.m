@@ -64,6 +64,7 @@ matchControlPointsInSlices(opts)
 %% (auto) refine registation with control points and elastix
 opts            = load(fullfile(sliceinfo.procpath, "regopts.mat"));
 opts.cpwt       = 0.4;
+opts.bspline_spatial_scale = 0.96; % in mm, how much you allow the bspline to bend
 transformparams = registerSlicesToAtlas(opts);
 
 %% (auto) apply registration to all color channels to generate registered volumes

@@ -96,6 +96,11 @@ slicetforms = affinetform2d;
 cpwt        = getOr(opts, 'cpwt',0.2);
 % B-spline grid spacing in mm, how much you allow the bspline to bend
 bsplscale   = getOr(opts, 'bspline_spatial_scale', 0.96);
+% fast 2D affine: fewer resolutions and iterations than the 3D defaults
+affparams   = struct('NumberOfResolutions', 3, ...
+    'ImagePyramidSchedule', kron([4 2 1], ones(1,2)), ...
+    'MaximumNumberOfIterations', [300 300 500], ...
+    'NumberOfSpatialSamples', 3000, 'NumberOfHistogramBins', 32);
 forsavepath = fullfile(opts.procpath, 'elastix_forward');
 revsavepath = fullfile(opts.procpath, 'elastix_reverse');
 makeNewDir(forsavepath);
@@ -120,18 +125,23 @@ for islice = 1:Nslices
     % timeshistology = histology_cpoints{islice}(:, 4);
     % timesatlas     = atlas_cpoints{islice}(:, 4);
     %------------------------------------------------------------------
-    % affine estimation
-
-    if isempty(movingpts) || (Nmov < 5)
-        tformcurr = fitPointCloudsAffine(atlasim, histim, opts.registres);
-        tstruse   = sprintf('Not enough control points, using only image...\n\n');
+    % affine estimation with elastix, using the image and the control points
+    % (points weighted half as much as in the B-spline step)
+    if Nmov > 0
+        fprintf('%d control points found, thanks for the effort!\n', Nmov);
     else
-        tformcurr = fitgeotform2d(movingpts, fixedpts, 'affine');
-        tstruse   = sprintf('%d control points found, thanks for the effort!\n\n', Nmov);
+        fprintf('No control points, using only image...\n');
     end
+    dpaffine  = fullfile(forsavepath, sprintf('%03d_slice_affine', islice));
+    makeNewDir(dpaffine);
+    [~, ~, afftformpath] = performMultObjAffineRegistration(atlasim, histim, ...
+        opts.registres*1e-3, movingpts, fixedpts, cpwt*0.5, dpaffine, affparams);
+    tformcurr = parse_elastix_tform_all(afftformpath);
+    copyfile(afftformpath, fullfile(forsavepath, ...
+        sprintf('%03d_slice_affine_atlas_to_samp_20um.txt', islice)));
+    rmdir(dpaffine, 's');
 
     slicetforms(islice, 1) = tformcurr;
-    fprintf(tstruse)
     %------------------------------------------------------------------
     % bspline estimation
     movptsaffine = tformcurr.transformPointsForward(movingpts);
@@ -235,9 +245,10 @@ meandist    = mean(nndist) * pxsize;
 % meandist ~ 0.38*sqrt(A/N), so N ~ 0.15*A/meandist^2
 brainarea   = nnz(brainmask) * pxsize^2;
 Neff        = 0.15 * brainarea / meandist^2;
-% number of points needed to reach the fine scale (meandist = finescale)
+% number of points needed to reach the fine scale; the 1.5 factor asks for
+% more points than meandist = finescale, so the scale shrinks more slowly
 finescale   = min(finescale, coarsescale);
-Nfine       = 0.15 * brainarea / finescale^2;
+Nfine       = 1.5 * 0.15 * brainarea / finescale^2;
 
 % slow change with few points, faster as we approach Nfine
 tfrac       = min(Neff / Nfine, 1);
