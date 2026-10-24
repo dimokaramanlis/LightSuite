@@ -118,13 +118,13 @@ The `trajectory_areas` table has these columns:
 
 **Function:** `annotateGRINLens(savepath, 'Diameter', 500)`
 
-This tool localizes a cylindrical implant and reports the atlas regions beneath it. After fitting, it shows the parcellation regions on circular cross-sections at a range of depths below the lens face (0–400 µm), and — when registered channel volumes are available — the fluorescence intensity beneath the implant (the *"quantification of intensity below the implant"* described in the paper).
+This tool localizes a cylindrical implant and reports the atlas regions beneath it: parcellation regions on circular cross-sections at several depths below the lens face and, when registered channel volumes are available, the fluorescence intensity beneath the implant.
 
 ### Workflow
 
-1. `annotateGRINLens(savepath, 'Diameter', 500)` — set `Diameter` (µm) to your fiber/lens diameter (default 500). Add `'Channel', N` to trace on a non-registration channel (see [Choosing the tracing channel](#choosing-the-tracing-channel)).
-2. Select a fiber with `1`–`9` and click points marking where the implant is — **on its edge, inside it, just around it** — on every slice where you can see it. The points do not have to lie on the outline; what matters is that they cover the implant over as much **depth** as it is visible.
-3. Press `S` to save, then `F` to fit. Each fiber is fit as a cylinder in CCF space and its sub-lens atlas regions are displayed.
+1. `annotateGRINLens(savepath, 'Diameter', 500)`. Set `Diameter` (µm) to your fiber/lens diameter (default 500). Add `'Channel', N` to trace on another channel (see [Choosing the tracing channel](#choosing-the-tracing-channel)).
+2. Select a fiber with `1`–`9` and click points on, inside or just around the implant on every slice where it is visible. Points need not lie on the outline; what matters is covering as much **depth** as possible.
+3. Press `S` to save, then `F` to fit. Each fiber is fit as a cylinder in CCF space and its sub-lens regions are displayed.
 
 ### Controls
 
@@ -146,78 +146,67 @@ This tool localizes a cylindrical implant and reports the atlas regions beneath 
 | `grin_fiber_points.mat` | Raw clicked points per fiber (`all_points`) |
 | `grin_fiber<N>_atlas.mat` | Per-fiber fit: `center_vox`, `normal_vox`, `radius_vox`, `atlas_pts`, `depths_um`, `slices_av`, `rvec_arr`, `fit_info` |
 
-**Depth range.** Parcellation labels and fluorescence are sampled on square segments perpendicular to the axis, six times the nominal implant radius across (±3 radii, `grinSliceGrid`), at `depths_um = -400:100:400` µm (`grinTracingDepths`). 0 is the lens bottom face and positive goes deeper; the **negative** offsets run back up the track toward the entry, a check that the fitted axis follows the visible fiber. Figures draw only the non-negative depths; the negative ones are stored.
+**Depth range.** Labels and fluorescence are sampled on squares perpendicular to the axis, ±3 implant radii across (`grinSliceGrid`), at `depths_um = -400:100:400` µm (`grinTracingDepths`). 0 is the lens bottom face and positive is deeper. Negative depths run back up the track, as a check that the axis follows the visible fiber; they are stored but not plotted.
 
-Regenerate the figures from disk with `plotGRINTracingResults(savepath)`. The companion intensity figure samples the **raw, full-resolution data** by default (grid spacing = raw pixel size), so single cells are visible when you zoom into a panel. Each grid point is mapped atlas → raw pixel through the exact inverse of the cell transform (`atlasPointsToSample`, b-spline included), and the raw stack is streamed once per fiber, reading only the crop of each plane that is needed. The parcellation is sampled on the same fine grid, so both figures (atlas regions and intensity boundaries) are at that resolution; the labels themselves are still the 10 µm atlas. The slices are stored in the fiber files and reused on later calls, so the raw data is read once.
+### Intensity figures
 
 ```matlab
-plotGRINTracingResults(savepath)                              % full resolution (default)
+plotGRINTracingResults(savepath)                               % full resolution (default)
 plotGRINTracingResults(savepath, 'PixelSize', 2, 'Channels', 2)
 plotGRINTracingResults(savepath, 'DataFolder', 'E:\moved\raw') % raw data moved
-plotGRINTracingResults(savepath, 'Resolution', 'registered')  % 20 µm volume_registered/
+plotGRINTracingResults(savepath, 'Resolution', 'registered')   % 20 µm volume_registered/
 ```
 
-If the raw data cannot be found, or with `'Resolution','registered'`, the slices come from `volume_registered/` (20 µm data on the 10 µm atlas grid), as before.
+By default the intensity figure samples the **raw, full-resolution data**, so single cells are visible when zoomed in. Grid points are mapped atlas → raw pixel through the exact inverse of the cell transform (`atlasPointsToSample`, B-spline included), and only the needed crop of each plane is read. The parcellation is sampled on the same grid (labels are still the 10 µm atlas). If the raw data cannot be found, or with `'Resolution','registered'`, slices come from `volume_registered/`.
 
-For **slice-module brains**, "full resolution" means the aligned sections in `volume_aligned/` at `px_process` (e.g. 5 µm). Each grid point is mapped atlas → section pixel (`sliceAtlasPointsToSection`) through the same chain that builds `volume_registered/`: rigid placement, nearest section, per-section affine, then B-spline. Points beyond the first or last section are NaN. `'PixelSize'` and `'Channels'` work the same way; `'DataFolder'` is not used. Only these cross-sections use `px_process`; the annotation GUI still shows `volume_registered/` at 20 µm.
+For **slice-module brains**, full resolution means the aligned sections in `volume_aligned/` at `px_process` (e.g. 5 µm), mapped with `sliceAtlasPointsToSection` (rigid placement, nearest section, per-section affine, B-spline). Points beyond the first or last section are NaN; `'DataFolder'` is not used.
 
-That call also **writes the sampled cross-sections back into each `grin_fiber<N>_atlas.mat`**, so they live alongside the fit they came from:
+The sampled cross-sections are written back into each `grin_fiber<N>_atlas.mat` and reused on later calls, so the raw data is read once:
 
 | Field | Contents |
 | :--- | :--- |
-| `depths_um`, `slices_av`, `rvec_arr` | Atlas cross-sections at the full depth range, re-sampled if the file was saved at a narrower one |
-| `slices_int` | 1×Ndepths cell, each `[Ngrid × Ngrid × Nchan]` single — the fluorescence disc at that depth |
-| `median_intensity` | `[Ndepths × Nchan]` median inside the implant disc |
-| `mean_intensity` | `[Ndepths × Nchan]` mean inside the implant disc (plotted in the intensity figure) |
-| `rvec_int` | 1×Ndepths cell, grid of `slices_int` in 10 µm atlas voxels (finer than `rvec_arr` at full resolution) |
+| `depths_um`, `slices_av`, `rvec_arr` | Atlas cross-sections at the full depth range |
+| `slices_int` | 1×Ndepths cell, each `[Ngrid × Ngrid × Nchan]`: fluorescence at that depth |
+| `median_intensity`, `mean_intensity` | `[Ndepths × Nchan]` median / mean inside the implant disc (mean is plotted) |
+| `rvec_int` | 1×Ndepths cell, grid of `slices_int` in 10 µm atlas voxels |
 | `slices_av_int` | 1×Ndepths cell, parcellation on the `slices_int` grid (full resolution only) |
-| `chan_names` | 1×Nchan channel names, labelling the third dimension of `slices_int` |
-| `int_meta` | What `slices_int` was sampled from (source, pixel size, channels, fit); the cache key |
+| `chan_names` | Channel names for the third dimension of `slices_int` |
+| `int_meta` | Source, pixel size, channels and fit used (the cache key) |
 
-The file is rewritten in place, atomically: fit fields are never touched and other variables survive. A file is rewritten only when its depths were re-sampled or intensity was added, so files from an older `annotateGRINLens` (5 depths, no intensity) are upgraded the first time `plotGRINTracingResults` runs on the folder.
+Files are rewritten atomically; fit fields and other variables are kept. Files from older versions (5 depths, no intensity) are upgraded on the first run.
+
 ### How the axis is fitted
 
-**PCA does not work here.** For a cloud filling a cylinder of length `L` and radius `R`, the variance along the axis is `L²/12` against `R²/4` radially, so the leading eigenvector is the axis only when `L > √3·R` — an implant entering deeper than ~0.87 diameters. Below that PCA returns a *radial* direction, nearly 90° wrong, which is exactly the case of a lens that barely enters the brain. Robust regression does not fix it either: *any* fit minimising summed squared distance to a line **is** PCA (that sum is `trace(S) − nᵀSn`), and a mean-square criterion always prefers the fat direction of a short cloud.
+`fitFiberInAtlas` takes the trajectory as **the line minimising the radius of the cylinder enclosing 95% of the clicks**. This finds the true axis for any implant length, and the excluded 5% absorbs misclicks. The width is the mean point-to-line distance between the 80th and 95th percentiles, which keeps the outer envelope while staying smooth for optimisation.
 
-`fitFiberInAtlas` instead takes the trajectory to be **the line minimising the radius of the cylinder enclosing 95% of the clicks**. That minimum sits at the true axis for any aspect ratio — tilting a cylinder inside its covering cylinder can only widen it — and the excluded 5% absorbs misclicks and spill. The width is evaluated as the **mean of the ordered point-to-line distances between the 80th and 95th percentiles**, not a single quantile: a plain quantile lets a tilted axis shed the very end points that reveal the tilt, roughly halving the direction signal, while the averaged band keeps the outer envelope and stays continuous for finite-difference gradients.
+The fit uses `fmincon` (SQP) over four parameters: two tilt angles from the entry normal and two lateral offsets, starting from the best points of a coarse scan. The implant bottom face is placed at the 99th percentile of the enclosed points along the axis.
 
-The problem is solved by **sequential quadratic programming** (`fmincon`) over four numbers — two tilt angles away from the entry normal and two lateral coordinates of the line — so the ±45° limit is a bound enforced at every iterate rather than clipped afterwards. The objective is non-convex in tilt, so the solve starts from the best points of a coarse scan; `fit_info.at_tilt_bound` records whether the solution ended on the boundary. The implant bottom face is then placed at the **99th percentile** of the axial coordinate of the enclosed points.
+**Entry constraint.** Implants enter roughly perpendicular to the brain surface. The surface normal is estimated from a plane fit to the brain surface within 600 µm of the entry point (1.5–4° error at mouse-cortex curvature). Candidate patches must be exposed to open space, so walls of the interhemispheric fissure or ventricles are rejected and the next-nearest patch is tried (up to 8). This requires passing `av`; without it (`fitFiberInAtlas(pts, radius)`) the normal falls back to plain DV.
 
-### The entry constraint
-
-Implants enter roughly perpendicular to the brain surface, and the fit is told so. The surface is the labelled voxels of the annotation volume that have an unlabelled neighbour; a plane is fit to the patch within **600 µm** of the entry point, and its smallest-variance direction is the normal. Eigen-decomposition is right here and wrong for the axis, because a surface patch is a genuinely flat sheet where a click cloud is not a genuine line. In simulation the normal comes back within **1.5–4°** at mouse-cortex curvature.
-
-*Nearest* surface is not automatically the entry. The interhemispheric fissure and the ventricles are unlabelled sheets *inside* the brain, and for a midline implant their walls are often the closest "surface" — on the real CCF one midline site came back 92° wrong for exactly this reason. A candidate patch must therefore also be **exposed**: walking outward from it must stay in open space. A fissure wall runs back into tissue within a few voxels and is rejected, and the next-nearest patch is tried (up to 8). With that check the same site returns to 5.8°.
-
-The axis may then lean up to `'MaxTilt'` (**45°**) from that normal about each transverse axis. For a long implant the constraint never binds. For a short one ±45° alone is not enough — the fit still wanders tens of degrees on noise — so `'EntryPrior'` adds a **rotation-invariant** quadratic pull back towards the normal, weighted by how much the annotation can say about the lean at all. That weight comes from the ratio of the two largest scatter eigenvalues after trimming strays: 1 for a ring or blob (no direction information), growing with the length of the annotated shaft. It is reported as `fit_info.depth_in_diameters`, the weight as `fit_info.prior_weight` (0 = clicks alone). A blob returns the entry normal; a shaft annotated over a couple of diameters overrules the prior.
-
-> Measuring that depth *along the entry normal* would be self-defeating: a wrong normal foreshortens a deep annotation into an apparently flat one, and the fit then over-weights that same wrong normal on the strength of it.
-
-Passing `av` is what makes this work. Without it (`fitFiberInAtlas(pts, radius)`) the constraint falls back to plain DV, which is only right for a vertical implant on flat cortex.
+The axis may lean up to `'MaxTilt'` (45°) from the normal; `fit_info.at_tilt_bound` flags a solution on that limit. For short implants, `'EntryPrior'` adds a pull towards the normal, weighted by how elongated the annotation is: a blob returns the normal, a shaft annotated over a couple of diameters overrules it. The annotated length is reported as `fit_info.depth_in_diameters` and the weight as `fit_info.prior_weight` (0 = clicks alone).
 
 ### Accuracy
 
-Simulated implants (60 clicks through the cylinder, 15 µm jitter, 5% gross misclicks, spherical brain at mouse-cortex curvature). Axis error in degrees, mean over 8 runs:
+Simulated implants (60 clicks, 15 µm jitter, 5% misclicks, mouse-cortex curvature); axis error, mean of 8 runs:
 
-| annotated depth | lean 0° | lean 10° | lean 25° | PCA fit |
-| ---: | ---: | ---: | ---: | ---: |
-| 0.4 diameters | 5.1° | 15.0° | 33.0° | 77–81° |
-| 0.8 diameters | 5.4° | 9.9° | 22.8° | 66–76° |
-| 1.5 diameters | 5.6° | 5.5° | 8.7° | 11–17° |
-| 3.0 diameters | 2.1° | 2.2° | 2.6° | 4–5° |
+| Annotated depth | Lean 0° | Lean 10° | Lean 25° |
+| ---: | ---: | ---: | ---: |
+| 0.4 diameters | 5.1° | 15.0° | 33.0° |
+| 0.8 diameters | 5.4° | 9.9° | 22.8° |
+| 1.5 diameters | 5.6° | 5.5° | 8.7° |
+| 3.0 diameters | 2.1° | 2.2° | 2.6° |
 
-Tip position lands within 35–210 µm; the fit takes ~0.2 s per fiber. On the **real CCF** at five cortical sites, against an independently computed surface normal: 0.3–8.5° at 1.5 diameters, 0.7–3.1° at 3 diameters.
-
-**Depth of annotation buys accuracy, not click count** — though clicks help: at 1.5 diameters, 12 clicks give 18°, 25 give 7.6°, 60 give 4.7°, 150 give 3.3°.
+Tip position is within 35–210 µm, and fitting takes ~0.2 s per fiber. On the real CCF at five cortical sites: 0.3–8.5° at 1.5 diameters, 0.7–3.1° at 3 diameters. Annotated depth matters most, but clicks help too: at 1.5 diameters, 12 clicks give 18°, 25 give 7.6°, 60 give 4.7°, 150 give 3.3°.
 
 ### Tips & Troubleshooting
 
-* **Spread the clicks in depth.** A ring of points at a single depth carries almost no information about the lean; the fit returns the surface normal and warns you. Every extra slice annotated is worth more than extra points on a slice you already did. Click the part of the implant *above* the brain surface too if visible — it extends the annotated depth for free.
-* Use at least ~25 points per fiber; below ~12 the axis is poorly determined. Points may sit anywhere on, in or just around the implant, but **do not** click other structures in the same group: a stray beyond the outer 5% is ignored, a systematic second cluster is not.
-* **`fit_info.at_tilt_bound`** means the clicks want an implant more oblique than the surface allows. Take it seriously rather than raising `MaxTilt`: usually two implants' clicks in one group, a blob with no direction, or a genuinely oblique insertion near the midline. Check `depth_in_diameters` first — below ~1 the direction is not in the data.
-* **`radius_fit`** much larger than your `Diameter` means the clicks spread wider than the implant. The drawn cylinder and the sampled cross-sections always use the **nominal** diameter, so it will look too thin for the cloud.
-* `fit_info` also carries `tilt_deg`, `prior_weight`, the inlier mask and the residuals. Warnings are printed at the ±45° limit and when the annotation covers less than one diameter of depth.
+* **Spread clicks in depth.** Points at a single depth say nothing about the lean; the fit returns the surface normal and warns you. Click the implant above the brain surface too, if visible.
+* Use at least ~25 points per fiber (below ~12 the axis is poorly determined). Do not click other structures in the same group: occasional strays are ignored, a second cluster is not.
+* **`fit_info.at_tilt_bound`** usually means two implants in one group, a blob with no direction, or a genuinely oblique insertion. Check `depth_in_diameters` first: below ~1 the direction is not in the data. Prefer fixing the clicks over raising `MaxTilt`.
+* **`radius_fit`** much larger than `Diameter` means the clicks spread wider than the implant. Drawings and cross-sections always use the nominal diameter.
+* `fit_info` also holds `tilt_deg`, the inlier mask and residuals.
 * Intensity cross-sections require registered channel volumes in `volume_registered/` (from `generateRegisteredBrainVolumes`).
+
 ---
 
 ## Output File Summary
@@ -236,4 +225,4 @@ Tip position lands within 35–210 µm; the fit takes ~0.2 s per fiber. On the *
 
 * Probe `probe_ccf` format and line-fit convention: **AP_histology**, [github.com/petersaj/AP_histology](https://github.com/petersaj/AP_histology).
 * Atlas coordinate framework: Allen Mouse Brain Common Coordinate Framework (Wang et al., *Cell*, 2020).
-* LightSuite: Karamanlis et al., *Scalable atlas registration and cell detection across the central nervous system* (in preparation).
+* LightSuite: Karamanlis et al., *LightSuite: scalable atlas registration and cell detection across the central nervous system*, bioRxiv (2026), [doi:10.64898/2026.10.13.757638](https://www.biorxiv.org/content/10.64898/2026.10.13.757638).
