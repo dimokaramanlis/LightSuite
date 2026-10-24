@@ -139,12 +139,12 @@ for islice = 1:Nslices
         'FillValue', 1);
     affannotim = imwarp(annotim, ratlas, tformcurr, "nearest", "OutputView", rahist);
     dpsavefor  = fullfile(forsavepath, sprintf('%03d_slice', islice));
-    if Nmov == 0
-        % no control points: only allow coarse bending (1/3 of the smallest image axis)
-        gridspacing = min(size(histim)) * opts.registres*1e-3 / 3;
-    else
-        gridspacing = bsplscale;
-    end
+    % grid spacing goes linearly from coarse (no points, 1/3 of the smallest
+    % image axis) to the user-set scale (Nptsfine or more points)
+    Nptsfine    = 30;
+    coarsescale = min(size(histim)) * opts.registres*1e-3 / 3;
+    fracpts     = min(Nmov, Nptsfine) / Nptsfine;
+    gridspacing = coarsescale + fracpts * (bsplscale - coarsescale);
     fprintf('B-spline grid spacing: %2.2f mm\n', gridspacing);
     [regimg, tformpath] = bsplineRegisterSlice(affatlasim, histim, opts.registres*1e-3, ...
         movptsaffine, fixedpts, cpwt, dpsavefor, gridspacing);
