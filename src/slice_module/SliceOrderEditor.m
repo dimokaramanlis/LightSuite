@@ -8,11 +8,15 @@ function SliceOrderEditor(optionalVolumePath)
 %   o              exclude / restore current slice
 %   c              edit the centering crop rectangle (if available)
 %   m              show / hide the montage of all slices
+%   1 / 2 / 3      show / hide color channel 1 (red), 2 (green), 3 (blue)
 %   s              save decisions to file
 %   Esc            prompt to save and close
 %
 % In the montage, click a tile to show that slice, or drag it onto another
 % tile to move the slice there.
+%
+% The Display panel turns channels on and off and sets each channel's black
+% and white levels. It changes only what is shown, not the saved data.
 
     % --- Initial Setup ---
     inputFileFullPath = '';
@@ -95,7 +99,19 @@ function SliceOrderEditor(optionalVolumePath)
 
     load_processing_decisions();
 
-    gui_data.imageAxes  = axes('Parent', gui_fig, 'Units', 'normalized', 'Position', [0.05 0.05 0.9 0.9]);
+    % display settings: one row per color channel (one row for grayscale)
+    nDisp = size(gui_data.originalSliceImages{1}, 3);
+    gui_data.channelHasData = false(1, nDisp);   % empty channels cannot be turned on
+    for i = 1:numSlices
+        gui_data.channelHasData = gui_data.channelHasData | ...
+            reshape(any(any(gui_data.originalSliceImages{i}, 1), 2), 1, []);
+    end
+    gui_data.channelOn     = gui_data.channelHasData;
+    gui_data.displayLevels = repmat([0 1], nDisp, 1);   % [black white], fraction of full range
+    gui_data.channelChecks = gobjects(nDisp, 1);
+    gui_data.levelSliders  = gobjects(nDisp, 2);
+
+    gui_data.imageAxes  = axes('Parent', gui_fig, 'Units', 'normalized', 'Position', [0.03 0.05 0.76 0.9]);
     gui_data.imageAxes.Colormap = colormap('gray');
     axis(gui_data.imageAxes, 'image', 'off');
     gui_data.imageHandle = image(gui_data.imageAxes, []);
@@ -106,6 +122,7 @@ function SliceOrderEditor(optionalVolumePath)
         'BackgroundColor', [0 0 0 0.5], 'VerticalAlignment', 'top');
 
     guidata(gui_fig, gui_data);
+    build_display_panel(gui_fig);
     display_current_slice(gui_fig);
     build_montage_window(gui_fig);   % montage
     if gui_data.numSlices > 0
@@ -187,7 +204,7 @@ function display_current_slice(fig)
     if currentFlipState == 1,  imgData = fliplr(imgData); status_str = 'FLIPPED';
     elseif currentFlipState == -1, status_str = 'EXCLUDED'; end
 
-    set(gui_data.imageHandle, 'CData', imgData);
+    set(gui_data.imageHandle, 'CData', apply_display_settings(imgData, gui_data));
     axis(gui_data.imageAxes, 'image', 'off');
 
     if currentFlipState == -1
@@ -267,6 +284,13 @@ function callback_keypress(fig, eventdata)
             refresh_tiles = true;
         case 'm'
             toggle_montage_window(fig); return;   % montage
+        case {'1', '2', '3'}
+            ch = str2double(eventdata.Key);
+            if ch <= numel(gui_data.channelOn) && gui_data.channelHasData(ch)
+                gui_data.channelOn(ch) = ~gui_data.channelOn(ch);
+                set(gui_data.channelChecks(ch), 'Value', gui_data.channelOn(ch));
+                refresh_tiles = true;
+            end
         case 'c'
             if gui_data.hasCropSugg && ~isempty(gui_data.cropSugg)
                 guidata(fig, gui_data);
@@ -469,6 +493,117 @@ function save_processing_decisions(gui_data)
 end
 
 % ======================================================================= %
+%  Display panel: channel visibility and contrast
+% ======================================================================= %
+
+function build_display_panel(fig)
+    gui_data = guidata(fig);
+    nDisp    = numel(gui_data.channelOn);
+    if nDisp == 1
+        names = {'Gray'}; colors = {[0 0 0]};
+    else
+        names  = {'Ch 1 (red)', 'Ch 2 (green)', 'Ch 3 (blue)'};
+        colors = {[0.8 0 0], [0 0.55 0], [0 0 0.85]};
+    end
+
+    panel = uipanel('Parent', fig, 'Units', 'normalized', 'Position', [0.80 0.05 0.18 0.9], ...
+        'Title', 'Display', 'BackgroundColor', 'w');
+    block_h = 0.26;
+    for c = 1:min(nDisp, 3)
+        y = 0.97 - (c-1) * block_h;   % top of this channel's block
+        if gui_data.channelHasData(c), en = 'on'; else, en = 'off'; end
+        gui_data.channelChecks(c) = uicontrol(panel, 'Style', 'checkbox', ...
+            'Units', 'normalized', 'Position', [0.05 y-0.06 0.9 0.05], ...
+            'String', names{c}, 'ForegroundColor', colors{c}, 'BackgroundColor', 'w', ...
+            'FontWeight', 'bold', 'Value', gui_data.channelOn(c), 'Enable', en, ...
+            'Callback', @(src, evt) channel_toggled(fig, src, c));
+        labels = {'Black', 'White'};
+        for k = 1:2
+            yk = y - 0.06 - k * 0.07;
+            uicontrol(panel, 'Style', 'text', 'Units', 'normalized', ...
+                'Position', [0.05 yk 0.3 0.05], 'String', labels{k}, ...
+                'HorizontalAlignment', 'left', 'BackgroundColor', 'w', 'Enable', en);
+            s = uicontrol(panel, 'Style', 'slider', 'Units', 'normalized', ...
+                'Position', [0.35 yk+0.01 0.6 0.04], 'Min', 0, 'Max', 1, ...
+                'Value', gui_data.displayLevels(c, k), 'SliderStep', [0.01 0.1], 'Enable', en, ...
+                'Callback', @(src, evt) level_changed(fig, src, c, k, true));
+            addlistener(s, 'ContinuousValueChange', @(src, evt) level_changed(fig, src, c, k, false));
+            gui_data.levelSliders(c, k) = s;
+        end
+    end
+    uicontrol(panel, 'Style', 'pushbutton', 'Units', 'normalized', ...
+        'Position', [0.05 0.03 0.9 0.06], 'String', 'Reset display', ...
+        'Callback', @(src, evt) reset_display(fig, src));
+    guidata(fig, gui_data);
+end
+
+function channel_toggled(fig, src, c)
+    gui_data = guidata(fig);
+    gui_data.channelOn(c) = logical(get(src, 'Value'));
+    guidata(fig, gui_data);
+    release_focus(src);
+    display_current_slice(fig);
+    refresh_montage(fig);
+end
+
+function level_changed(fig, src, c, k, final)
+% k = 1 black level, k = 2 white level. The main view follows the slider
+% live; the montage is redrawn when the slider is released.
+    gui_data = guidata(fig);
+    val = get(src, 'Value');
+    gap = 0.01;   % keep black below white
+    if k == 1
+        val = min(val, gui_data.displayLevels(c, 2) - gap);
+    else
+        val = max(val, gui_data.displayLevels(c, 1) + gap);
+    end
+    gui_data.displayLevels(c, k) = val;
+    if final, set(src, 'Value', val); end
+    guidata(fig, gui_data);
+    display_current_slice(fig);
+    if final
+        release_focus(src);
+        refresh_montage(fig);
+    end
+end
+
+function reset_display(fig, src)
+    gui_data = guidata(fig);
+    gui_data.channelOn(:)       = gui_data.channelHasData;
+    gui_data.displayLevels(:,1) = 0;
+    gui_data.displayLevels(:,2) = 1;
+    for c = 1:numel(gui_data.channelOn)
+        set(gui_data.channelChecks(c), 'Value', gui_data.channelOn(c));
+        set(gui_data.levelSliders(c, 1), 'Value', 0);
+        set(gui_data.levelSliders(c, 2), 'Value', 1);
+    end
+    guidata(fig, gui_data);
+    release_focus(src);
+    display_current_slice(fig);
+    refresh_montage(fig);
+end
+
+function release_focus(h)
+% Give keyboard focus back to the figure so the editor keys keep working.
+    set(h, 'Enable', 'off'); drawnow; set(h, 'Enable', 'on');
+end
+
+function out = apply_display_settings(img, gui_data)
+% Hide channels that are off and stretch each channel between its black and
+% white levels. Returns uint8. A grayscale setting applies to all channels.
+    nDisp = numel(gui_data.channelOn);
+    img   = im2single(img);
+    out   = zeros(size(img), 'uint8');
+    for c = 1:size(img, 3)
+        s = min(c, nDisp);
+        if ~gui_data.channelOn(s), continue; end
+        lo = gui_data.displayLevels(s, 1);
+        hi = gui_data.displayLevels(s, 2);
+        out(:,:,c) = im2uint8(min(max((img(:,:,c) - lo) / (hi - lo), 0), 1));
+    end
+end
+
+% ======================================================================= %
 %  Montage window: all slices in the current order, one tile each
 % ======================================================================= %
 
@@ -555,7 +690,7 @@ function refresh_montage(fig)
 
     for pos = 1:gui_data.numSlices
         orig_idx = gui_data.displaySequenceOriginalIndices(pos);
-        thumb    = gui_data.montageThumbs{orig_idx};
+        thumb    = apply_display_settings(gui_data.montageThumbs{orig_idx}, gui_data);
         state    = gui_data.flipState(orig_idx);
 
         if state == 1

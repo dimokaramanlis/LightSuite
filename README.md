@@ -43,9 +43,9 @@ Example data: [doi:10.5281/zenodo.21338217](https://doi.org/10.5281/zenodo.21338
 | GRIN lens / optical fiber tracing | `annotateGRINLens` |
 
 <p align="center">
-  <img src="./images/example_bspline.PNG" alt="Whole-brain B-spline registration" width="32%">
-  <img src="./images/example_spinal_cord.PNG" alt="Spinal cord registration" width="32%">
-  <img src="./images/example_slice_registration.png" alt="Coronal slice registration" width="32%">
+  <img src="./images/example_bspline.PNG" alt="Whole-brain B-spline registration" width="70%"><br>
+  <img src="./images/example_spinal_cord.PNG" alt="Spinal cord registration" width="70%"><br>
+  <img src="./images/example_slice_registration.png" alt="Coronal slice registration" width="70%">
 </p>
 
 Parameters, GUI instructions and tutorials are in the [documentation](https://lightsuite.readthedocs.io/en/latest/).
