@@ -200,10 +200,12 @@ end
 function [gridspacing, coarsescale, meandist] = getAdaptiveBsplineScale(brainmask, pts, pxsize, finescale)
 % GETADAPTIVEBSPLINESCALE picks the B-spline grid spacing (mm) for one slice.
 %   The coarsest spacing is half the sqrt of the brain area. With control
-%   points, the spacing follows the mean distance from brain pixels (random
-%   subset) to the nearest point. It shrinks with both more points and better
-%   spread: clustered points barely refine the grid, while many well-spread
-%   points bring it down to FINESCALE.
+%   points, the mean distance from brain pixels (random subset) to the
+%   nearest point is turned into an effective number of well-spread points,
+%   NEFF. The spacing goes from coarse to FINESCALE as (NEFF/NFINE)^2, where
+%   NFINE is the number of points whose mean distance equals FINESCALE. So the
+%   scale changes slowly with few points and faster with more, and clustered
+%   points barely refine the grid.
 %   PTS are [x y] pixel coordinates in the same frame as BRAINMASK.
 %==========================================================================
 if ~any(brainmask, 'all')
@@ -229,5 +231,15 @@ brainpts    = [xb(isamp) yb(isamp)];
 nndist      = pdist2(pts, brainpts, 'euclidean', 'Smallest', 1);
 meandist    = mean(nndist) * pxsize;
 
-gridspacing = min(max(meandist, finescale), coarsescale);
+% effective number of well-spread points: for points on a regular grid,
+% meandist ~ 0.38*sqrt(A/N), so N ~ 0.15*A/meandist^2
+brainarea   = nnz(brainmask) * pxsize^2;
+Neff        = 0.15 * brainarea / meandist^2;
+% number of points needed to reach the fine scale (meandist = finescale)
+finescale   = min(finescale, coarsescale);
+Nfine       = 0.15 * brainarea / finescale^2;
+
+% slow change with few points, faster as we approach Nfine
+tfrac       = min(Neff / Nfine, 1);
+gridspacing = coarsescale - (coarsescale - finescale) * tfrac^2;
 end
