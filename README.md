@@ -4,89 +4,58 @@
 [![MATLAB](https://img.shields.io/badge/MATLAB-R2022b%2B-blue.svg)](https://www.mathworks.com/products/matlab.html)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-**LightSuite** is an open-source MATLAB framework for **scalable atlas registration and cell detection across the central nervous system**. It processes 100 GB+ datasets on a standard workstation, turning raw image stacks into cell positions and regional intensities in standard atlas coordinates.
+**LightSuite** is an open-source MATLAB framework for scalable atlas registration and cell detection across the central nervous system. It processes 100 GB+ datasets on a standard workstation, turning raw image stacks into cell positions and regional intensities in atlas coordinates ([Allen CCFv3](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) for brain, [Fiederling et al., 2021](https://data.mendeley.com/datasets/4rrggzv5d5/1) for spinal cord).
 
-It combines **damage-resilient 3D point-cloud registration**, **user-steerable non-rigid registration**, and **GPU-accelerated local background normalization** for fast, illumination-invariant cell detection.
+Supported data: whole-brain and whole-spinal-cord volumes (light-sheet, fMOST, serial two-photon or any stitched 3D stack), wide-field coronal slices, and functional ultrasound (fUS) volumes.
 
-LightSuite supports four data types:
-1. **Whole-brain volumes** of the mouse brain
-2. **Whole-cord volumes** of the mouse spinal cord
-3. **Wide-field coronal slices** across the mouse brain
-4. **Functional ultrasound (fUS) volumes** of the mouse brain
+A Python port is in development at [PyLightSuite](https://github.com/Wyss-Microscopy/PyLightSuite/tree/main); this repository is the reference implementation.
 
-The volumetric workflows are not tied to any one microscope: LightSuite operates on a stitched 3D stack, so light-sheet, fMOST, serial two-photon tomography and comparable datasets all go through the same pipeline.
+## Key features
 
-> **Looking for Python?** A Python version of LightSuite is being developed at
-> [**PyLightSuite**](https://github.com/Wyss-Microscopy/PyLightSuite/tree/main).
-> This repository remains the reference MATLAB implementation.
+- **Damage-resilient registration**: point clouds initialize the fit with Bayesian Coherent Point Drift, so tears, compression and missing structures become outliers rather than failures. Spinal cords are computationally untwisted.
+- **User-steerable non-rigid fit**: a GUI re-fits the alignment live as you add landmark pairs, which enter the Elastix B-spline objective alongside mutual information.
+- **Fast cell detection**: 3D band-pass filtering plus GPU-accelerated local background normalization give an illumination-invariant signal-to-background ratio; a lightweight CNN (98.7% validation accuracy) rejects artifacts. ~4.5 × 10⁵ cells per brain in 3–4 h.
+- **No autofluorescence channel needed**: the reporter channel alone is enough to register, halving acquisition time and storage.
+- **Atlas-space outputs**: cell positions, per-region counts, densities, soma diameters and intensities per hemisphere, plus atlas-aligned volumes for every channel.
+- **Functional ultrasound**: align repeated sessions to a within-mouse seed, register to a vascular CCFv3 template, and map activation maps and timecourses into atlas space (optionally onto the Allen cortical flatmap).
+- **Probe and implant tracing**: localize Neuropixels tracks (exported in [AP_histology](https://github.com/petersaj/AP_histology) `probe_ccf` format), optical fibers and GRIN lenses, including the regions beneath them.
 
----
+## Installation
 
-## 🌟 Key Features
+See the [installation guide](https://lightsuite.readthedocs.io/en/latest/installation/). In short:
 
-* **Damage-resilient registration**: Point clouds initialize the fit with Bayesian Coherent Point Drift, so tears, compression and missing structures become outliers rather than failures. Targets are the [Allen CCFv3](https://alleninstitute.github.io/abc_atlas_access/descriptions/Allen-CCF-2020.html) (Wang et al., 2020) and the [Fiederling et al. (2021) spinal cord atlas](https://data.mendeley.com/datasets/4rrggzv5d5/1).
-* **User-steerable non-rigid fit**: An active-learning GUI re-fits the alignment live as you add landmark pairs, and those landmarks enter the Elastix B-spline objective directly alongside mutual information — image similarity alone cannot separate an anatomically faithful fit from a plausible but wrong one.
-* **Fast whole-volume cell detection**: A 3D band-pass filter isolates cell-sized features, division by the local background gives an illumination-invariant signal-to-background ratio (SBR), and a lightweight CNN (98.7% validation accuracy) rejects bubble edges, tissue interfaces and neurite varicosities. ~4.5 × 10⁵ cells per brain in 3–4 h.
-* **No dedicated autofluorescence channel needed**: Reporter fluorescence alone carries enough anatomical contrast to register, halving acquisition time and storage.
-* **Standardized atlas-space outputs**: Cell positions, per-region counts, densities, soma diameters and intensities per hemisphere, plus atlas-aligned intensity volumes for every acquired channel.
-* **Functional ultrasound**: Align repeated freehand-positioned sessions to a within-mouse seed, register that to a *vascular* CCFv3 template (vessels matched to vessels), and carry activation maps and timecourses into atlas space — optionally onto the Allen cortical flatmap.
-* **Probe & implant tracing**: Localize Neuropixels tracks and cylindrical implants in atlas space, including the regions and fluorescence beneath an optical fiber or GRIN lens; probes export in the AP_histology-compatible `probe_ccf` format.
+1. MATLAB R2022b+ with Computer Vision, Image Processing, Optimization, Parallel Computing, and Statistics and Machine Learning toolboxes.
+2. [Elastix 5.1.0](https://github.com/SuperElastix/elastix/releases/tag/5.1.0), added to your system `PATH`.
+3. [matlab_elastix](https://github.com/dimokaramanlis/matlab_elastix) and [yamlmatlab](https://github.com/raacampbell/yamlmatlab) on your MATLAB path.
+4. The Allen CCF (2020) and/or Fiederling et al. (2021) spinal cord atlas on your MATLAB path.
 
----
+## Getting started
 
-## ⚙️ Installation
+Example data: [doi:10.5281/zenodo.21338217](https://doi.org/10.5281/zenodo.21338217).
 
-Because LightSuite relies on several toolboxes and external executables, **please see our [installation guide](https://lightsuite.readthedocs.io/en/latest/installation/)** for detailed step-by-step instructions. 
+| Data | Entry point |
+|---|---|
+| Whole-brain volume | `demos/ls_analyze_lightsheet_volume.m` |
+| Spinal cord volume | `demos/ls_analyze_spinal_cord.m` |
+| Wide-field coronal slices (per-slice manual adjustment recommended) | `demos/ls_analyze_slice_volume.m` |
+| Functional ultrasound ([docs](https://lightsuite.readthedocs.io/en/latest/usage_fusi/)) | `demos/ls_analyze_fusi.m` |
+| Neuropixels tracing (after brain registration) | `demos/ls_trace_neuropixels.m` |
+| GRIN lens / optical fiber tracing | `annotateGRINLens` |
 
-**Quick Requirements Summary:**
-1. **MATLAB >= R2022b** (Requires Computer Vision, Image Processing, Optimization, Parallel Computing, and Statistics/Machine Learning Toolboxes).
-2. **[Elastix 5.1.0](https://github.com/SuperElastix/elastix/releases/tag/5.1.0)** (Must be downloaded and added to your system `PATH`).
-3. **MATLAB Dependencies**: [matlab_elastix](https://github.com/dimokaramanlis/matlab_elastix) and [yamlmatlab](https://github.com/raacampbell/yamlmatlab).
-4. **Atlases**: The Allen CCF (2020) and/or the Fiederling et al (2021) Spinal Cord Atlas must be downloaded and added to your MATLAB path.
+<p align="center">
+  <img src="./images/example_bspline.PNG" alt="Whole-brain B-spline registration" width="32%">
+  <img src="./images/example_spinal_cord.PNG" alt="Spinal cord registration" width="32%">
+  <img src="./images/example_slice_registration.png" alt="Coronal slice registration" width="32%">
+</p>
 
----
+Parameters, GUI instructions and tutorials are in the [documentation](https://lightsuite.readthedocs.io/en/latest/).
 
-## 🚀 Getting Started
+## Support
 
-Depending on your microscopy data, LightSuite provides distinct entry points:
+Check the [documentation](https://lightsuite.readthedocs.io/en/latest/) first. For bugs or requests, [open an issue](https://github.com/dimokaramanlis/LightSuite/issues) and include your OS, MATLAB version and the full error trace.
 
-> **Example data** to try the pipelines is available on Zenodo: [doi:10.5281/zenodo.21338217](https://doi.org/10.5281/zenodo.21338217).
+## License and citation
 
-### 1. Whole-Brain Volumes
-For 3D brain volumes — light-sheet, fMOST, serial two-photon or similar — start with `demos\ls_analyze_lightsheet_volume.m`. This script guides you through data loading, preprocessing, cell detection, and full brain registration.
-![Example bspline registration](./images/example_bspline.PNG)
+GPL-3.0; see `LICENSE`.
 
-### 2. Spinal Cord Volumes
-Spinal cord volumes utilize a similar volumetric workflow but register against the Fiederling et al (2021) atlas to accommodate the specific geometry of the cord. Start with `demos\ls_analyze_spinal_cord.m`.
-![Example spinal cord registration](./images/example_spinal_cord.PNG)
-
-### 3. Wide-field: Coronal Slices
-For slices acquired through conventional wide-field microscopy, use `demos\ls_analyze_slice_volume.m`. This pipeline includes registration, though manual adjustments are supported and recommended on a per-slice basis.
-![Example slice registration](./images/example_slice_registration.png)
-
-### 4. Functional Ultrasound (fUS)
-For repeated fUS scans of one mouse, start with `demos\ls_analyze_fusi.m`. The script builds a within-mouse anatomy by rigidly aligning every session to a user-picked seed, registers that anatomy to a vascular CCFv3 template (control-point GUI + multi-metric affine/B-spline fit), and brings functional maps and timeseries into atlas space, optionally onto the Allen cortical flatmap. See the [fUS workflow documentation](https://lightsuite.readthedocs.io/en/latest/usage_fusi/).
-
-### 5. Probe & Implant Tracing
-Once a brain volume has been registered (entry point 1), you can trace implanted hardware on the registered volume:
-* **Neuropixels probes** — `demos\ls_trace_neuropixels.m` opens an annotation GUI (`annotateNeuropixelsProbes`) where you click points along each probe track, fits a straight line per probe in Allen CCF space, and exports `probe_ccf.mat` (points, insertion/tip coordinates, and the brain regions traversed) in the [AP_histology](https://github.com/petersaj/AP_histology) format.
-* **GRIN lenses / optical fibers** — `annotateGRINLens` annotates circular fiber cross-sections and reports the atlas regions under the lens at a range of depths.
-
-*For advanced configuration, parameter tuning (like average cell radius or signal thresholds), GUI instructions, and detailed tutorials, please refer to the [LightSuite Documentation](https://lightsuite.readthedocs.io/en/latest/).*
-
----
-
-## 🐛 Support and Issues
-
-We welcome feedback, bug reports, and feature requests! 
-
-* **Having trouble?** First, check the [Documentation](https://lightsuite.readthedocs.io/en/latest/).
-* **Found a bug or have a request?** Please [open an issue](https://github.com/dimokaramanlis/LightSuite/issues) on GitHub. When reporting a bug, please include your OS, MATLAB version, and the exact error trace to help us resolve it faster.
-
----
-
-## 📝 License and Citation
-
-LightSuite is distributed under the **GPL-3.0 License**. See the `LICENSE` file for more details.
-
-**Citation:** Karamanlis D, Xie Y, Foucher CG, Alappat M, Masood A, Dimitropoulou I, Pivron LAF, Martínez de Paz JM, Macé E, Gaspari S, El-Boustani S. *LightSuite: scalable atlas registration and cell detection across the central nervous system*. bioRxiv (2026). [doi:10.64898/2026.10.13.757638](https://www.biorxiv.org/content/10.64898/2026.10.13.757638)
+Karamanlis D, Xie Y, Foucher CG, Alappat M, Masood A, Dimitropoulou I, Pivron LAF, Martínez de Paz JM, Macé E, Gaspari S, El-Boustani S. *LightSuite: scalable atlas registration and cell detection across the central nervous system*. bioRxiv (2026). [doi:10.64898/2026.10.13.757638](https://www.biorxiv.org/content/10.64898/2026.10.13.757638)
