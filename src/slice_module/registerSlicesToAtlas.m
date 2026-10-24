@@ -140,10 +140,10 @@ for islice = 1:Nslices
     affannotim = imwarp(annotim, ratlas, tformcurr, "nearest", "OutputView", rahist);
     dpsavefor  = fullfile(forsavepath, sprintf('%03d_slice', islice));
     % grid spacing adapts to how well the points cover the brain in the slice
-    [gridspacing, coarsescale, meddist] = getAdaptiveBsplineScale(affannotim > 0, ...
+    [gridspacing, coarsescale, meandist] = getAdaptiveBsplineScale(affannotim > 0, ...
         fixedpts, opts.registres*1e-3, bsplscale);
-    fprintf('B-spline grid spacing: %2.2f mm (coarse = %2.2f mm, median distance to points = %2.2f mm)\n', ...
-        gridspacing, coarsescale, meddist);
+    fprintf('B-spline grid spacing: %2.2f mm (coarse = %2.2f mm, mean distance to points = %2.2f mm)\n', ...
+        gridspacing, coarsescale, meandist);
     [regimg, tformpath] = bsplineRegisterSlice(affatlasim, histim, opts.registres*1e-3, ...
         movptsaffine, fixedpts, cpwt, dpsavefor, gridspacing);
 
@@ -197,12 +197,13 @@ save(fullfile(opts.procpath, 'transform_params.mat'), '-struct', 'regparams')
 %==========================================================================
 end
 
-function [gridspacing, coarsescale, meddist] = getAdaptiveBsplineScale(brainmask, pts, pxsize, finescale)
+function [gridspacing, coarsescale, meandist] = getAdaptiveBsplineScale(brainmask, pts, pxsize, finescale)
 % GETADAPTIVEBSPLINESCALE picks the B-spline grid spacing (mm) for one slice.
 %   The coarsest spacing is half the sqrt of the brain area. With control
-%   points, the spacing follows the median distance from brain pixels to the
-%   nearest point, so clustered points barely refine the grid while
-%   well-spread points bring it down to FINESCALE.
+%   points, the spacing follows the mean distance from brain pixels (random
+%   subset) to the nearest point. It shrinks with both more points and better
+%   spread: clustered points barely refine the grid, while many well-spread
+%   points bring it down to FINESCALE.
 %   PTS are [x y] pixel coordinates in the same frame as BRAINMASK.
 %==========================================================================
 if ~any(brainmask, 'all')
@@ -210,21 +211,23 @@ if ~any(brainmask, 'all')
 end
 coarsescale = 0.5 * sqrt(nnz(brainmask) * pxsize^2);
 
-% keep points that fall inside the image
-pts   = round(pts);
-inimg = all(pts >= 1, 2) & pts(:,1) <= size(brainmask, 2) & pts(:,2) <= size(brainmask, 1);
-pts   = pts(inimg, :);
-
 if isempty(pts)
-    meddist     = Inf;
+    meandist    = Inf;
     gridspacing = coarsescale;
     return;
 end
 
-ptmask = false(size(brainmask));
-ptmask(sub2ind(size(brainmask), pts(:,2), pts(:,1))) = true;
-distmm  = bwdist(ptmask) * pxsize;
-meddist = median(distmm(brainmask));
+% random subset of brain pixels (fixed seed, so reruns give the same scale)
+Nsamp       = 5000;
+[yb, xb]    = find(brainmask);
+Nbrain      = numel(xb);
+rs          = RandStream('twister', 'Seed', 1);
+isamp       = randperm(rs, Nbrain, min(Nsamp, Nbrain));
+brainpts    = [xb(isamp) yb(isamp)];
 
-gridspacing = min(max(meddist, finescale), coarsescale);
+% average distance from a brain pixel to its nearest control point
+nndist      = pdist2(pts, brainpts, 'euclidean', 'Smallest', 1);
+meandist    = mean(nndist) * pxsize;
+
+gridspacing = min(max(meandist, finescale), coarsescale);
 end
