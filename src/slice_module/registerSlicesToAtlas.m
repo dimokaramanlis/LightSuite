@@ -88,7 +88,7 @@ atlasinds        = min(max(round(atlasinds), 1), ypix);
 % if no control points are available, we use only image info
 fprintf('Using control points and elastix atlas fitting...\n'); 
 
-wholetic = tic; msg = repmat('=', [1 100]);
+wholetic = tic;
 
 ratlas      = imref2d(size(tvnew,  [2 3]));
 rahist      = imref2d(size(volume, [2 3]));
@@ -96,11 +96,15 @@ slicetforms = affinetform2d;
 cpwt        = getOr(opts, 'cpwt',0.2);
 % B-spline grid spacing in mm, how much you allow the bspline to bend
 bsplscale   = getOr(opts, 'bspline_spatial_scale', 0.96);
-% fast 2D affine: fewer resolutions and iterations than the 3D defaults
+% fast 2D affine: fewer resolutions and iterations than the 3D defaults.
+% The fit starts by matching the intensity centres of mass of the two
+% images, so slices that start offset from the atlas still converge.
 affparams   = struct('NumberOfResolutions', 3, ...
     'ImagePyramidSchedule', kron([4 2 1], ones(1,2)), ...
     'MaximumNumberOfIterations', [300 300 500], ...
-    'NumberOfSpatialSamples', 3000, 'NumberOfHistogramBins', 32);
+    'NumberOfSpatialSamples', 3000, 'NumberOfHistogramBins', 32, ...
+    'AutomaticTransformInitialization', true, ...
+    'AutomaticTransformInitializationMethod', 'CenterOfGravity');
 forsavepath = fullfile(opts.procpath, 'elastix_forward');
 revsavepath = fullfile(opts.procpath, 'elastix_reverse');
 makeNewDir(forsavepath);
@@ -108,7 +112,6 @@ makeNewDir(revsavepath);
 
 for islice = 1:Nslices
     %------------------------------------------------------------------
-    fprintf('Aligning slice %d/%d to atlas using elastix...\n', islice, Nslices); 
     slicetimer   = tic;
 
     
@@ -127,15 +130,10 @@ for islice = 1:Nslices
     %------------------------------------------------------------------
     % affine estimation with elastix, using the image and the control points
     % (points weighted half as much as in the B-spline step)
-    if Nmov > 0
-        fprintf('%d control points found, thanks for the effort!\n', Nmov);
-    else
-        fprintf('No control points, using only image...\n');
-    end
     dpaffine  = fullfile(forsavepath, sprintf('%03d_slice_affine', islice));
     makeNewDir(dpaffine);
     [~, ~, afftformpath] = performMultObjAffineRegistration(atlasim, histim, ...
-        opts.registres*1e-3, movingpts, fixedpts, cpwt*0.5, dpaffine, affparams);
+        opts.registres*1e-3, movingpts, fixedpts, cpwt*0.5, dpaffine, affparams, false);
     tformcurr = parse_elastix_tform_all(afftformpath);
     copyfile(afftformpath, fullfile(forsavepath, ...
         sprintf('%03d_slice_affine_atlas_to_samp_20um.txt', islice)));
@@ -152,10 +150,8 @@ for islice = 1:Nslices
     % grid spacing adapts to how well the points cover the brain in the slice
     [gridspacing, coarsescale, meandist] = getAdaptiveBsplineScale(affannotim > 0, ...
         fixedpts, opts.registres*1e-3, bsplscale);
-    fprintf('B-spline grid spacing: %2.2f mm (coarse = %2.2f mm, mean distance to points = %2.2f mm)\n', ...
-        gridspacing, coarsescale, meandist);
-    [regimg, tformpath] = bsplineRegisterSlice(affatlasim, histim, opts.registres*1e-3, ...
-        movptsaffine, fixedpts, cpwt, dpsavefor, gridspacing);
+    [~, tformpath] = bsplineRegisterSlice(affatlasim, histim, opts.registres*1e-3, ...
+        movptsaffine, fixedpts, cpwt, dpsavefor, gridspacing, false);
 
     % we rename the transform
     slicename     = sprintf('%03d_slice_bspline_atlas_to_samp_20um.txt', islice);
@@ -182,7 +178,8 @@ for islice = 1:Nslices
     %------------------------------------------------------------------
     rmdir(dpsavefor, 's');
     rmdir(dpsaverev, 's');
-    fprintf('Finished with slice! Took %2.2f s.\n%s\n', toc(slicetimer), msg); 
+    fprintf('Slice %d/%d: %d points, B-spline grid %2.2f mm (coarse %2.2f, mean dist %2.2f), %2.1f s\n', ...
+        islice, Nslices, Nmov, gridspacing, coarsescale, meandist, toc(slicetimer));
     %------------------------------------------------------------------
 end
 % we save the affine registrations to the output structure

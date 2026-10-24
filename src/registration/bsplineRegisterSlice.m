@@ -1,15 +1,17 @@
 function [regimg,tform_bspline] = bsplineRegisterSlice(movingim,fixedim,...
-    imscale, movingpts, fixedpts, cpwt, savepath, gridspacing)
+    imscale, movingpts, fixedpts, cpwt, savepath, gridspacing, verbose)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 %
 %   BSPLINEREGISTERSLICE(..., GRIDSPACING) sets the final B-spline control
 %   point spacing in mm (how much the slice is allowed to bend); smaller
 %   values allow more local deformation. Defaults to 0.96 when not given.
+%   VERBOSE (default true) prints progress and timing.
 %==========================================================================
-if nargin < 7 || isempty(gridspacing)
+if nargin < 8 || isempty(gridspacing)
     gridspacing = 0.96;
 end
+if nargin < 9 || isempty(verbose), verbose = true; end
 addElastixRepoPaths;
 params = struct();
 %==========================================================================
@@ -53,10 +55,11 @@ writePointsFile(movpath, (movingpts-1)*imscale)
 writePointsFile(fixpath, (fixedpts-1)*imscale)
 
 
-fprintf('Performing B-spline registration with elastix...\n'); tic;
+if verbose, fprintf('Performing B-spline registration with elastix...\n'); end
+tic;
 [regimg,tform_bspline] = elastix(movingim, fixedim, savepath,'elastix_default.yml','paramstruct',params,...
     'movingpoints', movpath,  'fixedpoints', fixpath,...
     'movingscale', imscale*[1 1],  'fixedscale', imscale*[1 1]);
-fprintf('Done! Took %2.2f s.\n', toc)
+if verbose, fprintf('Done! Took %2.2f s.\n', toc); end
 %==========================================================================
 end

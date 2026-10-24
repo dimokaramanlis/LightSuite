@@ -1,13 +1,15 @@
 function [regimg,tform_bspline, tformpath, pathtemp]  = performMultObjAffineRegistration(...
     movingvol,fixedvol,volscale,...
-    movingpts, fixedpts, cpwt, savepath, paramoverrides)
+    movingpts, fixedpts, cpwt, savepath, paramoverrides, verbose)
 %PERFORMMULTOBJAFFINEREGISTRATION affine elastix fit using image + points.
 %   Works for 2D images and 3D volumes (dimension taken from FIXEDVOL).
 %   Mutual information on the images is combined with the control point
 %   distance, weighted by CPWT. Without control points, only the image is
 %   used. PARAMOVERRIDES (struct) replaces any of the default parameters.
 %   The transform is saved as SAVEPATH/affine_atlas_to_samp_20um.txt.
+%   VERBOSE (default true) prints progress and timing.
 if nargin < 8 || isempty(paramoverrides), paramoverrides = struct(); end
+if nargin < 9 || isempty(verbose), verbose = true; end
 %==========================================================================
 addElastixRepoPaths;
 params = struct();
@@ -67,10 +69,11 @@ if haspts
     elastixargs = [elastixargs, {'movingpoints', movpath, 'fixedpoints', fixpath}];
 end
 
-fprintf('Performing affine registration with elastix...\n'); tic;
+if verbose, fprintf('Performing affine registration with elastix...\n'); end
+tic;
 [regimg,tform_bspline] = elastix(movingvol, fixedvol, pathtemp,'elastix_default.yml',...
     'paramstruct',params, elastixargs{:});
-fprintf('Done! Took %2.2f s.\n', toc)
+if verbose, fprintf('Done! Took %2.2f s.\n', toc); end
 %-------------------------------------------------------------------------
 % copy file and delete temporary folder
 tformpath = fullfile(savepath, 'affine_atlas_to_samp_20um.txt');
