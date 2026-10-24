@@ -1,8 +1,15 @@
 function [regimg,tform_bspline] = bsplineRegisterSlice(movingim,fixedim,...
-    imscale, movingpts, fixedpts, cpwt, savepath)
+    imscale, movingpts, fixedpts, cpwt, savepath, gridspacing)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
+%
+%   BSPLINEREGISTERSLICE(..., GRIDSPACING) sets the final B-spline control
+%   point spacing in mm (how much the slice is allowed to bend); smaller
+%   values allow more local deformation. Defaults to 0.96 when not given.
 %==========================================================================
+if nargin < 7 || isempty(gridspacing)
+    gridspacing = 0.96;
+end
 addElastixRepoPaths;
 params = struct();
 %==========================================================================
@@ -28,7 +35,7 @@ params.NumberOfHistogramBins           = 32;
 params.SP_A                            = 20;
 %--------------------------------------------------------------------------
 % these may affect more
-params.FinalGridSpacingInPhysicalUnits = 0.96*ones(1,2);
+params.FinalGridSpacingInPhysicalUnits = gridspacing*ones(1,2);
 params.MaximumNumberOfIterations       = [600 800 1200 1600];
 params.NumberOfSpatialSamples          = 5000;
 params.Metric1Weight                   = cpwt; %cpwt;%[1  0.5 0.25 0.125] * cpwt; %
