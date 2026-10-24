@@ -14,7 +14,7 @@ A Python port is in development at [PyLightSuite](https://github.com/Wyss-Micros
 
 - **Damage-resilient registration**: point clouds initialize the fit with Bayesian Coherent Point Drift, so tears, compression and missing structures become outliers rather than failures. Spinal cords are computationally untwisted.
 - **User-steerable non-rigid fit**: a GUI re-fits the alignment live as you add landmark pairs, which enter the Elastix B-spline objective alongside mutual information.
-- **Fast cell detection**: 3D band-pass filtering plus GPU-accelerated local background normalization give an illumination-invariant signal-to-background ratio; a lightweight CNN (98.7% validation accuracy) rejects artifacts. ~4.5 × 10⁵ cells per brain in 3–4 h.
+- **Fast cell detection**: 3D band-pass filtering plus GPU-accelerated local background normalization give an illumination-invariant signal-to-background ratio; a lightweight CNN rejects artifacts. 
 - **No autofluorescence channel needed**: the reporter channel alone is enough to register, halving acquisition time and storage.
 - **Atlas-space outputs**: cell positions, per-region counts, densities, soma diameters and intensities per hemisphere, plus atlas-aligned volumes for every channel.
 - **Functional ultrasound**: align repeated sessions to a within-mouse seed, register to a vascular CCFv3 template, and map activation maps and timecourses into atlas space (optionally onto the Allen cortical flatmap).
