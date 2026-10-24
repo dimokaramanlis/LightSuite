@@ -91,6 +91,7 @@ gui_data.saved_views = repmat({nan(1, 2)}, gui_data.num_user_slices, 1);
 gui_data.saved_slice_vectors = repmat({nan(1, 3)}, gui_data.num_user_slices, 1);
 gui_data.saved_slice_points = nan(gui_data.num_user_slices, 3);
 gui_data.atlas_slice_point = camtarget(gui_data.atlas_ax);
+gui_data = load_previous_session(gui_data);
 
 guidata(gui_fig, gui_data);
 update_user_slice_view(gui_fig); % Initial view setup
@@ -165,6 +166,9 @@ function keypress(gui_fig, eventdata)
             update_stats_display(gui_fig);
         %% MODIFICATION END
 
+        case 's'
+            save_cutting_angle_data(gui_data);
+
         case {'1', '2', '3'}
              if str2double(eventdata.Key) <= size(gui_data.volume, 4)
                 gui_data.colsuse = str2double(eventdata.Key);
@@ -194,20 +198,45 @@ function close_gui(gui_fig, ~)
     end
     answer = questdlg('Save the alignment data?', 'Confirm Exit', 'Yes', 'No', 'Cancel', 'Yes');
     if strcmp(answer, 'Yes')
-        disp('Saving alignment data...');
-        cutting_angle_data = struct();
-        cutting_angle_data.saved_slice_vectors = gui_data.saved_slice_vectors;
-        cutting_angle_data.slice_points = gui_data.saved_slice_points;
-        %% MODIFICATION START: Save view data to allow for full session restoration
-        cutting_angle_data.saved_views = gui_data.saved_views;
-        %% MODIFICATION END
-        save_filename = fullfile(gui_data.save_path, 'cutting_angle_data.mat');
-        save(save_filename, 'cutting_angle_data');
-        fprintf('Data saved to: %s\n', save_filename);
+        save_cutting_angle_data(gui_data);
         delete(gui_fig);
     elseif strcmp(answer, 'No')
         disp('Closing without saving.');
         delete(gui_fig);
+    end
+end
+
+function save_cutting_angle_data(gui_data)
+    cutting_angle_data = struct();
+    cutting_angle_data.saved_slice_vectors = gui_data.saved_slice_vectors;
+    cutting_angle_data.slice_points        = gui_data.saved_slice_points;
+    cutting_angle_data.saved_views         = gui_data.saved_views;   % lets the GUI restore the session
+    save_filename = fullfile(gui_data.save_path, 'cutting_angle_data.mat');
+    save(save_filename, 'cutting_angle_data');
+    fprintf('Data saved to: %s\n', save_filename);
+end
+
+function gui_data = load_previous_session(gui_data)
+% Restore the per-slice views and plane positions from an earlier
+% cutting_angle_data.mat, if there is one for the same number of slices.
+    save_filename = fullfile(gui_data.save_path, 'cutting_angle_data.mat');
+    if ~exist(save_filename, 'file'), return; end
+    try
+        s = load(save_filename, 'cutting_angle_data');
+        d = s.cutting_angle_data;
+        n = gui_data.num_user_slices;
+        if ~isfield(d, 'saved_views') || numel(d.saved_views) ~= n || ...
+                size(d.slice_points, 1) ~= n || numel(d.saved_slice_vectors) ~= n
+            warning('Saved cutting angle data does not match this volume, starting fresh.');
+            return;
+        end
+        gui_data.saved_views         = d.saved_views(:);
+        gui_data.saved_slice_vectors = d.saved_slice_vectors(:);
+        gui_data.saved_slice_points  = d.slice_points;
+        nsaved = nnz(all(~isnan(d.slice_points), 2));
+        fprintf('Loaded saved positions for %d / %d slices from %s\n', nsaved, n, save_filename);
+    catch ME
+        warning('Could not load saved cutting angle data: %s', ME.message);
     end
 end
 
@@ -449,7 +478,8 @@ function show_controls_dialog()
         'Scroll Wheel: Move atlas slice plane', ...
         '1-3 or 0: Toggle channels (0 for all)',...
         'Enter: Save atlas position for current slice', ...
-        '''c'': Clear saved position for current slice'}, ...
+        '''c'': Clear saved position for current slice', ...
+        '''s'': Save all positions to file (also offered on close)'}, ...
         'Controls',CreateStruct);
 end
 %% MODIFICATION END
