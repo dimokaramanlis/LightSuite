@@ -165,7 +165,7 @@ for islice = 1:Nslices
     sliceplot = uint8(255 * (sliceplot - slicelims(1))/range(slicelims));
     txtstr1   = sprintf('affine (Npts = %d)', Nmov);
     cf = plotRegistrationComparison(sliceplot, cat(3, affannotim, avreg), ...
-        {txtstr1, sprintf('bspline (scale = %2.2f mm)', gridspacing)}, fixedpts);
+        {txtstr1, sprintf('bspline (scale x = %2.2f, y = %2.2f mm)', gridspacing)}, fixedpts);
     print(cf, fullfile( forsavepath, sprintf('%03d_slice_registration_comparison', islice)), '-dpng')
     close(cf);
     %------------------------------------------------------------------
@@ -178,7 +178,8 @@ for islice = 1:Nslices
     %------------------------------------------------------------------
     rmdir(dpsavefor, 's');
     rmdir(dpsaverev, 's');
-    fprintf('Slice %d/%d: %d points, B-spline grid %2.2f mm (coarse %2.2f, mean dist %2.2f), %2.1f s\n', ...
+    fprintf(['Slice %d/%d: %d points, B-spline grid x %2.2f / y %2.2f mm ', ...
+        '(coarse %2.2f, mean dist x %2.2f / y %2.2f), %2.1f s\n'], ...
         islice, Nslices, Nmov, gridspacing, coarsescale, meandist, toc(slicetimer));
     %------------------------------------------------------------------
 end
@@ -205,14 +206,17 @@ save(fullfile(opts.procpath, 'transform_params.mat'), '-struct', 'regparams')
 end
 
 function [gridspacing, coarsescale, meandist] = getAdaptiveBsplineScale(brainmask, pts, pxsize, finescale)
-% GETADAPTIVEBSPLINESCALE picks the B-spline grid spacing (mm) for one slice.
+% GETADAPTIVEBSPLINESCALE picks the B-spline grid spacing (mm) for one slice,
+%   separately for x and y (GRIDSPACING and MEANDIST are [x y]).
 %   The coarsest spacing is half the sqrt of the brain area. With control
-%   points, the mean distance from brain pixels (random subset) to the
-%   nearest point is turned into an effective number of well-spread points,
-%   NEFF. The spacing goes from coarse to FINESCALE as (NEFF/NFINE)^2, where
-%   NFINE is the number of points whose mean distance equals FINESCALE. So the
-%   scale changes slowly with few points and faster with more, and clustered
-%   points barely refine the grid.
+%   points, each brain pixel (random subset) is matched to its nearest point,
+%   and the x and y offsets are averaged per axis. Each axis then gets a
+%   distance MEANDIST(a), scaled so that evenly spread points give the usual
+%   mean distance on both axes. The spacing goes from coarse to FINESCALE as
+%   tfrac^2, with tfrac = (FINESCALE/MEANDIST)^2 / DENSITYFAC, so the scale
+%   changes slowly with few points and faster with more, clustered points
+%   barely refine the grid, and points lined up along one axis refine the
+%   grid along that axis only.
 %   PTS are [x y] pixel coordinates in the same frame as BRAINMASK.
 %==========================================================================
 if ~any(brainmask, 'all')
@@ -221,8 +225,8 @@ end
 coarsescale = 0.5 * sqrt(nnz(brainmask) * pxsize^2);
 
 if isempty(pts)
-    meandist    = Inf;
-    gridspacing = coarsescale;
+    meandist    = [Inf Inf];
+    gridspacing = coarsescale * [1 1];
     return;
 end
 
@@ -234,20 +238,20 @@ rs          = RandStream('twister', 'Seed', 1);
 isamp       = randperm(rs, Nbrain, min(Nsamp, Nbrain));
 brainpts    = [xb(isamp) yb(isamp)];
 
-% average distance from a brain pixel to its nearest control point
-nndist      = pdist2(pts, brainpts, 'euclidean', 'Smallest', 1);
-meandist    = mean(nndist) * pxsize;
+% x and y offsets from each brain pixel to its nearest control point
+[~, inn]    = pdist2(pts, brainpts, 'euclidean', 'Smallest', 1);
+meanoff     = mean(abs(pts(inn, :) - brainpts), 1) * pxsize;   % [x y]
 
-% effective number of well-spread points: for points on a regular grid,
-% meandist ~ 0.38*sqrt(A/N), so N ~ 0.15*A/meandist^2
-brainarea   = nnz(brainmask) * pxsize^2;
-Neff        = 0.15 * brainarea / meandist^2;
-% number of points needed to reach the fine scale; the 1.5 factor asks for
-% more points than meandist = finescale, so the scale shrinks more slowly
+% per-axis distance: on a regular grid with spacing s, mean |dx| = s/4 and
+% the mean 2D distance is 0.383*s, so 1.53*mean|dx| matches the 2D distance
+meandist    = 1.53 * meanoff;
+
+% DENSITYFAC > 1 asks for more points than meandist = finescale, so the
+% scale shrinks more slowly
+densityfac  = 1.5;
 finescale   = min(finescale, coarsescale);
-Nfine       = 1.5 * 0.15 * brainarea / finescale^2;
+tfrac       = min((finescale ./ meandist).^2 / densityfac, 1);
 
-% slow change with few points, faster as we approach Nfine
-tfrac       = min(Neff / Nfine, 1);
-gridspacing = coarsescale - (coarsescale - finescale) * tfrac^2;
+% slow change with few points, faster as we approach the fine scale
+gridspacing = coarsescale - (coarsescale - finescale) * tfrac.^2;
 end

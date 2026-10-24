@@ -6,6 +6,7 @@ function [regimg,tform_bspline] = bsplineRegisterSlice(movingim,fixedim,...
 %   BSPLINEREGISTERSLICE(..., GRIDSPACING) sets the final B-spline control
 %   point spacing in mm (how much the slice is allowed to bend); smaller
 %   values allow more local deformation. Defaults to 0.96 when not given.
+%   A scalar is used for both axes; [sx sy] sets x and y separately.
 %   VERBOSE (default true) prints progress and timing.
 %==========================================================================
 if nargin < 8 || isempty(gridspacing)
@@ -37,7 +38,7 @@ params.NumberOfHistogramBins           = 32;
 params.SP_A                            = 20;
 %--------------------------------------------------------------------------
 % these may affect more
-params.FinalGridSpacingInPhysicalUnits = gridspacing*ones(1,2);
+params.FinalGridSpacingInPhysicalUnits = gridspacing(:)' .* ones(1,2); % scalar or [x y]
 params.MaximumNumberOfIterations       = [600 800 1200 1600];
 params.NumberOfSpatialSamples          = 5000;
 params.Metric1Weight                   = cpwt; %cpwt;%[1  0.5 0.25 0.125] * cpwt; %
