@@ -9,14 +9,16 @@ function SliceOrderEditor(optionalVolumePath)
 %   c              edit the centering crop rectangle (if available)
 %   m              show / hide the montage of all slices
 %   1 / 2 / 3      show / hide color channel 1 (red), 2 (green), 3 (blue)
+%   d              show / hide the Display panel
 %   s              save decisions to file
 %   Esc            prompt to save and close
 %
 % In the montage, click a tile to show that slice, or drag it onto another
 % tile to move the slice there.
 %
-% The Display panel turns channels on and off and sets each channel's black
-% and white levels. It changes only what is shown, not the saved data.
+% The Display panel (hidden at start, press d) turns channels on and off and
+% sets each channel's black and white levels. It changes only what is shown,
+% not the saved data.
 
     % --- Initial Setup ---
     inputFileFullPath = '';
@@ -110,8 +112,9 @@ function SliceOrderEditor(optionalVolumePath)
     gui_data.displayLevels = repmat([0 1], nDisp, 1);   % [black white], fraction of full range
     gui_data.channelChecks = gobjects(nDisp, 1);
     gui_data.levelSliders  = gobjects(nDisp, 2);
+    gui_data.displayPanel  = [];
 
-    gui_data.imageAxes  = axes('Parent', gui_fig, 'Units', 'normalized', 'Position', [0.03 0.05 0.76 0.9]);
+    gui_data.imageAxes  = axes('Parent', gui_fig, 'Units', 'normalized', 'Position', [0.05 0.05 0.9 0.9]);
     gui_data.imageAxes.Colormap = colormap('gray');
     axis(gui_data.imageAxes, 'image', 'off');
     gui_data.imageHandle = image(gui_data.imageAxes, []);
@@ -244,9 +247,9 @@ function display_current_slice(fig)
         'String', orderNumStr);
 
     if gui_data.hasCropSugg
-        key_hint = 'Keys: Nav = Left/Right | Reorder = Enter | Crop = c | Montage = m | Save = s';
+        key_hint = 'Keys: Nav = Left/Right | Reorder = Enter | Crop = c | Montage = m | Display = d | Save = s';
     else
-        key_hint = 'Keys: Nav = Left/Right | Reorder = Enter | Montage = m | Save = s';
+        key_hint = 'Keys: Nav = Left/Right | Reorder = Enter | Montage = m | Display = d | Save = s';
     end
     title_str = {sprintf('Slice at Order Position: %d/%d (Original Index: %d) - %s', ...
                          gui_data.currentDisplayPosition, gui_data.numSlices, ...
@@ -284,6 +287,8 @@ function callback_keypress(fig, eventdata)
             refresh_tiles = true;
         case 'm'
             toggle_montage_window(fig); return;   % montage
+        case 'd'
+            toggle_display_panel(fig); return;
         case {'1', '2', '3'}
             ch = str2double(eventdata.Key);
             if ch <= numel(gui_data.channelOn) && gui_data.channelHasData(ch)
@@ -507,7 +512,8 @@ function build_display_panel(fig)
     end
 
     panel = uipanel('Parent', fig, 'Units', 'normalized', 'Position', [0.80 0.05 0.18 0.9], ...
-        'Title', 'Display', 'BackgroundColor', 'w');
+        'Title', 'Display (d to hide)', 'BackgroundColor', 'w', 'Visible', 'off');
+    gui_data.displayPanel = panel;
     block_h = 0.26;
     for c = 1:min(nDisp, 3)
         y = 0.97 - (c-1) * block_h;   % top of this channel's block
@@ -535,6 +541,19 @@ function build_display_panel(fig)
         'Position', [0.05 0.03 0.9 0.06], 'String', 'Reset display', ...
         'Callback', @(src, evt) reset_display(fig, src));
     guidata(fig, gui_data);
+end
+
+function toggle_display_panel(fig)
+% d: show the Display panel next to the image, or hide it and use the full width.
+    gui_data = guidata(fig);
+    if isempty(gui_data.displayPanel) || ~ishandle(gui_data.displayPanel), return; end
+    if strcmp(get(gui_data.displayPanel, 'Visible'), 'on')
+        set(gui_data.displayPanel, 'Visible', 'off');
+        set(gui_data.imageAxes, 'Position', [0.05 0.05 0.9 0.9]);
+    else
+        set(gui_data.imageAxes, 'Position', [0.03 0.05 0.76 0.9]);
+        set(gui_data.displayPanel, 'Visible', 'on');
+    end
 end
 
 function channel_toggled(fig, src, c)
