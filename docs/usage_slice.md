@@ -143,7 +143,7 @@ Serial sections are rarely cut exactly orthogonal to the rostrocaudal axis. `det
 `registerSlicesToAtlas(opts)` applies a two-stage registration per slice:
 
 1. **Affine stage:** Fits a 2D affine directly from your landmark pairs when at least five are available, otherwise estimates one from image-derived point clouds.
-2. **B-spline stage:** Elastix 2D free-form deformation with the same multi-metric objective as the volume pipeline — Advanced Mattes mutual information (32 histogram bins) plus a corresponding-points term — at a 0.96 mm final control-point grid spacing.
+2. **B-spline stage:** Elastix 2D free-form deformation with the same multi-metric objective as the volume pipeline — Advanced Mattes mutual information (32 histogram bins) plus a corresponding-points term — at a final control-point grid spacing set by `opts.bspline_spatial_scale` (default 0.96 mm; smaller values allow more local bending). The spacing depends on how many control points a slice has: slices with none use a coarse spacing of 1/3 of the smallest image axis, slices with 30 or more use `opts.bspline_spatial_scale`, and slices in between are linearly interpolated between the two.
 
 Both forward and reverse transforms are saved. Elastix moves points and images in opposite directions: the forward files map cell coordinates onto the atlas (`slicePointsToAtlas`), and the reverse files warp section images into atlas space.
 

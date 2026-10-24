@@ -161,7 +161,7 @@ for islice = 1:Nslices
     sliceplot = uint8(255 * (sliceplot - slicelims(1))/range(slicelims));
     txtstr1   = sprintf('affine (Npts = %d)', Nmov);
     cf = plotRegistrationComparison(sliceplot, cat(3, affannotim, avreg), ...
-        {txtstr1, 'bspline'}, fixedpts);
+        {txtstr1, sprintf('bspline (scale = %2.2f mm)', gridspacing)}, fixedpts);
     print(cf, fullfile( forsavepath, sprintf('%03d_slice_registration_comparison', islice)), '-dpng')
     close(cf);
     %------------------------------------------------------------------
