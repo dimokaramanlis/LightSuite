@@ -237,7 +237,7 @@ brainarea   = nnz(brainmask) * pxsize^2;
 Neff        = 0.15 * brainarea / meandist^2;
 % number of points needed to reach the fine scale (meandist = finescale)
 finescale   = min(finescale, coarsescale);
-Nfine       = 0.15 * brainarea / finescale^2;
+Nfine       = 1.5 * (0.15 * brainarea / finescale^2);
 
 % slow change with few points, faster as we approach Nfine
 tfrac       = min(Neff / Nfine, 1);

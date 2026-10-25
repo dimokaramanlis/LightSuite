@@ -174,8 +174,9 @@ end
 % Upload gui data
 guidata(gui_fig,gui_data);
 
-% Initialize alignment
-align_ccf_to_histology(gui_fig);
+% Draw the first slice the same way navigation does, so the atlas slice,
+% markers and overlay reflect any saved control points from the start
+update_slice(gui_fig);
 
 % Print controls
 CreateStruct.Interpreter = 'tex';

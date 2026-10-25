@@ -101,11 +101,10 @@ if exist(gui_data.save_file, 'file')
         fprintf('Loaded %d points across all groups.\n', total);
     end
     if isfield(sv, 'active_group');   gui_data.active_group = sv.active_group; end
-    if ~isempty(sv.all_points{1});
-        gui_data.curr_slice = round(median(sv.all_points{1}(:,1)));
-    end
-    
 end
+
+% Start on the median AP of all annotated points, or of the non-empty slices
+gui_data.curr_slice = initialTracingSlice(volperm, gui_data.all_points, SLICE_DIM);
 
 %----------------------------------------------------------------------
 % 3. Build figure and layout

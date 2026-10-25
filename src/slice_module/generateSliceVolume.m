@@ -167,7 +167,7 @@ for ich = 1:min(Nchannels, 3)
     else
         currchan    = single(currchan);
     end
-    maxval      = quantile(currchan, 0.99, 'all');
+    maxval      = quantile(currchan, 0.999, 'all');
     volproc(:, :, ich, :) = uint8(255*currchan./maxval);
 end
 options.big      = false;
