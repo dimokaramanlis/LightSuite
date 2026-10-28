@@ -63,7 +63,7 @@ opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
 matchControlPointsInSlices(opts)
 %% (auto) refine registation with control points and elastix
 opts            = load(fullfile(sliceinfo.procpath, "regopts.mat"));
-opts.cpwt       = 0.4;
+opts.cpwt       = 0.2; %weight of points, increase this for heavily damaged slices
 transformparams = registerSlicesToAtlas(opts);
 
 %% (auto) apply registration to all color channels to generate registered volumes
