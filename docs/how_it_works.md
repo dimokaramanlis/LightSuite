@@ -12,7 +12,7 @@ Two ideas carry the pipeline: **damage-resilient point-cloud initialization** an
 
 * Brains are registered to the **Allen Mouse Brain Common Coordinate Framework** (CCFv3; Wang et al., 2020). Spinal cords use the **Fiederling et al. (2021)** atlas; fUS volumes use a vascular template (Brunner et al., 2021) that has itself been registered into CCFv3.
 * Registration runs on volumes downsampled to **20 µm isotropic** — far finer than the several-hundred-µm scale of the non-rigid fit, which matches how much clearing and fixation actually deform tissue. Atlas template and annotations are kept at **10 µm**.
-* Results are reported in **atlas voxel coordinates**. Column order depends on the module and is stated with each output (slice-module cell coordinates are `[ML, AP, DV]`; the probe `probe_ccf` uses `[AP, DV, ML]`).
+* Results are reported in **atlas voxel coordinates**. Column order depends on the module and is stated with each output (slice-module cell coordinates are `[DV, AP, ML]`; the probe `probe_ccf` uses `[AP, DV, ML]`).
 * Quantification defaults to the **substructure level** of the Allen parcellation, per hemisphere.
 
 ---

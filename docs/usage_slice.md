@@ -1,226 +1,194 @@
 # Slice Analysis
 
-The slice module reconstructs serial wide-field sections into a 3D volume in Allen CCFv3 space. You order the sections, rigidly align them, correct the cutting angle, and register each one non-rigidly with the same landmark-guided objective used for volumes; the inverse transforms then assemble the stack into atlas space, with gaps from irregular spacing filled by nearest-neighbour interpolation.
+The slice module turns serial wide-field sections into a 3D volume in Allen CCFv3 space. You order the sections, align them rigidly to the atlas, optionally correct the cutting angle, and register each section non-rigidly with the same landmark-guided objective used for volumes. Gaps between sections are filled by nearest-neighbour interpolation.
 
-Each section carries its own transforms, so this workflow is more involved than the 3D one — but the same active-learning interface finds the best-matching atlas slice for you to annotate on.
+> Shared concepts (registration, control points, cell detection) are explained in [How it works](how_it_works.md). This page covers the slice-specific steps.
 
-> The registration and cell-detection concepts are shared across modules and explained in [How it works](how_it_works.md). This page covers the slice-specific steps (ordering, cutting angle, per-section registration).
+Run the sections of `demos/ls_analyze_slice_volume.m` in order. Sections marked *(manual)* open a GUI.
 
-## Workflow Overview
-
-The analysis is driven by the main script: `ls_analyze_slice_volume`.
-
-The pipeline consists of the following stages:
-1. **Volume Generation:** Load CZI files and create a centered 3D volume.
-2. **Slice Reordering:** Manually reorder and flip slices as needed.
-3. **Volume Alignment:** Initial rigid alignment to the Allen Atlas.
-4. **Cutting Angle Determination:** Visually match the atlas cutting plane to your tissue.
-5. **Control Point Matching:** Manually refine registration by placing landmarks.
-6. **Registration Refinement:** Elastix-based affine and B-spline deformation per slice.
-7. **Registered Volume Generation:** Apply transforms to all channels.
-8. **Cell Detection:** Detect cells in the registered volume.
-9. **Cell Registration to Atlas:** Transform cell coordinates to atlas space.
-
----
-
-## Configuration Parameters
-
-Parameters are stored in a `sliceinfo` struct defined at the top of `ls_analyze_slice_volume.m`.
-
-| Parameter | Description | Example |
+| Step | Function | Type |
 | :--- | :--- | :--- |
-| `sliceinfo.mousename` | Mouse identifier string | `'M001'` |
-| `sliceinfo.channames` | Channel names | `{'DAPI', 'Cy3'}` |
-| `sliceinfo.pxsize` | Original pixel size (µm) | `0.65` |
-| `sliceinfo.px_process` | Processing resolution (µm) | `1.25` |
-| `sliceinfo.px_register` | Registration resolution (µm) | `20` |
-| `sliceinfo.px_atlas` | Atlas resolution (µm, typically 10) | `10` |
-| `sliceinfo.slicethickness` | Physical spacing between slices (µm) | `40` |
-| `sliceinfo.Nslices` | Total number of slices | `50` |
-| `sliceinfo.celldiam` | Expected cell diameter (µm) | `14` |
-| `sliceinfo.thresuse` | SBR thresholds `[primary, secondary]` | `[0.75, 0.4]` |
-| `sliceinfo.debug` | Enable detection debug plots | `false` |
-| `sliceinfo.use_gpu` | Use GPU for processing | `false` |
-| `sliceinfo.atlasaplims` | Atlas AP axis limits `[min, max]` | `[200, 400]` |
+| 1. Build the slice volume | `generateSliceVolume` | auto |
+| 2. Order, flip, exclude and crop slices | `SliceOrderEditor`, `generateReordedVolume` | manual |
+| 3. Rigid alignment to the atlas | `alignSliceVolume` | auto |
+| 4. Cutting angle (optional) | `determineCuttingAngleGUI` | manual |
+| 5. Control points | `matchControlPointsInSlices` | manual |
+| 6. Per-section registration | `registerSlicesToAtlas` | auto |
+| 7. Registered volume | `generateRegisteredSliceVolume` | auto |
+| 8. Cell detection | `extractCellsFromSliceVolume` | auto |
+| 9. Cells to atlas | `slicePointsToAtlas` | auto |
+| 10. Region tables | `generateSliceIntensitiesCSV`, `sliceCellCountsToCSV` | auto |
 
 ---
 
-## 1. Volume Generation
+## Input and settings
 
-`generateSliceVolume(sliceinfo, regchan)` reads your CZI files and produces a centered 3D volume:
+Set `datafolderpath` and `mousename` at the top of the demo. `datafolderpath` can hold one subfolder per mouse (matched by `mousename`) or be the image folder itself. Accepted input:
 
-* Reads multi-scene CZI files using BioformatsImage.
-* Applies a median filter to remove salt-and-pepper noise.
-* Resamples to the processing resolution (`px_process`).
-* Crops or pads each slice to a uniform size based on detected brain boundaries.
-* Optionally denoises the DAPI channel.
-* Saves a downsampled RGB preview (`volume_for_ordering.tiff`) for use in the next step.
+* **CZI** — each file can hold several scenes (one per slice); pixel size and channel names are read from the metadata.
+* **TIF/TIFF** — one file per slice, channels as pages. Set `sliceinfo.pxsize` and `sliceinfo.channames` in the demo.
+
+Settings are read from `local_settings.txt` in the sample folder. If it is missing, it is created with the defaults below; edit it and re-run the section. The file is read again before alignment (step 3), so later edits are picked up.
+
+| Setting | Default | Meaning |
+| :--- | :--- | :--- |
+| `slicethickness` | `150` | Spacing between consecutive sections (µm) |
+| `px_process` | `5` | Processing resolution (µm/px) |
+| `px_register` | `20` | Registration resolution (µm/px) |
+| `px_atlas` | `10` | Atlas resolution (µm/px) |
+| `atlasaplims` | `[180 1079]` | AP range of the atlas used (10 µm voxels) |
+| `regchan` | `'dapi'` | Channel used for registration (name substring) |
+| `denoisedapi` | `false` | Local-std filter on the DAPI channel |
+| `medianfiltreg` | `false` | Median filter on the registration volume |
+| `use_gpu` | `false` | Use the GPU where supported |
+
+All output goes to a `lightsuite/` folder next to the images.
 
 ---
 
-## 2. Slice Reordering
+## 1. Build the slice volume
 
-Because slices may be loaded out of order or incorrectly oriented, `SliceOrderEditor` provides a GUI to review and correct the stack before proceeding.
+`generateSliceVolume` median-filters each image (salt-and-pepper noise), resamples it to `px_process`, pads all slices to a common size, and puts the registration channel first. It also detects the brain outline in each slice and stores a crop suggestion, which is applied in step 3.
 
-### Controls
+**Outputs:** `volume_centered/`, `volume_for_ordering.tiff` (RGB preview at `px_register`), `volume_for_ordering_processing_decisions.txt` (crop suggestions), `sliceinfo.mat`.
 
-| Key / Action | Function |
+## 2. Order slices
+
+`SliceOrderEditor` shows the preview stack so you can fix order, orientation and bad slices. `generateReordedVolume` then writes the result to `volume_ordered.tiff` for a quick check.
+
+| Key | Action |
 | :--- | :--- |
-| **← / →** | Navigate to previous / next slice |
-| **f** | Flip current slice horizontally |
-| **o** | Toggle slice as excluded (removes from final stack) |
-| **Enter** | Move current slice to a new position (prompts for index) |
-| **m** | Show / hide the montage of all slices (click a tile to show it, drag it onto another tile to move the slice) |
-| **s** | Save ordering decisions |
-| **Escape** | Close the GUI |
+| **← / →** | Previous / next slice |
+| **Enter** | Move the current slice to a new position |
+| **f** | Flip the slice left-right |
+| **o** | Exclude / restore the slice |
+| **c** | Edit the crop rectangle (double-click to confirm, Esc to cancel) |
+| **m** | Show / hide the montage (click a tile to jump to it, drag it onto another tile to move it) |
+| **1 / 2 / 3** | Show / hide channel |
+| **d** | Show / hide the display panel (channel levels; display only) |
+| **s** | Save decisions |
+| **Esc** | Close (asks to save) |
 
-**Output:** `volume_for_ordering_processing_decisions.txt` — a table recording the new order, flip state, and exclusion flags for each slice. With the montage open, saving also writes a picture of it, `slice_order_montage.png`.
+**Outputs:** `volume_for_ordering_processing_decisions.txt` (order, flip/exclude state, crop per slice); `slice_order_montage.png` if the montage is open when saving.
 
----
+## 3. Rigid alignment
 
-## 3. Volume Alignment
+`alignSliceVolume` applies the ordering and crops, then aligns the stack to the atlas:
 
-`alignSliceVolume(slicevol, sliceinfo)` performs an initial rigid alignment of the slice stack to the Allen Mouse Brain Atlas:
+* A point cloud of bright pixels is taken from each section and stacked along AP using `slicethickness`.
+* Three passes alternate a global 3D rigid fit to the atlas (Coherent Point Drift) with per-section 2D rigid fits (ICP) against the atlas plane at each section.
 
-* Extracts a per-section 2D point cloud of high-signal pixels, spaced along the rostrocaudal axis by the physical section thickness to form a 3D sample cloud.
-* Alternates, over three passes, between a **global 3D rigid** fit of the whole cloud to the atlas (Coherent Point Drift) and **per-section in-plane 2D rigid** fits (ICP) against the atlas plane at each section position.
-* This yields both an initial placement of the stack in the atlas and a per-section correction that straightens each section within the assembled volume.
+**Check the diagnostic plots and the inspection volume before going on** — the control point GUI starts from this alignment.
 
-**Output:** `regopts.mat` — registration parameters including the rigid transform matrix (`tformrigid_allen_to_samp_20um`) and axis permutation.
+**Outputs:** `regopts.mat` (rigid transform `tformrigid_allen_to_samp_20um`), `volume_aligned/chanNN_<name>.tiff` (all channels, `px_process`), `sample_register_20um.tif`, `volume_for_inspection.tiff`, `<mousename>_dim{1,2,3}_initial_registration.png`.
 
----
+## 4. Cutting angle (optional)
 
-## 4. Cutting Angle Determination
+Use this if sections were not cut orthogonal to the AP axis. `determineCuttingAngleGUI` lets you rotate the atlas until its plane matches a section and save that direction. Saved directions are averaged into one cutting normal, which corrects the rotation of the rigid transform in steps 5 and 6 — a handful of sections is enough.
 
-Serial sections are rarely cut exactly orthogonal to the rostrocaudal axis. `determineCuttingAngleGUI(opts)` lets you rotate the 3D atlas until its plane matches a given section and save that viewing direction. The saved per-section directions are averaged into a **single mean cutting normal**, which corrects the rotation of the global atlas-to-sample transform so that atlas planes are resampled at the true cutting angle — you therefore only need to do a handful of sections, not all of them.
-
-### Controls
-
-| Key / Action | Function |
+| Key | Action |
 | :--- | :--- |
-| **← / →** | Navigate slices |
-| **Shift + ← / → / ↑ / ↓** | Rotate the 3D atlas view (0.3° per press) |
-| **Scroll Wheel** | Move the atlas slice plane perpendicular to the view |
-| **Spacebar** | Toggle atlas boundary overlay |
-| **1 / 2 / 3 / 0** | Toggle individual channels (0 = all) |
-| **Return** | Save the atlas position for the current slice |
-| **c** | Clear the saved position for the current slice |
+| **← / →** | Previous / next section |
+| **Shift + arrows** | Rotate the atlas (0.3° per press) |
+| **Scroll** | Move the atlas plane along its normal |
+| **Space** | Toggle atlas boundaries |
+| **1 / 2 / 3, 0** | Show one channel / all channels |
+| **Enter** | Store the atlas plane for this section |
+| **c** | Clear the stored plane for this section |
+| **s** | Save (also offered on close) |
 
-**Output:** `cutting_angle_data.mat` — camera direction vectors and atlas-space points defining the cutting plane for each slice.
+**Output:** `cutting_angle_data.mat`. Delete it to fall back to the automatic angle.
 
----
+## 5. Control points
 
-## 5. Control Point Matching
+`matchControlPointsInSlices` shows each section next to its predicted atlas plane. Click matching landmarks on both; the title shows the number of pairs and the error of a live affine fit (3 pairs minimum). The atlas AP position of sections you have not annotated is predicted from those you have, so annotating a few sections spread along the stack also fixes spacing errors.
 
-`matchControlPointsInSlices(opts)` opens a GUI to manually refine the 2D registration of each slice by placing corresponding anatomical landmarks.
-
-### Interface
-* **Left panel:** Your histology slice.
-* **Right panel:** The corresponding atlas plane.
-
-### Controls
-
-| Key / Action | Function |
+| Key | Action |
 | :--- | :--- |
-| **Click (Left panel)** | Place a control point on the histology image |
-| **Click (Right panel)** | Place the corresponding control point on the atlas |
-| **← / →** | Navigate to previous / next slice |
-| **Spacebar** | Toggle atlas overlay |
-| **g** | Toggle grid overlay |
-| **c** | Clear control points for the current slice |
-| **1 / 2 / 3 / 0** | Toggle channels |
-| **Enter** | Jump to a specific slice number |
-| **s** | Save control points |
+| **Click** | Add a control point |
+| **Backspace** | Delete the last point |
+| **← / →** | Previous / next section |
+| **Scroll** (Shift: ×10) | Move the atlas plane along AP |
+| **Space** | Toggle atlas boundaries |
+| **g** | Toggle grid |
+| **c** | Clear this section's points |
+| **1 / 2 / 3, 0** | Show one channel / all channels |
+| **s** | Save (also offered on close) |
 
-**Tips:** At least **3 matched pairs per slice** are needed for the 2D affine fit, spread across the slice; the live MSE shows fit quality. See [How it works → control points](how_it_works.md#refining-registration-with-control-points-active-learning) for the general landmark strategy.
+See [How it works → control points](how_it_works.md#refining-registration-with-control-points-active-learning) for where to place landmarks.
 
-**Output:** `atlas2histology_tform.mat` — per-slice affine transforms and control point arrays.
+**Output:** `atlas2histology_tform.mat`.
 
----
+## 6. Per-section registration
 
-## 6. Registration Refinement
+`registerSlicesToAtlas(opts)` registers each section in two stages:
 
-`registerSlicesToAtlas(opts)` applies a two-stage registration per slice:
+1. **Affine** — fitted to your control points if a section has at least 5, otherwise to image-derived point clouds.
+2. **B-spline** (elastix) — Mattes mutual information plus a control-point distance term weighted by `opts.cpwt` (demo: 0.2; increase for damaged sections).
 
-1. **Affine stage:** Fits a 2D affine directly from your landmark pairs when at least five are available, otherwise estimates one from image-derived point clouds.
-2. **B-spline stage:** Elastix 2D free-form deformation with the same multi-metric objective as the volume pipeline — Advanced Mattes mutual information (32 histogram bins) plus a corresponding-points term — at a final control-point grid spacing set by `opts.bspline_spatial_scale` (default 0.96 mm; smaller values allow more local bending). The spacing adapts to how well the control points cover each slice. Slices without points use a coarse spacing of half the square root of the brain area. With points, the mean distance from brain pixels (a random subset) to the nearest point is converted into an effective number of well-spread points. The spacing then moves from the coarse value to `opts.bspline_spatial_scale` following the square of the fraction of points needed to reach that scale (the count whose mean distance equals it). The spacing changes slowly with a few points and faster as coverage improves. Points clustered in one region barely refine the grid.
+The B-spline grid spacing adapts per section: half the square root of the brain area without points, refining toward `opts.bspline_spatial_scale` (default 0.96 mm) as the points cover the section more evenly. Clustered points barely refine it.
 
-Both forward and reverse transforms are saved. Elastix moves points and images in opposite directions: the forward files map cell coordinates onto the atlas (`slicePointsToAtlas`), and the reverse files warp section images into atlas space.
+Sections without control points take their AP position from the annotated ones (interpolated when more than 3 sections are annotated).
 
-**Outputs:**
-* `transform_params.mat` — complete per-slice registration parameters.
-* `elastix_forward/NNN_slice_bspline_atlas_to_samp_20um.txt`
-* `elastix_reverse/NNN_slice_bspline_samp_to_atlas_20um.txt`
+**Outputs:** `transform_params.mat`; `elastix_forward/NNN_slice_bspline_atlas_to_samp_20um.txt` (used to map points) with `NNN_slice_registration_comparison.png`; `elastix_reverse/NNN_slice_bspline_samp_to_atlas_20um.txt` (used to warp images).
 
----
+## 7. Registered volume
 
-## 7. Registered Volume Generation
+`generateRegisteredSliceVolume` warps every channel of each section into its atlas plane (inverse B-spline, then inverse affine), fills the gaps between sections by nearest-neighbour interpolation along AP, and places the stack in the atlas with the inverse rigid transform.
 
-`generateRegisteredSliceVolume(sliceinfo, transformparams)` maps all channels into atlas space:
+**Output:** `volume_registered/` — all channels at 10 µm in atlas space.
 
-* For each slice, applies the inverse B-spline deformation followed by the inverse affine transform.
-* Places each transformed slice at its corresponding atlas Z position.
-* Fills gaps between slices via nearest-neighbor interpolation.
-* Applies the global rigid transform to place the volume in Allen atlas coordinates.
+## 8. Cell detection
 
-**Output:** `volume_registered` — the full 3D volume in atlas space for all channels.
+`extractCellsFromSliceVolume(sliceinfo, ichans)` runs a 2D version of the [SBR detector](how_it_works.md#cell-detection-and-artifact-classification) on each section of `volume_aligned`, for one or more channels. The background is a local rank filter (2.5 cell diameters wide); candidates with circularity below 0.7 are discarded. Set these in the demo:
 
----
+| Parameter | Demo | Meaning |
+| :--- | :--- | :--- |
+| `celldiam` | `14` | Expected cell diameter (µm); sets the filter scale — the most important parameter |
+| `thresuse` | `[0.75 0.4]` | SBR thresholds: detection, then expansion / minimum mean intensity |
+| `debug` | `true` | Save detection overlays to `cell_detections/` (slower) |
 
-## 8. Cell Detection
+**Output:** `chanNN_cell_locations_sample.mat` — `cell_locations`, N×5 `[x, y, section, diameter, intensity]`, in `volume_aligned` pixels. View with `visualizeCellDetections(procpath, Space = 'sample')`.
 
-`extractCellsFromSliceVolume(opts, ichan)` detects cells slice by slice using a 2D SBR-based approach.
+## 9. Cells to atlas
 
-### Algorithm
+`slicePointsToAtlas(cell_locations, transformparams)` maps cells through the forward B-spline, the inverse affine and the inverse rigid transform — the exact reverse of step 7, so a cell lands on the voxel that shows it in `volume_registered`.
 
-A 2D adaptation of LightSuite's SBR detection (background → band-pass → local maxima → morphological filter); see [How it works → cell detection](how_it_works.md#cell-detection-and-artifact-classification). Slice-specific details: a difference-from-background (DFF) image supplies the local background, and candidates are filtered by circularity (< 0.7), size, and a minimum intensity set by `thresuse(2)`.
+**Output:** `chanNN_cell_locations_atlas.mat` — `atlasptcoords`, `[DV, AP, ML]` in 10 µm atlas voxels, then diameter and intensity. View with `visualizeCellDetections(procpath, Space = 'atlas')`.
 
-### Key Parameters
-* **`celldiam`**: Expected cell diameter in µm. This directly controls the band-pass filter kernel size — it is the most important detection parameter.
-* **`thresuse`**: Two-element SBR threshold vector.
-  * `thresuse(1)` — initial detection threshold. Lower values detect dimmer cells but increase false positives.
-  * `thresuse(2)` — expansion threshold used for cell boundary growth and minimum intensity filtering.
+## 10. Region tables
 
-**Output:** `cell_locations_sample.mat` — an N×5 array with columns `[x, y, slice_index, diameter, mean_intensity]`.
+* `generateSliceIntensitiesCSV(sliceinfo, 'writetocsv', true)` — median intensity per region and hemisphere, per channel.
+* `sliceCellCountsToCSV(procpath, 'writetocsv', true)` — cell counts per region and hemisphere, per channel.
 
-If `debug = true`, PNG overlays are saved to `cell_detections/` showing the DFF image and detected cell masks per slice.
+**Outputs** (in `volume_registered/`): `chanNN_intensities.mat/.csv`, `chanNN_cellcounts.mat/.csv`.
 
 ---
 
-## 9. Cell Registration to Atlas
-
-`slicePointsToAtlas(inputpts, transformparams)` transforms detected cell coordinates from slice space into Allen Atlas space via a chain of transforms:
-
-1. B-spline deformation field (elastix transformix)
-2. Inverse affine per slice
-3. Global inverse rigid transform
-
-**Output:** `cell_locations_atlas.mat` — an N×3+ array with columns `[ML, AP, DV]` in atlas voxels, plus the original diameter and intensity properties.
-
----
-
-## Output File Summary
+## Output files
 
 ```
-<save_folder>/
-├── volume_centered                    # Full-resolution centered slice volume
-├── volume_for_ordering.tiff           # RGB preview for the ordering GUI
-├── volume_for_ordering_processing_decisions.txt
-├── volume_ordered.tiff                # Reordered/flipped volume
-├── sample_register_20um.tif           # Volume at registration resolution
-├── volume_for_inspection.tiff         # Downsampled RGB for inspection
-├── regopts.mat                        # Initial alignment parameters
-├── sliceinfo.mat                      # Slice metadata
-├── cutting_angle_data.mat             # Cutting plane angles/vectors
-├── atlas2histology_tform.mat          # Control point registration data
-├── transform_params.mat               # Final per-slice registration parameters
-├── elastix_forward/                   # Forward B-spline transforms
-│   └── NNN_slice_bspline_atlas_to_samp_20um.txt
-├── elastix_reverse/                   # Reverse B-spline transforms (for cell mapping)
-│   └── NNN_slice_bspline_samp_to_atlas_20um.txt
-├── volume_registered                  # Final atlas-space volume (all channels)
-├── cell_locations_sample.mat          # Detected cells in sample space
-├── cell_locations_atlas.mat           # Detected cells in atlas space
-└── cell_detections/                   # Debug visualizations (if debug=true)
-    └── slice_NNN_detections.png
+<sample folder>/
+├── local_settings.txt
+└── lightsuite/
+    ├── sliceinfo.mat
+    ├── volume_centered/                        # step 1, unordered
+    ├── volume_for_ordering.tiff
+    ├── volume_for_ordering_processing_decisions.txt
+    ├── slice_order_montage.png
+    ├── volume_ordered.tiff
+    ├── volume_aligned/chanNN_<name>.tiff       # ordered, cropped, rigidly aligned
+    ├── volume_for_inspection.tiff
+    ├── sample_register_20um.tif
+    ├── <mousename>_dim{1,2,3}_initial_registration.png
+    ├── regopts.mat
+    ├── cutting_angle_data.mat                  # optional
+    ├── atlas2histology_tform.mat
+    ├── transform_params.mat
+    ├── elastix_forward/                        # point mapping + QC images
+    ├── elastix_reverse/                        # image warping
+    ├── volume_registered/                      # atlas-space volume + region tables
+    ├── chanNN_cell_locations_sample.mat
+    ├── chanNN_cell_locations_atlas.mat
+    └── cell_detections/                        # if debug = true
 ```
