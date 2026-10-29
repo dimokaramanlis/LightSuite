@@ -155,7 +155,7 @@ fprintf('Done! Took %2.2f s\n', toc);
 %--------------------------------------------------------------------------
 % save volume for ordering
 scalesize   = [ceil(size_proc*sliceinfo.px_process/sliceinfo.px_register) sliceinfo.Nslices];
-volproc     = zeros([scalesize(1:2) 3 scalesize(3)], 'uint8');
+volproc     = zeros([scalesize(1:2) 3 scalesize(3)], 'uint16');
 
 for ich = 1:min(Nchannels, 3)
     currchan    = squeeze(slicevol(:, :, ich, :));
@@ -167,8 +167,8 @@ for ich = 1:min(Nchannels, 3)
     else
         currchan    = single(currchan);
     end
-    maxval      = quantile(currchan, 0.999, 'all');
-    volproc(:, :, ich, :) = uint8(255*currchan./maxval);
+    maxval      = quantile(currchan, 0.99, 'all')*2;
+    volproc(:, :, ich, :) = uint16((2^16-1)*currchan./maxval);
 end
 options.big      = false;
 options.compress = 'lzw';
