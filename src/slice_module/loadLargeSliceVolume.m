@@ -34,7 +34,7 @@ for ichan = 1:numel(chanids)
         imgStack(:, :, ichan, k) = currim;
     end
 end
-imgStack = squeeze(imgStack);
+% imgStack = squeeze(imgStack);
 
 
 
