@@ -169,19 +169,30 @@ function keypress(gui_fig, eventdata)
         case 's'
             save_cutting_angle_data(gui_data);
 
-        case {'1', '2', '3'}
-             if str2double(eventdata.Key) <= size(gui_data.volume, 4)
-                gui_data.colsuse = str2double(eventdata.Key);
-                update_atlas_view(gui_fig);
-                guidata(gui_fig,gui_data);
-                update_user_slice_view(gui_fig);
-             end
-        case '0'
+        case {'1', '2', '3', 'numpad1', 'numpad2', 'numpad3'}
+            % only change the displayed channel, keep the atlas plane as is
+            ichan = str2double(eventdata.Key(end));
+            if ichan <= size(gui_data.volume, 4)
+                gui_data.colsuse = ichan;
+                guidata(gui_fig, gui_data);
+                update_user_image(gui_fig);
+            end
+        case {'0', 'numpad0'}
             gui_data.colsuse = 1:size(gui_data.volume, 4);
-            update_atlas_view(gui_fig);
-            guidata(gui_fig,gui_data);
-            update_user_slice_view(gui_fig);
+            guidata(gui_fig, gui_data);
+            update_user_image(gui_fig);
     end
+end
+
+function update_user_image(gui_fig)
+% Redraw the sample slice with the current channel selection
+    gui_data = guidata(gui_fig);
+    img = squeeze(gui_data.volume(gui_data.curr_user_slice, :, :, gui_data.colsuse));
+    if size(img, 3) == 2
+        % two channels cannot be shown as RGB directly, pad a blank one
+        img = cat(3, img, zeros(size(img, [1 2]), 'like', img));
+    end
+    set(gui_data.user_slice_img, 'CData', img);
 end
 function scroll_atlas_slice(gui_fig, eventdata)
     gui_data = guidata(gui_fig);
@@ -207,13 +218,25 @@ function close_gui(gui_fig, ~)
 end
 
 function save_cutting_angle_data(gui_data)
+    save_filename = fullfile(gui_data.save_path, 'cutting_angle_data.mat');
+    nsaved = nnz(all(~isnan(gui_data.saved_slice_points), 2));
+    if nsaved == 0
+        % nothing stored with Enter: do not leave a file behind, downstream
+        % would otherwise treat it as a user-defined angle
+        if exist(save_filename, 'file')
+            delete(save_filename);
+            fprintf('No slices stored, removed %s (cutting angle will be 0)\n', save_filename);
+        else
+            disp('No slices stored (press Enter on a slice first), nothing saved.');
+        end
+        return;
+    end
     cutting_angle_data = struct();
     cutting_angle_data.saved_slice_vectors = gui_data.saved_slice_vectors;
     cutting_angle_data.slice_points        = gui_data.saved_slice_points;
     cutting_angle_data.saved_views         = gui_data.saved_views;   % lets the GUI restore the session
-    save_filename = fullfile(gui_data.save_path, 'cutting_angle_data.mat');
     save(save_filename, 'cutting_angle_data');
-    fprintf('Data saved to: %s\n', save_filename);
+    fprintf('Saved %d slices to: %s\n', nsaved, save_filename);
 end
 
 function gui_data = load_previous_session(gui_data)
@@ -347,7 +370,7 @@ end
 function update_user_slice_view(gui_fig)
     gui_data = guidata(gui_fig);
     slice_idx = gui_data.curr_user_slice;
-    set(gui_data.user_slice_img, 'CData', squeeze(gui_data.volume(slice_idx, :, :, gui_data.colsuse)));
+    update_user_image(gui_fig);
 
     % Check if the current slice has a saved position
     if all(~isnan(gui_data.saved_slice_points(slice_idx, :)))

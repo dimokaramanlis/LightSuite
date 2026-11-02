@@ -45,17 +45,11 @@ avdown  = imresize3(av, downfac_reg, "Method", "nearest");
 Ratlas  = imref3d(size(tvdown));
 Rvolume = imref3d(size(volume), 1, regopts.pxsizes(1), 1);
 %--------------------------------------------------------------------------
-% Check if the cutting angle data file exists
-tformuse        = regopts.tformrigid_allen_to_samp_20um;
-angle_data_path = fullfile(opts.procpath, 'cutting_angle_data.mat');
-
-if exist(angle_data_path, 'file')
-    fprintf('Found saved cutting angle data. Overwriting transformation rotation...\n');
-    % --- 1. Load and process angle data ---
-    data = load(angle_data_path);
-    cutting_angle_data = data.cutting_angle_data;
-    tformuse = applyAngleToTransform(tformuse, Ratlas, cutting_angle_data);
-end
+% cutting angle: user-defined if available, otherwise 0 (the automated
+% estimate is not reliable). Must match matchControlPointsInSlices.
+useautoangle = isfield(opts, 'useautocutangle') && opts.useautocutangle;
+tformuse     = getSliceCuttingTransform(regopts.tformrigid_allen_to_samp_20um, Ratlas, ...
+    opts.procpath, useautoangle);
 % same output view as matchControlPointsInSlices (covers the whole atlas in AP)
 [Rout, yworld, ypix, nlow] = getSliceAtlasOutputRef(Rvolume, Ratlas, tformuse, nfac, regopts.pxsizes(1));
 %--------------------------------------------------------------------------

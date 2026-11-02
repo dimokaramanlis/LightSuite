@@ -3,13 +3,13 @@ function final_tform = applyAngleToTransform(tformori, Ratlas,cutting_angle_data
 %   Detailed explanation goes here
 
 saved_vectors = cutting_angle_data.saved_slice_vectors;
-valid_vectors = saved_vectors(~cellfun(@(v) any(isnan(v)), saved_vectors));
+valid_vectors = saved_vectors(cellfun(@(v) numel(v) == 3 && all(~isnan(v)), saved_vectors));
 
 if isempty(valid_vectors)
     error('cutting_angle_data.mat exists but contains no valid saved vectors.');
 end
 
-vector_matrix = cell2mat(valid_vectors);
+vector_matrix = cell2mat(valid_vectors(:));
 
 % --- 2. Calculate rotation in the intuitive GUI coordinate system (AP, ML, DV) ---
 

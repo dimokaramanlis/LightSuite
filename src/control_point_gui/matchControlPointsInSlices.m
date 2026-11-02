@@ -42,25 +42,12 @@ nfac    = ceil(opts.extentfactor * 7.5/opts.pxsizes(1));
 % --- Setup spatial referencing ---
 Ratlas  = imref3d(size(gui_data.tv));
 Rvolume = imref3d(size(gui_data.volume, 1:3), 1, opts.pxsizes(1), 1);
-tformuse =  opts.tformrigid_allen_to_samp_20um;
 %-------------------------------------------------------------------------
-% Define path to the saved cutting angle data
-angle_data_path = fullfile(opts.procpath, 'cutting_angle_data.mat');
-
-% Check if the cutting angle data file exists
-if exist(angle_data_path, 'file')
-    fprintf('Found saved cutting angle data. Overwriting transformation rotation...\n');
-
-    % --- 1. Load and process angle data ---
-    data = load(angle_data_path);
-    cutting_angle_data = data.cutting_angle_data;
-    if ~isfield(cutting_angle_data, 'saved_slice_vectors')
-        error('The GUI must be updated to save "saved_slice_vectors" for this to work.');
-    end
-    data = load(angle_data_path);
-    cutting_angle_data = data.cutting_angle_data;
-    tformuse = applyAngleToTransform(tformuse, Ratlas, cutting_angle_data);
-end
+% cutting angle: user-defined if available, otherwise 0 (the automated
+% estimate is not reliable). Must match registerSlicesToAtlas.
+useautoangle = isfield(opts, 'useautocutangle') && opts.useautocutangle;
+tformuse = getSliceCuttingTransform(opts.tformrigid_allen_to_samp_20um, Ratlas, ...
+    opts.procpath, useautoangle);
 % output view covers the whole atlas in AP, so wrong AP placement can be fixed
 [Rout, yworld, ypix, gui_data.nlow] = getSliceAtlasOutputRef(Rvolume, Ratlas, tformuse, nfac, opts.pxsizes(1));
 gui_data.tv = imwarp(gui_data.tv, Ratlas, tformuse, 'linear',  'OutputView', Rout);
