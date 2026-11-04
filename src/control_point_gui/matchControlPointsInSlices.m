@@ -6,16 +6,12 @@ gui_data = struct;
 opts.downfac_reg = opts.allenres/opts.registres;
 
 % Load atlas
-allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
-if isempty(allen_atlas_path)
-    error('No CCF atlas found (add CCF atlas to path)')
-end
 disp('Loading Allen CCF atlas...')
-gui_data.tv      = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
+[gui_data.tv, gui_data.av, pinfo] = loadAtlasInfo('allen2020_10um');
+gui_data.area_lut = atlasNameLookup(pinfo);
 factv            = 255/single(max(gui_data.tv,[],"all"));
 gui_data.tv      = uint8(single(gui_data.tv(opts.atlasaplims(1):opts.atlasaplims(2), :, :))*factv);
 gui_data.tv      = imresize3(gui_data.tv,opts.downfac_reg);
-gui_data.av      = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
 gui_data.av      = imresize3(gui_data.av(opts.atlasaplims(1):opts.atlasaplims(2), :, :),...
     opts.downfac_reg, "Method","nearest");
 disp('Done.')
@@ -140,6 +136,8 @@ gui_data.atlas_im_h = imagesc(curr_atlas, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
 gui_data.atlas_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
 set(gui_data.atlas_grid,'Visible','off')
+% region name under the mouse, bottom right of the atlas image
+gui_data.atlas_hover = createAtlasHoverLabel(gui_data.atlas_ax, gui_data.area_lut);
 
 title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
         (gui_data.atlas_slice - gui_data.nlow)/gui_data.slicewidth));
@@ -567,6 +565,7 @@ curr_atlas = squeeze(gui_data.tv(sluse, :, :));
 curr_atlas = adapthisteq(curr_atlas);
 
 set(gui_data.atlas_im_h,'CData', curr_atlas);
+setAtlasHoverSlice(gui_data.atlas_hover, squeeze(gui_data.av(sluse, :, :)));
 
 title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
         (sluse - gui_data.nlow)/gui_data.slicewidth));

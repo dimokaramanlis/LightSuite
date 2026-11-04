@@ -77,7 +77,8 @@ gui_data.volume           = requantize_sample(gui_data.volume_raw, gui_data.samp
 gui_data.nchannels = nch;
 gui_data.curr_chan = 1;   % 1-9 = single channel; 0 = RGB (first 3 channels)
 gui_data.atlas  = to_uint8(opts.atlas);
-gui_data.av     = resampleAnnotation(opts.annotation, opts.parcelinfo, 'structure');  
+[gui_data.av, ~, regions] = resampleAnnotation(opts.annotation, opts.parcelinfo, 'structure');
+gui_data.area_lut = atlasNameLookup(regions);   % names of the coarsened ids
 % kept for later overlay features
 % Slices are taken along dim 1, so the displayed image has rows = dim 2 and
 % columns = dim 3. DataAspectRatio [1 k 1] with k = res_col/res_row gives
@@ -177,6 +178,8 @@ gui_data.atlas_im_h = imagesc(volumeIdtoImage(gui_data.atlas, [1 1]), ...
 set(gui_data.atlas_ax, 'DataAspectRatio', gui_data.atlas_daspect);
 axis(gui_data.atlas_ax, 'tight');
 axis(gui_data.atlas_ax, 'off');
+% region name under the mouse, bottom right of the atlas image
+gui_data.atlas_hover = createAtlasHoverLabel(gui_data.atlas_ax, gui_data.area_lut);
 
 % Warped-atlas boundary overlay (on the sample panel)
 gui_data.h_overlay = scatter(gui_data.sample_ax, nan, nan,3, 'filled','MarkerFaceColor','r', ...
@@ -430,6 +433,7 @@ function update_atlas_slice(gui_fig)
     atlas_im = adapthisteq(volumeIdtoImage(gui_data.atlas, [a 1]));
     % atlas_im = volumeIdtoImage(gui_data.atlas, [a 1]);
     set(gui_data.atlas_im_h, 'CData', atlas_im);
+    setAtlasHoverSlice(gui_data.atlas_hover, volumeIdtoImage(gui_data.av, [a 1]));
     title(gui_data.atlas_ax, sprintf('Atlas slice %d/%d', a, gui_data.natlas), ...
         'FontSize', 12);
 

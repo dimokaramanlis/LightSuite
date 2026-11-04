@@ -48,9 +48,14 @@ switch mode
         if isfield(opts, 'tv') && ~isempty(opts.tv)
             tvload = opts.tv;
             avload = opts.av;
+            pinfo  = loadSpinalCordAtlasTables();
         else
-            [tvload, avload] = loadCordAtlasVolumes(opts);
+            % same files as loadAtlasInfo('spinalcord'), at registres and
+            % flipped to the sample's rostrocaudal direction
+            [tvload, avload, atlasinfo] = loadCordAtlasVolumes(opts);
+            pinfo = atlasinfo.parcelinfo;
         end
+        gui_data.area_lut = atlasNameLookup(pinfo);
         if isfield(opts, 'straightvol') && ~isempty(opts.straightvol)
             straightvol = opts.straightvol;
         else
@@ -69,7 +74,7 @@ switch mode
 
         % Warp initial volumes to alignment space (Atlas -> Sample)
         gui_data.tv = imwarp(gui_data.tv, Ratlas, opts.affine_atlas_to_samp, 'OutputView',Rvolume);
-        gui_data.av = imwarp(gui_data.av, Ratlas, opts.affine_atlas_to_samp, 'OutputView',Rvolume);
+        gui_data.av = imwarp(gui_data.av, Ratlas, opts.affine_atlas_to_samp, 'nearest', 'OutputView',Rvolume);
         gui_data.Rmoving = imref3d(size(gui_data.av));
 
         % Prepare Sample Volume
@@ -91,21 +96,17 @@ switch mode
         downfac_reg = opts.atlasres/opts.registres;
         permute_sample_to_atlas = getOr(opts, 'permute_sample_to_atlas', [1 3 2]);
         % Load Atlas (Standard Allen CCF Logic)
-        allen_atlas_path = fileparts(which('average_template_10.nii.gz'));
-        if isempty(allen_atlas_path)
-            error('No CCF atlas found (add CCF atlas to path)')
-        end
         disp('Loading Allen CCF atlas...');
-        
-        tv_raw = niftiread(fullfile(allen_atlas_path,'average_template_10.nii.gz'));
+        [tv_raw, av_raw, pinfo] = loadAtlasInfo('allen2020_10um');
+        gui_data.area_lut = atlasNameLookup(pinfo);
         gui_data.tv = imresize3(tv_raw, downfac_reg);
 
         % factv  = 255/single(max(tv_raw,[],"all"));
         factv = 255/single(max(gui_data.tv,[],"all"));
         gui_data.tv = uint8(single( gui_data.tv)*factv);
         
-        av_raw = niftiread(fullfile(allen_atlas_path,'annotation_10.nii.gz'));
         gui_data.av = imresize3(av_raw, downfac_reg, "Method","nearest");
+        clear tv_raw av_raw;
         
         gui_data.Rmoving = imref3d(size(gui_data.av));
         
@@ -275,6 +276,8 @@ gui_data.atlas_slice = gui_data.chooselist(gui_data.curr_slice, 1);
 gui_data.atlas_im_h = imagesc(curr_atlas, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
 clim(gui_data.atlas_ax, [0,250]);
+% region name under the mouse, bottom right of the atlas image
+gui_data.atlas_hover = createAtlasHoverLabel(gui_data.atlas_ax, gui_data.area_lut);
 
 % Setup MIP Panels for Spine Mode
 if strcmp(mode, 'spine')
@@ -611,6 +614,7 @@ function update_atlas_slice(gui_fig)
     curr_atlas = adapthisteq(curr_atlas);
 
     set(gui_data.atlas_im_h,'CData', curr_atlas);
+    setAtlasHoverSlice(gui_data.atlas_hover, volumeIdtoImage(gui_data.av, [sluse idim]));
     gui_data.atlas_ax.Title.String = sprintf("Atlas slice %d/%d", sluse, atlasize(idim));
     
     % Update Atlas Line (MIP projection)
