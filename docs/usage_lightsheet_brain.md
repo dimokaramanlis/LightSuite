@@ -127,7 +127,7 @@ This is the main step requiring your attention. The GUI shows your sample alongs
 
 ### Interface
 * **Left panel:** Your histology/sample slice.
-* **Right panel:** The corresponding Allen Atlas plane.
+* **Right panel:** The corresponding Allen Atlas plane. Hovering over it shows the name of the region under the mouse in its bottom-right corner.
 * **Top banner:** Current fit quality (MSE) and total point count.
 
 ### Controls

@@ -111,7 +111,7 @@ opts = setupFusiOptions(anatomy.volume, opts.atlas_res, opts);
 
 **Function:** `matchControlPoints_minimal(opts)`
 
-A side-by-side GUI — your anatomy on the left, the vascular atlas on the right, both sliced along dimension 1. Click a landmark on one side, then its counterpart on the other. Vessel bifurcations, the midline, the brain outline and the ventricles all make good landmarks.
+A side-by-side GUI — your anatomy on the left, the vascular atlas on the right, both sliced along dimension 1. Click a landmark on one side, then its counterpart on the other. Vessel bifurcations, the midline, the brain outline and the ventricles all make good landmarks. Hovering over the atlas shows the name of the region (structure level) under the mouse in its bottom-right corner.
 
 Each sample slice is presented **four times**, each showing about 60% of the image with one side blacked out (left, right, top, bottom). Every presented half is an independent data point: it gets its own atlas slice, taken in order from its own points, from interpolation between its own anchors, from the running affine fit (once ≥5 non-coplanar pairs exist), or from the nearest anchor's offset. Halves never borrow each other's slice, so a saved session always reopens on exactly the atlas slice it was annotated on.
 

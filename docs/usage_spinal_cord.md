@@ -102,7 +102,7 @@ This GUI lets you refine the alignment by clicking matching anatomical landmarks
 ### Interface
 
 * **Left panel (80%):** Your histology/sample slice.
-* **Right panel (80%):** The corresponding atlas slice.
+* **Right panel (80%):** The corresponding atlas slice. Hovering over it shows the name of the region under the mouse in its bottom-right corner.
 * **Side panels (20%):** Maximum intensity projections (MIPs) of the sample and atlas along the long axis, with a line cursor showing the current slice position.
 
 ### Controls

@@ -84,7 +84,7 @@ All output goes to a `lightsuite/` folder next to the images.
 
 ## 4. Cutting angle (optional)
 
-Use this if sections were not cut orthogonal to the AP axis. `determineCuttingAngleGUI` lets you rotate the atlas until its plane matches a section and save that direction. Saved directions are averaged into one cutting normal, which corrects the rotation of the rigid transform in steps 5 and 6 — a handful of sections is enough.
+The automated alignment's cutting angle is not reliable, so steps 5 and 6 assume a cutting angle of 0 (atlas coronal planes = sections; the in-plane rotation of the alignment is kept). Use this step if sections were not cut orthogonal to the AP axis. `determineCuttingAngleGUI` lets you rotate the atlas until its plane matches a section and store that direction with **Enter**. Stored directions are averaged into one cutting normal, which replaces the rotation of the rigid transform in steps 5 and 6 — a handful of sections is enough. Set `opts.useautocutangle = true` before steps 5 and 6 to use the automated angle instead (needed for samples whose control points were placed with it).
 
 | Key | Action |
 | :--- | :--- |
@@ -97,11 +97,13 @@ Use this if sections were not cut orthogonal to the AP axis. `determineCuttingAn
 | **c** | Clear the stored plane for this section |
 | **s** | Save (also offered on close) |
 
-**Output:** `cutting_angle_data.mat`. Delete it to fall back to the automatic angle.
+Changing the channel keeps the current atlas rotation and plane position.
+
+**Output:** `cutting_angle_data.mat`, written only if at least one section was stored (saving with none removes an existing file). Delete it to fall back to a cutting angle of 0. Set the angle before placing control points, as they are tied to it.
 
 ## 5. Control points
 
-`matchControlPointsInSlices` shows each section next to its predicted atlas plane. Click matching landmarks on both; the title shows the number of pairs and the error of a live affine fit (3 pairs minimum). The atlas AP position of sections you have not annotated is predicted from those you have, so annotating a few sections spread along the stack also fixes spacing errors.
+`matchControlPointsInSlices` shows each section next to its predicted atlas plane. Hovering over the atlas shows the name of the region under the mouse in its bottom-right corner. Click matching landmarks on both; the title shows the number of pairs and the error of a live affine fit (3 pairs minimum). The atlas AP position of sections you have not annotated is predicted from those you have, so annotating a few sections spread along the stack also fixes spacing errors.
 
 | Key | Action |
 | :--- | :--- |
