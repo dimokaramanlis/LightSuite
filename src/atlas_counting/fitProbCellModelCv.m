@@ -6,10 +6,9 @@ Ndata      = numel(yy);
 % cout       = cvpartition(Ndata, 'KFold', 8);
 cout       = cvpartition(Ndata, 'LeaveOut', 1);
 
-accfold    = nan(Ndata, 1);
-
 opts = statset('glmfit');
 opts.MaxIter = 250;
+lambdause    = 1e-2;
 warning off;
 rng(1);
 
@@ -25,9 +24,9 @@ for ifold = 1:Ndata
     Xtestuse  = [ones(size(Xtest, 1), 1)  Xtest];
 
 
-    pfit = nbreg(Xtrainuse, ytrain, 'regularization',1e-4);
+    pfit = nbreg(Xtrainuse, ytrain, 'regularization', lambdause);
     allpreds(cout.test(ifold)) = nbvals(pfit, Xtestuse);
-    thetaall(ifold) = pfit.alpha;
+    thetaall(cout.test(ifold)) = pfit.alpha;
     % train
     % pfit = glmfit(Xtrain, ytrain, 'poisson','Options',opts);
     % 
@@ -37,14 +36,14 @@ end
 
 
 
-paramsall = nbreg([ones(size(XX, 1), 1) XX], yy, 'regularization',1e-4);
-alpha    = paramsall.alpha;
+paramsall = nbreg([ones(size(XX, 1), 1) XX], yy, 'regularization', lambdause);
 
-
-mu        = allpreds;  
-amu       = alpha*mu;
+% out-of-sample likelihood: each held-out point uses its own fold's alpha
+alpha     = thetaall;
+mu        = allpreds;
+amu       = alpha.*mu;
 amup1     = 1 + amu;
-cvlogli   = sum( yy.*log( amu./amup1 ) - (1/alpha)*log(amup1) + gammaln(yy + 1/alpha) - gammaln(yy + 1) - gammaln(1/alpha));
+cvlogli   = sum( yy.*log( amu./amup1 ) - (1./alpha).*log(amup1) + gammaln(yy + 1./alpha) - gammaln(yy + 1) - gammaln(1./alpha));
 cverr     = rsquare(yy, allpreds);
 paramsall = paramsall.b;
 
